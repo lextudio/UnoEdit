@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
+using Windows.ApplicationModel.DataTransfer;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -214,7 +215,7 @@ public sealed partial class TextView : UserControl
         e.Handled = true;
     }
 
-    private void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
+    private async void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (_document is null)
         {
@@ -227,6 +228,8 @@ public sealed partial class TextView : UserControl
         bool handled = e.Key switch
         {
             Windows.System.VirtualKey.A when controlPressed => SelectAll(),
+            Windows.System.VirtualKey.C when controlPressed => CopySelection(),
+            Windows.System.VirtualKey.X when controlPressed => CutSelection(),
             Windows.System.VirtualKey.Back => Backspace(),
             Windows.System.VirtualKey.Delete => Delete(),
             Windows.System.VirtualKey.Enter => InsertText(Environment.NewLine),
@@ -240,6 +243,11 @@ public sealed partial class TextView : UserControl
             _ when inputText is not null => InsertText(inputText),
             _ => false
         };
+
+        if (!handled && controlPressed && e.Key == Windows.System.VirtualKey.V)
+        {
+            handled = await PasteAsync();
+        }
 
         e.Handled = handled;
     }
@@ -375,6 +383,58 @@ public sealed partial class TextView : UserControl
         SelectionStartOffset = 0;
         SelectionEndOffset = _document.TextLength;
         return true;
+    }
+
+    private bool CopySelection()
+    {
+        if (_document is null || !HasSelection())
+        {
+            return false;
+        }
+
+        string selectedText = GetSelectedText();
+        if (selectedText.Length == 0)
+        {
+            return false;
+        }
+
+        var package = new DataPackage();
+        package.SetText(selectedText);
+        Clipboard.SetContent(package);
+        return true;
+    }
+
+    private bool CutSelection()
+    {
+        if (!CopySelection())
+        {
+            return false;
+        }
+
+        DeleteSelectedText();
+        return true;
+    }
+
+    private async Task<bool> PasteAsync()
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        DataPackageView package = Clipboard.GetContent();
+        if (!package.Contains(StandardDataFormats.Text))
+        {
+            return false;
+        }
+
+        string text = await package.GetTextAsync();
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        return InsertText(text);
     }
 
     private void HandleCurrentOffsetChanged(int offset)
@@ -540,6 +600,18 @@ public sealed partial class TextView : UserControl
     private bool HasSelection()
     {
         return SelectionStartOffset != SelectionEndOffset;
+    }
+
+    private string GetSelectedText()
+    {
+        if (_document is null || !HasSelection())
+        {
+            return string.Empty;
+        }
+
+        int startOffset = Math.Min(SelectionStartOffset, SelectionEndOffset);
+        int endOffset = Math.Max(SelectionStartOffset, SelectionEndOffset);
+        return _document.GetText(startOffset, endOffset - startOffset);
     }
 
     private void DeleteSelectedText()

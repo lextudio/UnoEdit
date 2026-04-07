@@ -229,6 +229,9 @@ public sealed partial class TextView : UserControl
         {
             Windows.System.VirtualKey.A when controlPressed => SelectAll(),
             Windows.System.VirtualKey.C when controlPressed => CopySelection(),
+            Windows.System.VirtualKey.Y when controlPressed => Redo(),
+            Windows.System.VirtualKey.Z when controlPressed && extendSelection => Redo(),
+            Windows.System.VirtualKey.Z when controlPressed => Undo(),
             Windows.System.VirtualKey.X when controlPressed => CutSelection(),
             Windows.System.VirtualKey.Back => Backspace(),
             Windows.System.VirtualKey.Delete => Delete(),
@@ -401,6 +404,30 @@ public sealed partial class TextView : UserControl
         var package = new DataPackage();
         package.SetText(selectedText);
         Clipboard.SetContent(package);
+        return true;
+    }
+
+    private bool Undo()
+    {
+        if (_document is null || !_document.UndoStack.CanUndo)
+        {
+            return false;
+        }
+
+        _document.UndoStack.Undo();
+        CollapseSelection(Math.Min(CurrentOffset, _document.TextLength));
+        return true;
+    }
+
+    private bool Redo()
+    {
+        if (_document is null || !_document.UndoStack.CanRedo)
+        {
+            return false;
+        }
+
+        _document.UndoStack.Redo();
+        CollapseSelection(Math.Min(CurrentOffset, _document.TextLength));
         return true;
     }
 

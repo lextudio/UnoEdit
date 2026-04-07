@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UnoEdit/UnoEdit.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UnoEdit.Tests/UnoEdit.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>UnoEdit</AssemblyName>
+    <RootNamespace>ICSharpCode.AvalonEdit</RootNamespace>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);1574;1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Compatibility\CollectionExtensions.cs" />
+    <Compile Include="Compatibility\SystemWindowsCompatibility.cs" />
+    <Compile Include="Compatibility\WeakEventManagerBase.cs" />
+
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\*.cs"
+             Exclude="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
+      <Link>Document\%(Filename)%(Extension)</Link>
+    </Compile>
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
+      <Link>Document\TextUtilities.cs</Link>
+    </Compile>
+
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Boxes.cs" Link="Utils\Boxes.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CallbackOnDispose.cs" Link="Utils\CallbackOnDispose.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CharRope.cs" Link="Utils\CharRope.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CompressingTreeList.cs" Link="Utils\CompressingTreeList.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Constants.cs" Link="Utils\Constants.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Deque.cs" Link="Utils\Deque.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\DelayedEvents.cs" Link="Utils\DelayedEvents.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Empty.cs" Link="Utils\Empty.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\IFreezable.cs" Link="Utils\IFreezable.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ImmutableStack.cs" Link="Utils\ImmutableStack.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\NullSafeCollection.cs" Link="Utils\NullSafeCollection.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ObserveAddRemoveCollection.cs" Link="Utils\ObserveAddRemoveCollection.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Rope.cs" Link="Utils\Rope.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeNode.cs" Link="Utils\RopeNode.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeTextReader.cs" Link="Utils\RopeTextReader.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
+  </ItemGroup>
+</Project>

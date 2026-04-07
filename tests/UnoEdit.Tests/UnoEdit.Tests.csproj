@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="4.2.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UnoEdit\UnoEdit.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\ChangeTrackingTest.cs" Link="Document\ChangeTrackingTest.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\LineManagerTests.cs" Link="Document\LineManagerTests.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\TextAnchorTest.cs" Link="Document\TextAnchorTest.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\TextSegmentTreeTest.cs" Link="Document\TextSegmentTreeTest.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\TextUtilitiesTests.cs" Link="Document\TextUtilitiesTests.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\UndoStackTests.cs" Link="Document\UndoStackTests.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\CaretNavigationTests.cs" Link="Utils\CaretNavigationTests.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\CompressingTreeListTests.cs" Link="Utils\CompressingTreeListTests.cs" />
+    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\RopeTests.cs" Link="Utils\RopeTests.cs" />
+  </ItemGroup>
+</Project>

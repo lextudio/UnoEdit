@@ -5,7 +5,9 @@
   <Grid Background="Transparent"
         IsTabStop="True"
         KeyDown="OnRootKeyDown"
-        PointerPressed="OnRootPointerPressed">
+        PointerPressed="OnRootPointerPressed"
+        PointerMoved="OnRootPointerMoved"
+        PointerReleased="OnRootPointerReleased">
     <ScrollViewer x:Name="TextScrollViewer"
                   HorizontalScrollBarVisibility="Auto"
                   VerticalScrollBarVisibility="Auto"
@@ -41,6 +43,15 @@
                          Foreground="#E2E8F0"
                          TextWrapping="NoWrap"
                          VerticalAlignment="Center" />
+
+              <Border Grid.Column="1"
+                      Height="16"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Center"
+                      Background="#2563EB"
+                      Margin="{Binding SelectionMargin}"
+                      Width="{Binding SelectionWidth}"
+                      Opacity="{Binding SelectionOpacity}" />
 
               <Border Grid.Column="1"
                       Width="2"

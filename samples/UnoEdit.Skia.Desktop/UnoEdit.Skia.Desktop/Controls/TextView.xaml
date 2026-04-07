@@ -2,11 +2,16 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:UnoEdit.Skia.Desktop.Controls">
-  <ScrollViewer x:Name="TextScrollViewer"
-                HorizontalScrollBarVisibility="Auto"
-                VerticalScrollBarVisibility="Auto"
-                ViewChanged="OnScrollViewerViewChanged">
-    <StackPanel VerticalAlignment="Top">
+  <Grid Background="Transparent"
+        IsTabStop="True"
+        KeyDown="OnRootKeyDown"
+        PointerPressed="OnRootPointerPressed">
+    <ScrollViewer x:Name="TextScrollViewer"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto"
+                  ViewChanged="OnScrollViewerViewChanged">
+      <StackPanel x:Name="ContentStackPanel"
+                  VerticalAlignment="Top">
       <Border x:Name="TopSpacer" Height="0" />
 
       <ItemsControl x:Name="LinesItemsControl">
@@ -14,6 +19,10 @@
           <DataTemplate x:DataType="local:TextLineViewModel">
             <Grid Height="22"
                   ColumnSpacing="16">
+              <Border Grid.ColumnSpan="2"
+                      Background="#162033"
+                      Opacity="{Binding HighlightOpacity}" />
+
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="56" />
                 <ColumnDefinition Width="*" />
@@ -32,12 +41,22 @@
                          Foreground="#E2E8F0"
                          TextWrapping="NoWrap"
                          VerticalAlignment="Center" />
+
+              <Border Grid.Column="1"
+                      Width="2"
+                      Height="16"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Center"
+                      Background="#F8FAFC"
+                      Margin="{Binding CaretMargin}"
+                      Opacity="{Binding CaretOpacity}" />
             </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
       <Border x:Name="BottomSpacer" Height="0" />
-    </StackPanel>
-  </ScrollViewer>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
 </UserControl>

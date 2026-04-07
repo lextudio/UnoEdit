@@ -11,7 +11,7 @@ public sealed partial class MainPage : Page
         this.InitializeComponent();
 
         _document = new TextDocument(BuildSampleText());
-        DocumentTextBox.Text = _document.Text;
+        Editor.Document = _document;
         StatsTextBlock.Text = BuildStats(_document);
     }
 

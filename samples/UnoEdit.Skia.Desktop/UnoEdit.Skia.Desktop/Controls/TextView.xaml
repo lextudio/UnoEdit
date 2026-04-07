@@ -2,31 +2,42 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:UnoEdit.Skia.Desktop.Controls">
-  <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                VerticalScrollBarVisibility="Auto">
-    <ItemsControl x:Name="LinesItemsControl">
-      <ItemsControl.ItemTemplate>
-        <DataTemplate x:DataType="local:TextLineViewModel">
-          <Grid ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="56" />
-              <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+  <ScrollViewer x:Name="TextScrollViewer"
+                HorizontalScrollBarVisibility="Auto"
+                VerticalScrollBarVisibility="Auto"
+                ViewChanged="OnScrollViewerViewChanged">
+    <StackPanel VerticalAlignment="Top">
+      <Border x:Name="TopSpacer" Height="0" />
 
-            <TextBlock Text="{Binding Number}"
-                       FontFamily="Consolas"
-                       HorizontalTextAlignment="Right"
-                       Foreground="#64748B"
-                       Padding="12,0,0,0" />
+      <ItemsControl x:Name="LinesItemsControl">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="local:TextLineViewModel">
+            <Grid Height="22"
+                  ColumnSpacing="16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="56" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="1"
-                       Text="{Binding Text}"
-                       FontFamily="Consolas"
-                       Foreground="#E2E8F0"
-                       TextWrapping="NoWrap" />
-          </Grid>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
+              <TextBlock Text="{Binding Number}"
+                         FontFamily="Consolas"
+                         HorizontalTextAlignment="Right"
+                         Foreground="#64748B"
+                         Padding="12,0,0,0"
+                         VerticalAlignment="Center" />
+
+              <TextBlock Grid.Column="1"
+                         Text="{Binding Text}"
+                         FontFamily="Consolas"
+                         Foreground="#E2E8F0"
+                         TextWrapping="NoWrap"
+                         VerticalAlignment="Center" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <Border x:Name="BottomSpacer" Height="0" />
+    </StackPanel>
   </ScrollViewer>
 </UserControl>

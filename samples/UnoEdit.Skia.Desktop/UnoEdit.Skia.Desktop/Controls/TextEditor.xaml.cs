@@ -11,6 +11,8 @@ public sealed partial class TextEditor : UserControl
             typeof(TextEditor),
             new PropertyMetadata(null, OnDocumentChanged));
 
+    private TextDocument? _attachedDocument;
+
     public TextEditor()
     {
         this.InitializeComponent();
@@ -25,8 +27,29 @@ public sealed partial class TextEditor : UserControl
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var editor = (TextEditor)dependencyObject;
+        editor.AttachDocument(args.OldValue as TextDocument, args.NewValue as TextDocument);
         editor.PART_TextArea.Document = args.NewValue as TextDocument;
         editor.UpdateSummary();
+    }
+
+    private void AttachDocument(TextDocument? oldDocument, TextDocument? newDocument)
+    {
+        if (oldDocument is not null)
+        {
+            oldDocument.TextChanged -= OnDocumentTextChanged;
+        }
+
+        _attachedDocument = newDocument;
+
+        if (newDocument is not null)
+        {
+            newDocument.TextChanged += OnDocumentTextChanged;
+        }
+    }
+
+    private void OnDocumentTextChanged(object? sender, EventArgs e)
+    {
+        UpdateSummary();
     }
 
     internal void UpdateSummary()

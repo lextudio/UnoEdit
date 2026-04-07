@@ -222,14 +222,22 @@ public sealed partial class TextView : UserControl
         }
 
         bool extendSelection = IsShiftPressed();
+        bool controlPressed = IsControlPressed();
+        string? inputText = !controlPressed ? TranslateKeyToText(e.Key, extendSelection) : null;
         bool handled = e.Key switch
         {
+            Windows.System.VirtualKey.A when controlPressed => SelectAll(),
+            Windows.System.VirtualKey.Back => Backspace(),
+            Windows.System.VirtualKey.Delete => Delete(),
+            Windows.System.VirtualKey.Enter => InsertText(Environment.NewLine),
+            Windows.System.VirtualKey.Tab => InsertText("\t"),
             Windows.System.VirtualKey.Left => MoveHorizontal(-1, extendSelection),
             Windows.System.VirtualKey.Right => MoveHorizontal(1, extendSelection),
             Windows.System.VirtualKey.Up => MoveVertical(-1, extendSelection),
             Windows.System.VirtualKey.Down => MoveVertical(1, extendSelection),
             Windows.System.VirtualKey.Home => MoveToLineBoundary(true, extendSelection),
             Windows.System.VirtualKey.End => MoveToLineBoundary(false, extendSelection),
+            _ when inputText is not null => InsertText(inputText),
             _ => false
         };
 
@@ -276,6 +284,96 @@ public sealed partial class TextView : UserControl
         int targetColumn = moveToStart ? 1 : line.Length + 1;
         int targetOffset = _document.GetOffset(location.Line, targetColumn);
         UpdateCaretAndSelection(targetOffset, extendSelection);
+        return true;
+    }
+
+    private bool Backspace()
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        if (HasSelection())
+        {
+            DeleteSelectedText();
+            return true;
+        }
+
+        if (CurrentOffset == 0)
+        {
+            return false;
+        }
+
+        using (_document.RunUpdate())
+        {
+            _document.Remove(CurrentOffset - 1, 1);
+        }
+
+        CollapseSelection(CurrentOffset - 1);
+        return true;
+    }
+
+    private bool Delete()
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        if (HasSelection())
+        {
+            DeleteSelectedText();
+            return true;
+        }
+
+        if (CurrentOffset >= _document.TextLength)
+        {
+            return false;
+        }
+
+        using (_document.RunUpdate())
+        {
+            _document.Remove(CurrentOffset, 1);
+        }
+
+        CollapseSelection(CurrentOffset);
+        return true;
+    }
+
+    private bool InsertText(string text)
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        int insertionOffset = CurrentOffset;
+        using (_document.RunUpdate())
+        {
+            if (HasSelection())
+            {
+                insertionOffset = DeleteSelectedTextInternal();
+            }
+
+            _document.Insert(insertionOffset, text);
+        }
+
+        CollapseSelection(insertionOffset + text.Length);
+        return true;
+    }
+
+    private bool SelectAll()
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        _selectionAnchorOffset = 0;
+        CurrentOffset = _document.TextLength;
+        SelectionStartOffset = 0;
+        SelectionEndOffset = _document.TextLength;
         return true;
     }
 
@@ -439,10 +537,102 @@ public sealed partial class TextView : UserControl
         _desiredColumn = _document?.GetLocation(CurrentOffset).Column ?? 1;
     }
 
+    private bool HasSelection()
+    {
+        return SelectionStartOffset != SelectionEndOffset;
+    }
+
+    private void DeleteSelectedText()
+    {
+        if (_document is null || !HasSelection())
+        {
+            return;
+        }
+
+        int startOffset;
+        using (_document.RunUpdate())
+        {
+            startOffset = DeleteSelectedTextInternal();
+        }
+
+        CollapseSelection(startOffset);
+    }
+
+    private int DeleteSelectedTextInternal()
+    {
+        if (_document is null)
+        {
+            return 0;
+        }
+
+        int startOffset = Math.Min(SelectionStartOffset, SelectionEndOffset);
+        int endOffset = Math.Max(SelectionStartOffset, SelectionEndOffset);
+        if (endOffset > startOffset)
+        {
+            _document.Remove(startOffset, endOffset - startOffset);
+        }
+
+        return startOffset;
+    }
+
+    private void CollapseSelection(int offset)
+    {
+        _selectionAnchorOffset = offset;
+        CurrentOffset = offset;
+        SelectionStartOffset = offset;
+        SelectionEndOffset = offset;
+    }
+
     private static bool IsShiftPressed()
     {
         return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+    }
+
+    private static bool IsControlPressed()
+    {
+        return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+    }
+
+    private static string? TranslateKeyToText(Windows.System.VirtualKey key, bool shiftPressed)
+    {
+        if (key >= Windows.System.VirtualKey.A && key <= Windows.System.VirtualKey.Z)
+        {
+            int delta = key - Windows.System.VirtualKey.A;
+            char character = (char)('a' + delta);
+            return shiftPressed ? char.ToUpperInvariant(character).ToString() : character.ToString();
+        }
+
+        if (key >= Windows.System.VirtualKey.Number0 && key <= Windows.System.VirtualKey.Number9)
+        {
+            int delta = key - Windows.System.VirtualKey.Number0;
+            return shiftPressed ? ShiftedDigit(delta) : ((char)('0' + delta)).ToString();
+        }
+
+        return key switch
+        {
+            Windows.System.VirtualKey.Space => " ",
+            _ => null
+        };
+    }
+
+    private static string ShiftedDigit(int digit)
+    {
+        return digit switch
+        {
+            0 => ")",
+            1 => "!",
+            2 => "@",
+            3 => "#",
+            4 => "$",
+            5 => "%",
+            6 => "^",
+            7 => "&",
+            8 => "*",
+            9 => "(",
+            _ => string.Empty
+        };
     }
 }
 

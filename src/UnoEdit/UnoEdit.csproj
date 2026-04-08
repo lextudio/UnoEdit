@@ -28,14 +28,14 @@
         <!-- Moved UI controls from the Skia Desktop sample into the core (mirrored layout). 
           These are included here so the shared control sources live in the UnoEdit tree.
           XAML files are added as None to avoid triggering platform build steps in the portable project. -->
-      <Compile Include="EditorTextMetrics.cs" />
-      <Compile Include="TextEditorTheme.cs" />
-      <Compile Include="TextLineViewModel.cs" />
-      <Compile Include="TextView.PlatformInput.cs" />
-      <Compile Include="HighlightedTextBlock.xaml.cs" />
-      <Compile Include="TextArea.xaml.cs" />
-      <Compile Include="TextEditor.xaml.cs" />
-      <Compile Include="TextView.xaml.cs" />
+      <None Include="EditorTextMetrics.cs" />
+      <None Include="TextEditorTheme.cs" />
+      <None Include="TextLineViewModel.cs" />
+      <None Include="TextView.PlatformInput.cs" />
+      <None Include="HighlightedTextBlock.xaml.cs" />
+      <None Include="TextArea.xaml.cs" />
+      <None Include="TextEditor.xaml.cs" />
+      <None Include="TextView.xaml.cs" />
       <None Include="HighlightedTextBlock.xaml" />
       <None Include="TextArea.xaml" />
       <None Include="TextEditor.xaml" />

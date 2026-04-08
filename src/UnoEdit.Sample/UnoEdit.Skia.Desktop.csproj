@@ -31,7 +31,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\UnoEdit\UnoEdit.csproj" />
+    <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
   </ItemGroup>
 
   <!--
@@ -42,6 +42,22 @@
   <ItemGroup>
     <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
     <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../UnoEdit/EditorTextMetrics.cs" />
+    <Compile Include="../UnoEdit/TextEditorTheme.cs" />
+    <Compile Include="../UnoEdit/TextLineViewModel.cs" />
+    <Compile Include="../UnoEdit/TextView.PlatformInput.cs" />
+    <Compile Include="../UnoEdit/HighlightedTextBlock.xaml.cs" />
+    <Compile Include="../UnoEdit/TextArea.xaml.cs" />
+    <Compile Include="../UnoEdit/TextEditor.xaml.cs" />
+    <Compile Include="../UnoEdit/TextView.xaml.cs" />
+
+    <Page Include="../UnoEdit/HighlightedTextBlock.xaml" />
+    <Page Include="../UnoEdit/TextArea.xaml" />
+    <Page Include="../UnoEdit/TextEditor.xaml" />
+    <Page Include="../UnoEdit/TextView.xaml" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">

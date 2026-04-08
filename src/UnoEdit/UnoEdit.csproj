@@ -13,6 +13,7 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Compatibility\CollectionExtensions.cs" />
+    <Compile Include="Compatibility\ExtensionMethods.cs" />
     <Compile Include="Compatibility\SystemWindowsCompatibility.cs" />
     <Compile Include="Compatibility\WeakEventManagerBase.cs" />
     <Compile Include="Compatibility\XmlExtensionMethods.cs" />
@@ -20,26 +21,72 @@
     <Compile Include="Rendering\IReferenceSegmentSource.cs" />
     <Compile Include="Rendering\TabColumnHelper.cs" />
     <Compile Include="Rendering\VisibleLineMapper.cs" />
-    <Compile Include="Folding\NewFolding.cs" />
+
+    <!-- Folding: NewFolding replaced by link; local fork removed -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\NewFolding.cs" Link="Folding\NewFolding.cs" />
     <Compile Include="Folding\FoldingSection.cs" />
     <Compile Include="Folding\FoldingManager.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
 
-        <!-- Moved UI controls from the Skia Desktop sample into the core (mirrored layout). 
-          These are included here so the shared control sources live in the UnoEdit tree.
-          XAML files are added as None to avoid triggering platform build steps in the portable project. -->
-      <None Include="EditorTextMetrics.cs" />
-      <None Include="TextEditorTheme.cs" />
-      <None Include="TextLineViewModel.cs" />
-      <None Include="TextView.PlatformInput.cs" />
-      <None Include="HighlightedTextBlock.xaml.cs" />
-      <None Include="TextArea.xaml.cs" />
-      <None Include="TextEditor.xaml.cs" />
-      <None Include="TextView.xaml.cs" />
-      <None Include="HighlightedTextBlock.xaml" />
-      <None Include="TextArea.xaml" />
+        <!-- UI controls: included as None to avoid platform build steps in this portable project.
+          Paths mirror AvalonEdit's folder layout. .uno.cs suffix marks Uno-specific code-behind. -->
+      <None Include="Editing\TextArea.xaml" />
+      <None Include="Editing\TextArea.xaml.uno.cs" />
+      <None Include="Rendering\TextView.xaml" />
+      <None Include="Rendering\TextView.xaml.uno.cs" />
+      <None Include="Rendering\TextView.PlatformInput.cs" />
+      <None Include="Rendering\EditorTextMetrics.cs" />
+      <None Include="Rendering\TextLineViewModel.cs" />
+      <None Include="Rendering\HighlightedTextBlock.xaml" />
+      <None Include="Rendering\HighlightedTextBlock.xaml.uno.cs" />
       <None Include="TextEditor.xaml" />
-      <None Include="TextView.xaml" />
+      <None Include="TextEditor.xaml.uno.cs" />
+      <None Include="Themes\TextEditorTheme.cs" />
+
+    <!-- Phase 1: pure Level-0 files — no WPF dependencies -->
+
+    <!-- Root-level -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorOptions.cs"          Link="TextEditorOptions.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorWeakEventManager.cs" Link="TextEditorWeakEventManager.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextViewPosition.cs"           Link="TextViewPosition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorComponent.cs"        Link="TextEditorComponent.cs" />
+
+    <!-- Indentation — entire folder (all L0) -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Indentation\**\*.cs">
+      <Link>Indentation\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+
+    <!-- Editing — pure interfaces, enums, POCOs -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\IReadOnlySectionProvider.cs"           Link="Editing\IReadOnlySectionProvider.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\MouseSelectionMode.cs"                Link="Editing\MouseSelectionMode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\SelectionSegment.cs"                  Link="Editing\SelectionSegment.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\DragDropException.cs"                 Link="Editing\DragDropException.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\NoReadOnlySections.cs"                Link="Editing\NoReadOnlySections.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\TextSegmentReadOnlySectionProvider.cs" Link="Editing\TextSegmentReadOnlySectionProvider.cs" />
+
+    <!-- Snippets — pure leaf files (no SnippetElement / InsertionContext deps) -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Snippets\IActiveElement.cs"  Link="Snippets\IActiveElement.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Snippets\SnippetEventArgs.cs" Link="Snippets\SnippetEventArgs.cs" />
+    <!-- SnippetCaretElement, SnippetAnchorElement, SnippetSelectionElement deferred to Phase 2
+         (they extend SnippetElement which needs System.Windows.Documents shim) -->
+
+    <!-- Search — logic-only files -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\ISearchStrategy.cs"       Link="Search\ISearchStrategy.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\RegexSearchStrategy.cs"   Link="Search\RegexSearchStrategy.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\SearchStrategyFactory.cs" Link="Search\SearchStrategyFactory.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\Localization.cs"          Link="Search\Localization.cs" />
+
+    <!-- Rendering — pure data model (no WPF rendering API) -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\CollapsedLineSection.cs"                 Link="Rendering\CollapsedLineSection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\HeightTree.cs"                           Link="Rendering\HeightTree.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\HeightTreeLineNode.cs"                   Link="Rendering\HeightTreeLineNode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\HeightTreeNode.cs"                       Link="Rendering\HeightTreeNode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLinesInvalidException.cs"          Link="Rendering\VisualLinesInvalidException.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualYPosition.cs"                      Link="Rendering\VisualYPosition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineConstructionStartEventArgs.cs" Link="Rendering\VisualLineConstructionStartEventArgs.cs" />
+    <!-- VisualLineElementGenerator, ColorizingTransformer, DocumentColorizingTransformer deferred:
+         they reference IVisualLineTransformer, ITextViewConnect, ITextRunConstructionContext, VisualLineElement
+         which are L4 (TextFormatting-dependent) types resolved in Phase 5 -->
 
     <!-- Document model remains linked to upstream AvalonEdit so edits stay in sync. -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\**\*.cs">

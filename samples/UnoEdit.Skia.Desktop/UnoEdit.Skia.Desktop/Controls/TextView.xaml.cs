@@ -659,7 +659,9 @@ public sealed partial class TextView : UserControl
             string lineText = _document.GetText(line);
             bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
             int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
-            double caretLeft = Math.Max(0, (caretColumn - 1) * CharacterWidth);
+            // Convert logical column to visual column so tab characters are handled correctly.
+            int caretVisualColumn = TextLineViewModel.LogicalToVisualColumn(lineText, caretColumn - 1);
+            double caretLeft = Math.Max(0, caretVisualColumn * CharacterWidth);
             double selectionOpacity = 0d;
             double selectionLeft = 0d;
             double selectionWidth = 0d;
@@ -670,10 +672,12 @@ public sealed partial class TextView : UserControl
                 int lineSelectionEnd = Math.Min(selectionEnd, line.EndOffset);
                 if (lineSelectionStart < lineSelectionEnd)
                 {
-                    int startColumn = (lineSelectionStart - line.Offset) + 1;
-                    int endColumn = (lineSelectionEnd - line.Offset) + 1;
-                    selectionLeft = Math.Max(0, (startColumn - 1) * CharacterWidth);
-                    selectionWidth = Math.Max(2, (endColumn - startColumn) * CharacterWidth);
+                    int startLogical = lineSelectionStart - line.Offset;
+                    int endLogical   = lineSelectionEnd   - line.Offset;
+                    int startVis = TextLineViewModel.LogicalToVisualColumn(lineText, startLogical);
+                    int endVis   = TextLineViewModel.LogicalToVisualColumn(lineText, endLogical);
+                    selectionLeft = Math.Max(0, startVis * CharacterWidth);
+                    selectionWidth = Math.Max(2, (endVis - startVis) * CharacterWidth);
                     selectionOpacity = 0.45d;
                 }
             }
@@ -718,8 +722,11 @@ public sealed partial class TextView : UserControl
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 
         double documentX = x + TextScrollViewer.HorizontalOffset - GutterWidth - TextLeftPadding;
-        int targetColumn = Math.Max(1, ((int)(documentX / CharacterWidth)) + 1);
-        targetColumn = ClampColumn(documentLine, targetColumn);
+        int visualColumn = Math.Max(0, (int)(documentX / CharacterWidth));
+        string lineText = _document.GetText(documentLine);
+        // Convert visual column (accounting for tabs) back to logical column.
+        int logicalColumn = TextLineViewModel.VisualToLogicalColumn(lineText, visualColumn);
+        int targetColumn = Math.Clamp(logicalColumn + 1, 1, documentLine.Length + 1);
         _desiredColumn = targetColumn;
         return _document.GetOffset(targetLine, targetColumn);
     }

@@ -109,6 +109,12 @@
         </ItemsControl>
 
         <Border x:Name="BottomSpacer" Height="0" />
+
+        <!-- Live-region announcer for screen readers: updates when folds toggle -->
+        <TextBlock x:Name="LiveRegionAnnouncer"
+                   Opacity="0"
+                   IsHitTestVisible="False"
+                   AutomationProperties.AutomationId="LiveRegionAnnouncer" />
       </StackPanel>
     </ScrollViewer>
   </Border>

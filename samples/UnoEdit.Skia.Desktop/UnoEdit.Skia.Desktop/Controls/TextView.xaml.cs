@@ -280,6 +280,14 @@ public sealed partial class TextView : UserControl
                 if (section.StartOffset >= docLine.Offset && section.StartOffset <= docLine.EndOffset)
                 {
                     section.IsFolded = !section.IsFolded;
+                    int foldStartLine = _document.GetLineByOffset(section.StartOffset).LineNumber;
+                    int foldEndLine = _document.GetLineByOffset(section.EndOffset).LineNumber;
+                    if (LiveRegionAnnouncer != null)
+                    {
+                        LiveRegionAnnouncer.Text = section.IsFolded
+                            ? $"Collapsed lines {foldStartLine} to {foldEndLine}"
+                            : $"Expanded lines {foldStartLine} to {foldEndLine}";
+                    }
                     e.Handled = true;
                     return;
                 }
@@ -357,6 +365,14 @@ public sealed partial class TextView : UserControl
             if (section.StartOffset >= docLine.Offset && section.StartOffset <= docLine.EndOffset)
             {
                 section.IsFolded = !section.IsFolded;
+                int foldStartLine = _document.GetLineByOffset(section.StartOffset).LineNumber;
+                int foldEndLine = _document.GetLineByOffset(section.EndOffset).LineNumber;
+                if (LiveRegionAnnouncer != null)
+                {
+                    LiveRegionAnnouncer.Text = section.IsFolded
+                        ? $"Collapsed lines {foldStartLine} to {foldEndLine}"
+                        : $"Expanded lines {foldStartLine} to {foldEndLine}";
+                }
                 return;
             }
         }
@@ -979,6 +995,14 @@ public sealed partial class TextView : UserControl
             if (section.StartOffset >= caretLine.Offset && section.StartOffset <= caretLine.EndOffset)
             {
                 section.IsFolded = !section.IsFolded;
+                int foldStartLine = _document.GetLineByOffset(section.StartOffset).LineNumber;
+                int foldEndLine = _document.GetLineByOffset(section.EndOffset).LineNumber;
+                if (LiveRegionAnnouncer != null)
+                {
+                    LiveRegionAnnouncer.Text = section.IsFolded
+                        ? $"Collapsed lines {foldStartLine} to {foldEndLine}"
+                        : $"Expanded lines {foldStartLine} to {foldEndLine}";
+                }
                 return true;
             }
         }

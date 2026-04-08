@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:UnoEdit.Skia.Desktop.Controls">
   <Grid>
-    <controls:TextView x:Name="PART_TextView" />
+    <controls:TextView x:Name="PART_TextView"
+                       AutomationProperties.AutomationId="TextView" />
   </Grid>
 </UserControl>

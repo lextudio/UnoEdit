@@ -36,11 +36,13 @@
             CornerRadius="8"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
       <TextBlock x:Name="StatsTextBlock"
+                 AutomationProperties.AutomationId="StatsTextBlock"
                  FontFamily="Consolas"
                  TextWrapping="WrapWholeWords" />
     </Border>
 
     <controls:TextEditor x:Name="Editor"
+                         AutomationProperties.AutomationId="MainEditor"
                          Grid.Row="2" />
   </Grid>
 </Page>

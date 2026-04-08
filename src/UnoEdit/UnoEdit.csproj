@@ -25,31 +25,31 @@
     <Compile Include="Folding\FoldingManager.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
 
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\*.cs"
-             Exclude="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\*.cs"
+             Exclude="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
       <Link>Document\%(Filename)%(Extension)</Link>
     </Compile>
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
       <Link>Document\TextUtilities.cs</Link>
     </Compile>
 
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Boxes.cs" Link="Utils\Boxes.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CallbackOnDispose.cs" Link="Utils\CallbackOnDispose.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CharRope.cs" Link="Utils\CharRope.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CompressingTreeList.cs" Link="Utils\CompressingTreeList.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Constants.cs" Link="Utils\Constants.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Deque.cs" Link="Utils\Deque.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\DelayedEvents.cs" Link="Utils\DelayedEvents.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Empty.cs" Link="Utils\Empty.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\IFreezable.cs" Link="Utils\IFreezable.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ImmutableStack.cs" Link="Utils\ImmutableStack.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\NullSafeCollection.cs" Link="Utils\NullSafeCollection.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ObserveAddRemoveCollection.cs" Link="Utils\ObserveAddRemoveCollection.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Rope.cs" Link="Utils\Rope.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeNode.cs" Link="Utils\RopeNode.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeTextReader.cs" Link="Utils\RopeTextReader.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Boxes.cs" Link="Utils\Boxes.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CallbackOnDispose.cs" Link="Utils\CallbackOnDispose.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CharRope.cs" Link="Utils\CharRope.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CompressingTreeList.cs" Link="Utils\CompressingTreeList.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Constants.cs" Link="Utils\Constants.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Deque.cs" Link="Utils\Deque.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\DelayedEvents.cs" Link="Utils\DelayedEvents.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Empty.cs" Link="Utils\Empty.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\IFreezable.cs" Link="Utils\IFreezable.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ImmutableStack.cs" Link="Utils\ImmutableStack.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\NullSafeCollection.cs" Link="Utils\NullSafeCollection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ObserveAddRemoveCollection.cs" Link="Utils\ObserveAddRemoveCollection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Rope.cs" Link="Utils\Rope.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeNode.cs" Link="Utils\RopeNode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeTextReader.cs" Link="Utils\RopeTextReader.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
 
     <!-- Highlighting: forked files (in src/UnoEdit/Highlighting/) -->
     <Compile Include="Highlighting\HighlightingBrush.cs" />
@@ -60,60 +60,60 @@
     <Compile Include="Highlighting\Resources\Resources.cs" />
 
     <!-- Highlighting: portable files linked directly from avalonedit -->
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\DocumentHighlighter.cs"                       Link="Highlighting\DocumentHighlighter.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightedSection.cs"                        Link="Highlighting\HighlightedSection.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionInvalidException.cs"    Link="Highlighting\HighlightingDefinitionInvalidException.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingEngine.cs"                        Link="Highlighting\HighlightingEngine.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingManager.cs"                       Link="Highlighting\HighlightingManager.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRule.cs"                          Link="Highlighting\HighlightingRule.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRuleSet.cs"                       Link="Highlighting\HighlightingRuleSet.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingSpan.cs"                          Link="Highlighting\HighlightingSpan.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlighter.cs"                              Link="Highlighting\IHighlighter.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinition.cs"                   Link="Highlighting\IHighlightingDefinition.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinitionReferenceResolver.cs"  Link="Highlighting\IHighlightingDefinitionReferenceResolver.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\DocumentHighlighter.cs"                       Link="Highlighting\DocumentHighlighter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightedSection.cs"                        Link="Highlighting\HighlightedSection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionInvalidException.cs"    Link="Highlighting\HighlightingDefinitionInvalidException.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingEngine.cs"                        Link="Highlighting\HighlightingEngine.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingManager.cs"                       Link="Highlighting\HighlightingManager.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRule.cs"                          Link="Highlighting\HighlightingRule.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRuleSet.cs"                       Link="Highlighting\HighlightingRuleSet.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingSpan.cs"                          Link="Highlighting\HighlightingSpan.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlighter.cs"                              Link="Highlighting\IHighlighter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinition.cs"                   Link="Highlighting\IHighlightingDefinition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinitionReferenceResolver.cs"  Link="Highlighting\IHighlightingDefinitionReferenceResolver.cs" />
     <!-- Xshd: forked files -->
     <Compile Include="Highlighting\Xshd\HighlightingLoader.cs" />
     <!-- Xshd: portable files -->
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\IXshdVisitor.cs"         Link="Highlighting\Xshd\IXshdVisitor.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\IXshdVisitor.cs"         Link="Highlighting\Xshd\IXshdVisitor.cs" />
     <!-- SaveXshdVisitor and V1Loader omitted — V1 format not supported, serialization not needed -->
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XmlHighlightingDefinition.cs" Link="Highlighting\Xshd\XmlHighlightingDefinition.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdColor.cs"            Link="Highlighting\Xshd\XshdColor.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdElement.cs"          Link="Highlighting\Xshd\XshdElement.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdImport.cs"           Link="Highlighting\Xshd\XshdImport.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdKeywords.cs"         Link="Highlighting\Xshd\XshdKeywords.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdProperty.cs"         Link="Highlighting\Xshd\XshdProperty.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdReference.cs"        Link="Highlighting\Xshd\XshdReference.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdRule.cs"             Link="Highlighting\Xshd\XshdRule.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdRuleSet.cs"          Link="Highlighting\Xshd\XshdRuleSet.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdSpan.cs"             Link="Highlighting\Xshd\XshdSpan.cs" />
-    <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdSyntaxDefinition.cs" Link="Highlighting\Xshd\XshdSyntaxDefinition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XmlHighlightingDefinition.cs" Link="Highlighting\Xshd\XmlHighlightingDefinition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdColor.cs"            Link="Highlighting\Xshd\XshdColor.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdElement.cs"          Link="Highlighting\Xshd\XshdElement.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdImport.cs"           Link="Highlighting\Xshd\XshdImport.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdKeywords.cs"         Link="Highlighting\Xshd\XshdKeywords.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdProperty.cs"         Link="Highlighting\Xshd\XshdProperty.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdReference.cs"        Link="Highlighting\Xshd\XshdReference.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdRule.cs"             Link="Highlighting\Xshd\XshdRule.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdRuleSet.cs"          Link="Highlighting\Xshd\XshdRuleSet.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdSpan.cs"             Link="Highlighting\Xshd\XshdSpan.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdSyntaxDefinition.cs" Link="Highlighting\Xshd\XshdSyntaxDefinition.cs" />
 
     <!-- Embedded xshd resources — logical name must match typeof(Resources).FullName + "." + filename -->
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSharp-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSharp-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CSharp-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XmlDoc.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XmlDoc.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.XmlDoc.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\JavaScript-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\JavaScript-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.JavaScript-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\HTML-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\HTML-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.HTML-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSS-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSS-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CSS-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CPP-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CPP-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CPP-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Java-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Java-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.Java-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Python-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Python-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.Python-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XML-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XML-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.XML-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\TSQL-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\TSQL-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.TSQL-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\VB-Mode.xshd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\VB-Mode.xshd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.VB-Mode.xshd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV2.xsd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV2.xsd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV2.xsd" />
-    <EmbeddedResource Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV1.xsd"
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV1.xsd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
 </Project>

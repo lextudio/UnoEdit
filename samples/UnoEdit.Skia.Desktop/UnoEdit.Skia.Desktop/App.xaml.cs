@@ -40,10 +40,15 @@ public partial class App : Application
 
         if (rootFrame.Content == null)
         {
-            // When the navigation stack isn't restored navigate to the first page,
-            // configuring the new page by passing required information as a navigation
-            // parameter
-            rootFrame.Navigate(typeof(MainPage), args.Arguments);
+            // When UNO_RUNTIME_TESTS_RUN_TESTS is set (CI headless mode), navigate to
+            // the runtime-tests host page so the engine can discover and run tests.
+            bool runTests = !string.IsNullOrEmpty(
+                System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS"));
+
+            if (runTests)
+                rootFrame.Navigate(typeof(RuntimeTestsPage), args.Arguments);
+            else
+                rootFrame.Navigate(typeof(MainPage), args.Arguments);
         }
 
         MainWindow.SetWindowIcon();

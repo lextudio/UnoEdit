@@ -30,4 +30,14 @@
     <ProjectReference Include="..\..\..\src\UnoEdit\UnoEdit.csproj" />
   </ItemGroup>
 
+  <!--
+    Uno.UI.RuntimeTests.Engine — embeds a headless MSTest runner into the app.
+    Tests only execute when UNO_RUNTIME_TESTS_RUN_TESTS env var is set (CI or local).
+    See: https://github.com/unoplatform/uno.ui.runtimetests.engine
+  -->
+  <ItemGroup>
+    <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
+    <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+
 </Project>

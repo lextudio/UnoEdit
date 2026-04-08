@@ -14,6 +14,8 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -22,5 +24,46 @@ jobs:
         run: dotnet restore
       - name: Build
         run: dotnet build -c Release --no-restore
-      - name: Run tests
-        run: dotnet test --no-build -c Release --verbosity minimal
+      - name: Run unit tests
+        run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop"
+
+  runtime-tests:
+    # RuntimeTests run inside the Skia Desktop app via Uno.UI.RuntimeTests.Engine.
+    # A virtual framebuffer (xvfb) is required on Linux for Skia rendering.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+      - name: Install xvfb and mesa (headless Skia)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            xvfb libgl1-mesa-dri libgles2-mesa
+      - name: Build Skia Desktop app
+        run: |
+          dotnet build samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj \
+            -c Release -f net10.0-desktop --nologo
+        working-directory: ${{ github.workspace }}
+      - name: Run RuntimeTests headlessly
+        run: |
+          mkdir -p test-results
+          xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' \
+            dotnet "samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/bin/Release/net10.0-desktop/UnoEdit.Skia.Desktop.dll"
+        env:
+          UNO_RUNTIME_TESTS_RUN_TESTS: '{}'
+          UNO_RUNTIME_TESTS_OUTPUT_PATH: ${{ github.workspace }}/test-results/runtime-tests.xml
+        working-directory: ${{ github.workspace }}
+        timeout-minutes: 5
+      - name: Publish RuntimeTest results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: RuntimeTests (Skia Desktop)
+          path: test-results/runtime-tests.xml
+          reporter: dotnet-nunit
+          fail-on-error: true

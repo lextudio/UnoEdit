@@ -1,0 +1,3 @@
+[submodule "avalonedit"]
+	path = avalonedit
+	url = https://github.com/icsharpcode/avalonedit

@@ -35,6 +35,7 @@
       </Grid>
 
       <controls:TextArea x:Name="PART_TextArea"
+                         AutomationProperties.AutomationId="TextArea"
                          Grid.Row="1" />
     </Grid>
   </Border>

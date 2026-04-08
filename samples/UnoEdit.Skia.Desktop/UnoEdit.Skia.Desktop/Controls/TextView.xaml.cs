@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
 using System.Windows.Documents;
@@ -44,6 +45,7 @@ public sealed partial class TextView : UserControl
     private const double GutterWidth = 72d;
     private const int OverscanLineCount = 4;
     private TextDocument? _document;
+    private DocumentHighlighter? _highlighter;
     private int _firstVisibleLineNumber = 1;
     private int _lastVisibleLineNumber;
     private int _desiredColumn = 1;
@@ -112,6 +114,7 @@ public sealed partial class TextView : UserControl
         }
 
         _document = newDocument;
+        _highlighter = null;
 
         if (newDocument is not null)
         {
@@ -120,6 +123,15 @@ public sealed partial class TextView : UserControl
             SelectionStartOffset = Math.Min(SelectionStartOffset, newDocument.TextLength);
             SelectionEndOffset = Math.Min(SelectionEndOffset, newDocument.TextLength);
             _selectionAnchorOffset = CurrentOffset;
+
+            // Try to initialise highlighting for whichever language fits the document extension.
+            // Default to C# if nothing else is detected.
+            var definition = HighlightingManager.Instance.GetDefinition("C#")
+                ?? (HighlightingManager.Instance.HighlightingDefinitions.Count > 0
+                    ? HighlightingManager.Instance.HighlightingDefinitions[0]
+                    : null);
+            if (definition != null)
+                _highlighter = new DocumentHighlighter(newDocument, definition);
         }
         else
         {
@@ -666,6 +678,9 @@ public sealed partial class TextView : UserControl
                 }
             }
 
+            HighlightedLine? highlightedLine = null;
+            try { highlightedLine = _highlighter?.HighlightLine(lineNumber); } catch { /* ignore errors during highlighting */ }
+
             _lines.Add(new TextLineViewModel(
                 line.LineNumber,
                 lineText.Length == 0 ? " " : lineText,
@@ -674,7 +689,8 @@ public sealed partial class TextView : UserControl
                 new Thickness(caretLeft, 0, 0, 0),
                 new Thickness(selectionLeft, 0, 0, 0),
                 selectionWidth,
-                selectionOpacity));
+                selectionOpacity,
+                highlightedLine));
         }
 
         TopSpacer.Height = (firstVisibleLine - 1) * LineHeight;
@@ -791,10 +807,14 @@ public sealed partial class TextView : UserControl
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
     }
 
+    // On macOS the ⌘ (Command) key is reported as LeftWindows / RightWindows.
+    // Accept either Ctrl or Cmd so that standard shortcuts work on every desktop OS.
     private static bool IsControlPressed()
     {
-        return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
-            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        var flags = Windows.UI.Core.CoreVirtualKeyStates.Down;
+        return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(flags)
+            || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(flags)
+            || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(flags);
     }
 
     private static string? TranslateKeyToText(Windows.System.VirtualKey key, bool shiftPressed)

@@ -59,12 +59,9 @@
                            VerticalAlignment="Center" />
 
                 <!-- Text column -->
-                <TextBlock Grid.Column="1"
-                           Text="{Binding Text}"
-                           FontFamily="Consolas"
-                           Foreground="#E2E8F0"
-                           TextWrapping="NoWrap"
-                           VerticalAlignment="Center" />
+                <local:HighlightedTextBlock Grid.Column="1"
+                                            ViewModel="{Binding}"
+                                            VerticalAlignment="Center" />
 
                 <!-- Selection highlight -->
                 <Border Grid.Column="1"

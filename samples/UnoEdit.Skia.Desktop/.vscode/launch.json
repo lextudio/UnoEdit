@@ -13,13 +13,13 @@
       "request": "launch",
       "preLaunchTask": "build-desktop",
       // If you have changed target frameworks, make sure to update the program path.
-      "program": "${workspaceFolder}/UnoEdit.Skia.Desktop/bin/Debug/net10.0-desktop/UnoEdit.Skia.Desktop.dll",
+      "program": "${workspaceFolder}/src/UnoEdit.Skia.Desktop/bin/Debug/net10.0-desktop/UnoEdit.Skia.Desktop.dll",
       "args": [],
       "launchSettingsProfile": "UnoEdit.Skia.Desktop (Desktop)",
       "env": {
         "DOTNET_MODIFIABLE_ASSEMBLIES": "debug"
       },
-      "cwd": "${workspaceFolder}/UnoEdit.Skia.Desktop",
+      "cwd": "${workspaceFolder}/src/UnoEdit.Skia.Desktop",
       // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
       "console": "internalConsole",
       "stopAtEntry": false

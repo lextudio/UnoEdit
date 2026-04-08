@@ -3,6 +3,8 @@ using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Input;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using System.Windows.Documents;
 using Windows.ApplicationModel.DataTransfer;
@@ -337,6 +339,27 @@ public sealed partial class TextView : UserControl
         SelectionStartOffset = Math.Min(_selectionAnchorOffset, targetOffset);
         SelectionEndOffset = Math.Max(_selectionAnchorOffset, targetOffset);
         e.Handled = true;
+    }
+
+    private void OnFoldButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (_document is null) return;
+        var fe = sender as FrameworkElement;
+        if (fe?.DataContext is not TextLineViewModel vm) return;
+        if (!int.TryParse(vm.Number, out int lineNumber)) return;
+
+        var fm = FoldingManager;
+        if (fm is null) return;
+
+        DocumentLine docLine = _document.GetLineByNumber(lineNumber);
+        foreach (var section in fm.AllFoldings)
+        {
+            if (section.StartOffset >= docLine.Offset && section.StartOffset <= docLine.EndOffset)
+            {
+                section.IsFolded = !section.IsFolded;
+                return;
+            }
+        }
     }
 
     private void OnRootPointerReleased(object sender, PointerRoutedEventArgs e)

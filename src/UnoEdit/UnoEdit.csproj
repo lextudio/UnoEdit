@@ -19,6 +19,7 @@
     <Compile Include="Rendering\ReferenceSegment.cs" />
     <Compile Include="Rendering\IReferenceSegmentSource.cs" />
     <Compile Include="Rendering\TabColumnHelper.cs" />
+    <Compile Include="Rendering\VisibleLineMapper.cs" />
     <Compile Include="Folding\NewFolding.cs" />
     <Compile Include="Folding\FoldingSection.cs" />
     <Compile Include="Folding\FoldingManager.cs" />

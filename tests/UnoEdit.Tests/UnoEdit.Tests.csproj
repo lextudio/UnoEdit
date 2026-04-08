@@ -29,6 +29,7 @@
     <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\RopeTests.cs" Link="Utils\RopeTests.cs" />
     <Compile Include="Document\LargeFileTests.cs" />
     <Compile Include="Folding\FoldingManagerTests.cs" />
+    <Compile Include="Rendering\VisibleLineMapperTests.cs" />
     <Compile Include="Highlighting\ColorConverterTests.cs" />
     <Compile Include="Highlighting\TabColumnHelperTests.cs" />
     <Compile Include="Highlighting\HighlightingTests.cs" />

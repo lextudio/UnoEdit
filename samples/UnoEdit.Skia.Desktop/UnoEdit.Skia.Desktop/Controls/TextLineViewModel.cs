@@ -90,6 +90,13 @@ public sealed class TextLineViewModel
         _                        => "",
     };
 
+    public string FoldMarkerAutomationName => FoldMarker switch
+    {
+        FoldMarkerKind.CanFold   => $"Collapse line {Number}",
+        FoldMarkerKind.CanExpand => $"Expand line {Number}",
+        _                        => string.Empty,
+    };
+
     public string Text { get; }
 
     public double CaretOpacity { get; }

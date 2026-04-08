@@ -65,13 +65,18 @@
                              Foreground="{Binding GutterForegroundBrush}"
                              Padding="0,0,2,0"
                              VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding FoldMarkerGlyph}"
-                             FontFamily="Consolas"
-                             FontSize="9"
-                             HorizontalAlignment="Center"
-                             VerticalAlignment="Center"
-                             Foreground="{Binding GutterForegroundBrush}" />
+                    <Button Grid.Column="1"
+                      Content="{Binding FoldMarkerGlyph}"
+                      FontFamily="Consolas"
+                      FontSize="9"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Foreground="{Binding GutterForegroundBrush}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      Click="OnFoldButtonClick"
+                      AutomationProperties.Name="{Binding FoldMarkerAutomationName}"
+                      IsTabStop="True" />
                 </Grid>
 
                 <!-- Text column -->

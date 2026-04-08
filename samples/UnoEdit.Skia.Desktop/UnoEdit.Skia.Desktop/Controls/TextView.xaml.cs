@@ -53,6 +53,13 @@ public sealed partial class TextView : UserControl
             typeof(TextView),
             new PropertyMetadata(null, (d, _) => ((TextView)d).RefreshViewport()));
 
+    public static readonly DependencyProperty FoldingManagerProperty =
+        DependencyProperty.Register(
+            nameof(FoldingManager),
+            typeof(ICSharpCode.AvalonEdit.Folding.FoldingManager),
+            typeof(TextView),
+            new PropertyMetadata(null, OnFoldingManagerChanged));
+
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
     private const double LineHeight = 22d;
     private const double CharacterWidth = 8.4d;
@@ -66,6 +73,7 @@ public sealed partial class TextView : UserControl
     private int _desiredColumn = 1;
     private int _selectionAnchorOffset;
     private bool _isPointerSelecting;
+    private List<int> _visibleDocLines = new();
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
@@ -115,6 +123,12 @@ public sealed partial class TextView : UserControl
         set => SetValue(ReferenceSegmentSourceProperty, value);
     }
 
+    public ICSharpCode.AvalonEdit.Folding.FoldingManager? FoldingManager
+    {
+        get => (ICSharpCode.AvalonEdit.Folding.FoldingManager?)GetValue(FoldingManagerProperty);
+        set => SetValue(FoldingManagerProperty, value);
+    }
+
     /// <summary>Raised when a reference segment is Ctrl+Clicked. The event arg carries the segment.</summary>
     public event EventHandler<ReferenceSegment>? NavigationRequested;
 
@@ -144,6 +158,23 @@ public sealed partial class TextView : UserControl
         textView.RefreshViewport();
     }
 
+    private static void OnFoldingManagerChanged(DependencyObject d, DependencyPropertyChangedEventArgs args)
+    {
+        var tv = (TextView)d;
+        if (args.OldValue is ICSharpCode.AvalonEdit.Folding.FoldingManager oldFm)
+            oldFm.FoldingsChanged -= tv.OnFoldingsChanged;
+        if (args.NewValue is ICSharpCode.AvalonEdit.Folding.FoldingManager newFm)
+            newFm.FoldingsChanged += tv.OnFoldingsChanged;
+        tv.RebuildVisibleLineList();
+        tv.RefreshViewport();
+    }
+
+    private void OnFoldingsChanged(object? sender, EventArgs e)
+    {
+        RebuildVisibleLineList();
+        RefreshViewport();
+    }
+
     private void AttachDocument(TextDocument? oldDocument, TextDocument? newDocument)
     {
         if (oldDocument is not null)
@@ -153,6 +184,7 @@ public sealed partial class TextView : UserControl
 
         _document = newDocument;
         _highlighter = null;
+        _visibleDocLines.Clear();
 
         if (newDocument is not null)
         {
@@ -179,6 +211,7 @@ public sealed partial class TextView : UserControl
             _selectionAnchorOffset = 0;
         }
 
+        RebuildVisibleLineList();
         RefreshViewport();
     }
 
@@ -202,6 +235,7 @@ public sealed partial class TextView : UserControl
             SelectionEndOffset = Math.Min(SelectionEndOffset, _document.TextLength);
         }
 
+        RebuildVisibleLineList();
         RefreshViewport();
     }
 
@@ -230,6 +264,26 @@ public sealed partial class TextView : UserControl
         Focus(FocusState.Programmatic);
 
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
+
+        // Fold-marker click — gutter area with a FoldingManager attached.
+        var fm = FoldingManager;
+        if (fm is not null && point.X < GutterWidth && _visibleDocLines.Count > 0)
+        {
+            double absoluteY = point.Y + TextScrollViewer.VerticalOffset;
+            int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocLines.Count - 1);
+            int clickedLine = _visibleDocLines[visualRow];
+            DocumentLine docLine = _document.GetLineByNumber(clickedLine);
+            foreach (var section in fm.AllFoldings)
+            {
+                if (section.StartOffset >= docLine.Offset && section.StartOffset <= docLine.EndOffset)
+                {
+                    section.IsFolded = !section.IsFolded;
+                    e.Handled = true;
+                    return;
+                }
+            }
+        }
+
         int targetOffset = GetOffsetFromViewPoint(point.X, point.Y);
         bool extendSelection = IsShiftPressed();
         bool ctrlClick = IsControlPressed();
@@ -307,6 +361,14 @@ public sealed partial class TextView : UserControl
         bool extendSelection = IsShiftPressed();
         bool controlPressed = IsControlPressed();
         string? inputText = !controlPressed ? TranslateKeyToText(e.Key, extendSelection) : null;
+
+        // Ctrl+M Ctrl+M — toggle fold at caret line (standard editor shortcut).
+        if (controlPressed && e.Key == Windows.System.VirtualKey.M)
+        {
+            e.Handled = ToggleFoldAtCaret();
+            return;
+        }
+
         bool handled = e.Key switch
         {
             Windows.System.VirtualKey.A when controlPressed => SelectAll(),
@@ -365,7 +427,10 @@ public sealed partial class TextView : UserControl
         }
 
         TextLocation location = _document.GetLocation(CurrentOffset);
-        int targetLineNumber = ClampLineNumber(location.Line + delta);
+        int currentVisualRow = GetVisualRow(location.Line);
+        if (currentVisualRow < 0) currentVisualRow = 0;
+        int targetVisualRow = Math.Clamp(currentVisualRow + delta, 0, _visibleDocLines.Count - 1);
+        int targetLineNumber = _visibleDocLines.Count > 0 ? _visibleDocLines[targetVisualRow] : location.Line;
         DocumentLine targetLine = _document.GetLineByNumber(targetLineNumber);
         int targetColumn = ClampColumn(targetLine, _desiredColumn);
         int targetOffset = _document.GetOffset(targetLineNumber, targetColumn);
@@ -410,7 +475,10 @@ public sealed partial class TextView : UserControl
         double viewportHeight = TextScrollViewer.ViewportHeight > 0 ? TextScrollViewer.ViewportHeight : ActualHeight;
         int pageLines = Math.Max(1, (int)(viewportHeight / LineHeight) - 1);
         TextLocation location = _document.GetLocation(CurrentOffset);
-        int targetLineNumber = ClampLineNumber(location.Line + direction * pageLines);
+        int currentVisualRow = GetVisualRow(location.Line);
+        if (currentVisualRow < 0) currentVisualRow = 0;
+        int targetVisualRow = Math.Clamp(currentVisualRow + direction * pageLines, 0, _visibleDocLines.Count - 1);
+        int targetLineNumber = _visibleDocLines.Count > 0 ? _visibleDocLines[targetVisualRow] : location.Line;
         DocumentLine targetLine = _document.GetLineByNumber(targetLineNumber);
         int targetColumn = ClampColumn(targetLine, _desiredColumn);
         int targetOffset = _document.GetOffset(targetLineNumber, targetColumn);
@@ -662,7 +730,9 @@ public sealed partial class TextView : UserControl
     {
         if (_document is null) return;
         int clamped = Math.Clamp(lineNumber, 1, _document.LineCount);
-        double targetTop = (clamped - 1) * LineHeight;
+        int visualRow = GetVisualRow(clamped);
+        if (visualRow < 0) return;
+        double targetTop = visualRow * LineHeight;
         double viewportTop    = TextScrollViewer.VerticalOffset;
         double viewportBottom = viewportTop + TextScrollViewer.ViewportHeight;
         if (targetTop < viewportTop || targetTop + LineHeight > viewportBottom)
@@ -677,7 +747,9 @@ public sealed partial class TextView : UserControl
         }
 
         TextLocation location = _document.GetLocation(CurrentOffset);
-        double targetTop = Math.Max(0, (location.Line - 1) * LineHeight);
+        int visualRow = GetVisualRow(location.Line);
+        if (visualRow < 0) return; // caret on a hidden line (shouldn't normally occur)
+        double targetTop = Math.Max(0, visualRow * LineHeight);
         double targetBottom = targetTop + LineHeight;
         double viewportTop = TextScrollViewer.VerticalOffset;
         double viewportBottom = viewportTop + TextScrollViewer.ViewportHeight;
@@ -704,7 +776,11 @@ public sealed partial class TextView : UserControl
             return;
         }
 
-        int lineCount = _document.LineCount;
+        // Ensure visible-line list is populated (it may be empty on first call).
+        if (_visibleDocLines.Count == 0 && _document.LineCount > 0)
+            RebuildVisibleLineList();
+
+        int totalVisualRows = _visibleDocLines.Count;
         double verticalOffset = TextScrollViewer.VerticalOffset;
         double viewportHeight = TextScrollViewer.ViewportHeight;
         if (viewportHeight <= 0)
@@ -712,20 +788,24 @@ public sealed partial class TextView : UserControl
             viewportHeight = ActualHeight > 0 ? ActualHeight : 400;
         }
 
-        int visibleLineCount = Math.Max(1, (int)Math.Ceiling(viewportHeight / LineHeight) + (OverscanLineCount * 2));
-        int firstVisibleLine = Math.Max(1, ((int)(verticalOffset / LineHeight) + 1) - OverscanLineCount);
-        int lastVisibleLine = Math.Min(lineCount, firstVisibleLine + visibleLineCount - 1);
+        int visibleRowCount = Math.Max(1, (int)Math.Ceiling(viewportHeight / LineHeight) + (OverscanLineCount * 2));
+        int firstVisualRow = Math.Max(0, ((int)(verticalOffset / LineHeight)) - OverscanLineCount);
+        int lastVisualRow = Math.Min(totalVisualRows - 1, firstVisualRow + visibleRowCount - 1);
 
-        _firstVisibleLineNumber = firstVisibleLine;
-        _lastVisibleLineNumber = lastVisibleLine;
+        if (totalVisualRows > 0)
+        {
+            _firstVisibleLineNumber = _visibleDocLines[firstVisualRow];
+            _lastVisibleLineNumber  = _visibleDocLines[lastVisualRow];
+        }
 
         _lines.Clear();
         int selectionStart = Math.Min(SelectionStartOffset, SelectionEndOffset);
         int selectionEnd = Math.Max(SelectionStartOffset, SelectionEndOffset);
         bool hasSelection = selectionStart != selectionEnd;
 
-        for (int lineNumber = firstVisibleLine; lineNumber <= lastVisibleLine; lineNumber++)
+        for (int vRow = firstVisualRow; vRow <= lastVisualRow; vRow++)
         {
+            int lineNumber = _visibleDocLines[vRow];
             DocumentLine line = _document.GetLineByNumber(lineNumber);
             string lineText = _document.GetText(line);
             bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
@@ -784,6 +864,8 @@ public sealed partial class TextView : UserControl
                 }
             }
 
+            FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
+
             _lines.Add(new TextLineViewModel(
                 line.LineNumber,
                 lineText.Length == 0 ? " " : lineText,
@@ -794,12 +876,13 @@ public sealed partial class TextView : UserControl
                 selectionWidth,
                 selectionOpacity,
                 Theme,
+                foldMarker,
                 highlightedLine,
                 lineRefs));
         }
 
-        TopSpacer.Height = (firstVisibleLine - 1) * LineHeight;
-        BottomSpacer.Height = Math.Max(0, (lineCount - lastVisibleLine) * LineHeight);
+        TopSpacer.Height = firstVisualRow * LineHeight;
+        BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
     }
 
     private int ClampLineNumber(int lineNumber)
@@ -812,6 +895,73 @@ public sealed partial class TextView : UserControl
         return Math.Clamp(column, 1, line.Length + 1);
     }
 
+    /// <summary>Rebuild <see cref="_visibleDocLines"/> from the current document and folding state.</summary>
+    private void RebuildVisibleLineList()
+    {
+        _visibleDocLines.Clear();
+        if (_document is null) return;
+        for (int ln = 1; ln <= _document.LineCount; ln++)
+        {
+            if (!IsLineHidden(ln))
+                _visibleDocLines.Add(ln);
+        }
+    }
+
+    /// <summary>Return true if a document line number is hidden inside a folded section.</summary>
+    private bool IsLineHidden(int lineNumber)
+    {
+        var fm = FoldingManager;
+        if (fm is null || _document is null) return false;
+        foreach (var section in fm.AllFoldings)
+        {
+            if (!section.IsFolded) continue;
+            int foldStartLine = _document.GetLineByOffset(section.StartOffset).LineNumber;
+            int foldEndLine   = _document.GetLineByOffset(section.EndOffset).LineNumber;
+            if (lineNumber > foldStartLine && lineNumber <= foldEndLine)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>Return the 0-based visual row index for a document line number, or -1 if hidden.</summary>
+    private int GetVisualRow(int docLineNumber)
+    {
+        if (_visibleDocLines.Count == 0) return 0;
+        int idx = _visibleDocLines.BinarySearch(docLineNumber);
+        return idx; // negative means hidden
+    }
+
+    /// <summary>Determine the fold-marker kind for a document line (whether it starts a fold).</summary>
+    private FoldMarkerKind GetFoldMarkerKind(DocumentLine line)
+    {
+        var fm = FoldingManager;
+        if (fm is null) return FoldMarkerKind.None;
+        foreach (var section in fm.AllFoldings)
+        {
+            if (section.StartOffset >= line.Offset && section.StartOffset <= line.EndOffset)
+                return section.IsFolded ? FoldMarkerKind.CanExpand : FoldMarkerKind.CanFold;
+        }
+        return FoldMarkerKind.None;
+    }
+
+    /// <summary>Toggle the first fold on the caret line. Returns true if a fold was toggled.</summary>
+    private bool ToggleFoldAtCaret()
+    {
+        var fm = FoldingManager;
+        if (fm is null || _document is null) return false;
+        TextLocation loc = _document.GetLocation(CurrentOffset);
+        DocumentLine caretLine = _document.GetLineByNumber(loc.Line);
+        foreach (var section in fm.AllFoldings)
+        {
+            if (section.StartOffset >= caretLine.Offset && section.StartOffset <= caretLine.EndOffset)
+            {
+                section.IsFolded = !section.IsFolded;
+                return true;
+            }
+        }
+        return false;
+    }
+
     private int GetOffsetFromViewPoint(double x, double y)
     {
         if (_document is null)
@@ -819,7 +969,9 @@ public sealed partial class TextView : UserControl
             return 0;
         }
 
-        int targetLine = ClampLineNumber(((int)((y + TextScrollViewer.VerticalOffset) / LineHeight)) + 1);
+        double absoluteY = y + TextScrollViewer.VerticalOffset;
+        int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocLines.Count - 1);
+        int targetLine = _visibleDocLines.Count > 0 ? _visibleDocLines[visualRow] : 1;
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 
         double documentX = x + TextScrollViewer.HorizontalOffset - GutterWidth - TextLeftPadding;

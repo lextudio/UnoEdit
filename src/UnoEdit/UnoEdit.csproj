@@ -19,6 +19,10 @@
     <Compile Include="Rendering\ReferenceSegment.cs" />
     <Compile Include="Rendering\IReferenceSegmentSource.cs" />
     <Compile Include="Rendering\TabColumnHelper.cs" />
+    <Compile Include="Folding\NewFolding.cs" />
+    <Compile Include="Folding\FoldingSection.cs" />
+    <Compile Include="Folding\FoldingManager.cs" />
+    <Compile Include="Folding\BraceFoldingStrategy.cs" />
 
     <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\*.cs"
              Exclude="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">

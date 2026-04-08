@@ -88,6 +88,12 @@ public sealed partial class TextArea : UserControl
         set => PART_TextView.ReferenceSegmentSource = value;
     }
 
+    public ICSharpCode.AvalonEdit.Folding.FoldingManager? FoldingManager
+    {
+        get => PART_TextView.FoldingManager;
+        set => PART_TextView.FoldingManager = value;
+    }
+
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textArea = (TextArea)dependencyObject;

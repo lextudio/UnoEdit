@@ -1,4 +1,5 @@
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Folding;
 using UnoEdit.Skia.Desktop.Controls;
 
 namespace UnoEdit.Skia.Desktop;
@@ -6,6 +7,8 @@ namespace UnoEdit.Skia.Desktop;
 public sealed partial class MainPage : Page
 {
     private readonly TextDocument _document;
+    private readonly FoldingManager _foldingManager;
+    private readonly BraceFoldingStrategy _foldingStrategy = new();
     private bool _isDarkTheme = true;
 
     public MainPage()
@@ -13,8 +16,23 @@ public sealed partial class MainPage : Page
         this.InitializeComponent();
 
         _document = new TextDocument(BuildSampleText());
+        _foldingManager = new FoldingManager(_document);
         Editor.Document = _document;
+        Editor.FoldingManager = _foldingManager;
+        _document.TextChanged += OnDocumentTextChanged;
+        UpdateFoldings();
         StatsTextBlock.Text = BuildStats(_document);
+    }
+
+    private void OnDocumentTextChanged(object? sender, EventArgs e)
+    {
+        UpdateFoldings();
+        StatsTextBlock.Text = BuildStats(_document);
+    }
+
+    private void UpdateFoldings()
+    {
+        _foldingStrategy.UpdateFoldings(_foldingManager, _document);
     }
 
     private void OnThemeToggleClick(object sender, RoutedEventArgs e)

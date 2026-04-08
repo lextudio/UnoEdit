@@ -15,7 +15,9 @@
   -->
   <Border x:Name="RootBorder"
           Background="#01000000"
-          IsTabStop="True">
+          IsTabStop="True"
+          AutomationProperties.Name="Code editor"
+          AutomationProperties.AutomationId="CodeEditorBorder">
     <ScrollViewer x:Name="TextScrollViewer"
                   HorizontalScrollBarVisibility="Auto"
                   VerticalScrollBarVisibility="Auto"
@@ -51,13 +53,26 @@
                         Background="{Binding LineHighlightBrush}"
                         Opacity="{Binding HighlightOpacity}" />
 
-                <!-- Gutter: line number -->
-                <TextBlock Text="{Binding Number}"
-                           FontFamily="Consolas"
-                           HorizontalTextAlignment="Right"
-                           Foreground="{Binding GutterForegroundBrush}"
-                           Padding="12,0,0,0"
-                           VerticalAlignment="Center" />
+                <!-- Gutter: line number + fold marker -->
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="16" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Number}"
+                             FontFamily="Consolas"
+                             HorizontalTextAlignment="Right"
+                             Foreground="{Binding GutterForegroundBrush}"
+                             Padding="0,0,2,0"
+                             VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding FoldMarkerGlyph}"
+                             FontFamily="Consolas"
+                             FontSize="9"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Foreground="{Binding GutterForegroundBrush}" />
+                </Grid>
 
                 <!-- Text column -->
                 <local:HighlightedTextBlock Grid.Column="1"

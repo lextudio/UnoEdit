@@ -87,6 +87,12 @@ public sealed partial class TextEditor : UserControl
         set => PART_TextArea.ReferenceSegmentSource = value;
     }
 
+    public ICSharpCode.AvalonEdit.Folding.FoldingManager? FoldingManager
+    {
+        get => PART_TextArea.FoldingManager;
+        set => PART_TextArea.FoldingManager = value;
+    }
+
     /// <summary>Raised when the user Ctrl+Clicks a reference segment.</summary>
     public event EventHandler<ReferenceSegment>? NavigationRequested;
 

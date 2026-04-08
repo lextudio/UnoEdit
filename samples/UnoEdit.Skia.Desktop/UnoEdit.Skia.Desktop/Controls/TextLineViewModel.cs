@@ -4,6 +4,9 @@ using ICSharpCode.AvalonEdit.Rendering;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
+/// <summary>Indicates whether a line has a fold marker and in what state.</summary>
+public enum FoldMarkerKind { None, CanFold, CanExpand }
+
 /// <summary>A single colored text segment for a line.</summary>
 public readonly struct TextRun
 {
@@ -54,9 +57,11 @@ public sealed class TextLineViewModel
         double selectionWidth,
         double selectionOpacity,
         TextEditorTheme theme,
+        FoldMarkerKind foldMarker = FoldMarkerKind.None,
         HighlightedLine? highlightedLine = null,
         IReadOnlyList<ReferenceSegment>? referenceSegments = null)
     {
+        FoldMarker = foldMarker;
         Number = number.ToString();
         Text = text;
         CaretOpacity = caretOpacity;
@@ -75,6 +80,15 @@ public sealed class TextLineViewModel
     }
 
     public string Number { get; }
+
+    public FoldMarkerKind FoldMarker { get; }
+
+    public string FoldMarkerGlyph => FoldMarker switch
+    {
+        FoldMarkerKind.CanFold   => "▼",
+        FoldMarkerKind.CanExpand => "▶",
+        _                        => "",
+    };
 
     public string Text { get; }
 

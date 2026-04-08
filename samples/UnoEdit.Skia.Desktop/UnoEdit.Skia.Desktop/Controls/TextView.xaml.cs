@@ -349,7 +349,7 @@ public sealed partial class TextView : UserControl
         e.Handled = true;
     }
 
-    private void OnFoldButtonClick(object? sender, RoutedEventArgs e)
+    private void OnFoldGlyphPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (_document is null) return;
         var fe = sender as FrameworkElement;
@@ -373,6 +373,7 @@ public sealed partial class TextView : UserControl
                         ? $"Collapsed lines {foldStartLine} to {foldEndLine}"
                         : $"Expanded lines {foldStartLine} to {foldEndLine}";
                 }
+                e.Handled = true;
                 return;
             }
         }

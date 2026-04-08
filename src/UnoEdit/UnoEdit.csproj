@@ -25,12 +25,9 @@
     <Compile Include="Folding\FoldingManager.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
 
-    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\*.cs"
-             Exclude="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
-      <Link>Document\%(Filename)%(Extension)</Link>
-    </Compile>
-    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">
-      <Link>Document\TextUtilities.cs</Link>
+    <!-- Document model remains linked to upstream AvalonEdit so edits stay in sync. -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\**\*.cs">
+      <Link>Document\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Compile>
 
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Boxes.cs" Link="Utils\Boxes.cs" />

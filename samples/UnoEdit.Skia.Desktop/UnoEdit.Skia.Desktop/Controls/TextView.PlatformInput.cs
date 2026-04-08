@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -183,8 +184,12 @@ public sealed partial class TextView
         double x = GutterWidth + TextLeftPadding + GetDisplayColumnX(lineText, logicalColumn) - TextScrollViewer.HorizontalOffset;
         double y = (visualRow * LineHeight) - TextScrollViewer.VerticalOffset;
 
+        LogMacIme($"CalculatePlatformInputCaretRect pre-transform x={x:F1}, y={y:F1}, visualRow={visualRow}, logicalColumn={logicalColumn}, GutterWidth={GutterWidth:F1}, TextLeftPadding={TextLeftPadding:F1}, HOffset={TextScrollViewer.HorizontalOffset:F1}, VOffset={TextScrollViewer.VerticalOffset:F1}");
+
         GeneralTransform transform = RootBorder.TransformToVisual(null);
         Point point = transform.TransformPoint(new Point(x, y));
+
+        LogMacIme($"CalculatePlatformInputCaretRect post-transform point.X={point.X:F1}, point.Y={point.Y:F1} returnedRect X={point.X:F1} Y={point.Y + 3d:F1} W=2.0 H=16.0");
         return new Rect(point.X, point.Y + 3d, 2d, 16d);
     }
 
@@ -249,6 +254,7 @@ public sealed partial class TextView
 
     private sealed class MacOSNativeImeBridge : IDisposable
     {
+        private static long s_nextEventId;
         private readonly GCHandle _selfHandle;
         private readonly InsertTextDelegate _insertTextDelegate;
         private readonly CommandDelegate _commandDelegate;
@@ -290,6 +296,15 @@ public sealed partial class TextView
 
             session._bridgeHandle = bridgeHandle;
             LogMacIme($"Native bridge created. Bridge handle=0x{bridgeHandle:X}");
+            try
+            {
+                double scale = NativeMethods.unoedit_ime_get_backing_scale(session._bridgeHandle);
+                LogMacIme($"Native window backing scale={scale:F2}");
+            }
+            catch (Exception ex)
+            {
+                LogMacIme($"Failed to query native backing scale: {ex.Message}");
+            }
             return session;
         }
 
@@ -308,9 +323,37 @@ public sealed partial class TextView
             {
                 return;
             }
+                // assign an incrementing event id so native logs can be correlated deterministically
+                long eventId = Interlocked.Increment(ref s_nextEventId);
+                LogMacIme($"UpdateCaretRect pre-adjust id={eventId} -> x={rect.X:F3}, y={rect.Y:F3}, w={rect.Width:F3}, h={rect.Height:F3}");
 
-            LogMacIme($"Updating native caret rect to x={rect.X:F1}, y={rect.Y:F1}, w={rect.Width:F1}, h={rect.Height:F1}");
-            NativeMethods.unoedit_ime_update_caret_rect(_bridgeHandle, rect.X, rect.Y, rect.Width, rect.Height);
+                // Query native backing scale when available and align rectangle to device pixels
+                double backingScale = 1.0;
+                try
+                {
+                    backingScale = NativeMethods.unoedit_ime_get_backing_scale(_bridgeHandle);
+                }
+                catch
+                {
+                    // ignore - fallback to 1.0
+                }
+                LogMacIme($"UpdateCaretRect backingScale={backingScale:F2} id={eventId}");
+
+                // Convert to device pixels, round to integer pixel boundaries, convert back to DIP
+                double px = rect.X * backingScale;
+                double py = rect.Y * backingScale;
+                double pw = Math.Max(1.0, rect.Width * backingScale);
+                double ph = Math.Max(1.0, rect.Height * backingScale);
+
+                double rpx = Math.Round(px);
+                double rpy = Math.Round(py);
+                double rpw = Math.Max(1.0, Math.Round(pw));
+                double rph = Math.Max(1.0, Math.Round(ph));
+
+                var adjusted = new Rect(rpx / backingScale, rpy / backingScale, rpw / backingScale, rph / backingScale);
+                LogMacIme($"UpdateCaretRect adjusted -> x={adjusted.X:F3}, y={adjusted.Y:F3}, w={adjusted.Width:F3}, h={adjusted.Height:F3} (pixels: {rpx},{rpy},{rpw},{rph}) id={eventId}");
+
+                NativeMethods.unoedit_ime_update_caret_rect(_bridgeHandle, (ulong)eventId, adjusted.X, adjusted.Y, adjusted.Width, adjusted.Height);
         }
 
         public void Dispose()
@@ -390,10 +433,14 @@ public sealed partial class TextView
             [DllImport("libUnoEditMacInput.dylib", CallingConvention = CallingConvention.Cdecl)]
             internal static extern void unoedit_ime_update_caret_rect(
                 nint bridgeHandle,
+                ulong eventId,
                 double x,
                 double y,
                 double width,
                 double height);
+
+            [DllImport("libUnoEditMacInput.dylib", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern double unoedit_ime_get_backing_scale(nint bridgeHandle);
         }
     }
 #else

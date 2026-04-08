@@ -1,0 +1,47 @@
+name: IME Placement CI (macOS)
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  ime-placement:
+    name: IME Placement Runtime Tests
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          include-prerelease: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Make scripts executable
+        run: |
+          chmod +x scripts/run_ime_diag.sh
+
+      - name: Run IME diagnostics and comparator
+        env:
+          UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME: '1'
+          UNOEDIT_DEBUG_MACOS_IME: '1'
+        run: |
+          bash scripts/run_ime_diag.sh
+
+      - name: Upload logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ime-logs
+          path: |
+            /tmp/unoedit_ime.log
+            /tmp/unoedit_runtime_tests.xml

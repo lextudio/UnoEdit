@@ -1,6 +1,8 @@
 #import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 #import <stdlib.h>
+#import <stdint.h>
+#import <math.h>
 
 typedef void (*unoedit_insert_text_fn)(void* context, const char* text);
 typedef void (*unoedit_command_fn)(void* context, const char* command);
@@ -192,8 +194,21 @@ static void unoedit_log(NSString* format, ...)
     }
 
     NSRect rect = [self.window convertRectToScreen:windowRect];
-    unoedit_log(@"firstRectForCharacterRange range=%@ rect=%@ actualRange=%@", NSStringFromRange(range), NSStringFromRect(rect), actualRange != NULL ? NSStringFromRange(*actualRange) : @"<null>");
-    return rect;
+
+    // Round returned rect to device pixels to avoid sub-pixel placement issues.
+    NSScreen* screen = self.window.screen ?: [NSScreen mainScreen];
+    CGFloat backing = screen.backingScaleFactor;
+    NSRect rectInPixels = NSMakeRect(rect.origin.x * backing, rect.origin.y * backing, rect.size.width * backing, rect.size.height * backing);
+    NSRect roundedRectInPixels = NSMakeRect(round(rectInPixels.origin.x), round(rectInPixels.origin.y), round(rectInPixels.size.width), round(rectInPixels.size.height));
+    NSRect roundedRectInPoints = NSMakeRect(roundedRectInPixels.origin.x / backing, roundedRectInPixels.origin.y / backing, roundedRectInPixels.size.width / backing, roundedRectInPixels.size.height / backing);
+
+    // Convert to top-left-origin screen coordinates so IME candidate windows align with managed layout.
+    NSRect screenFrame = screen.frame;
+    NSRect flippedRectInPoints = NSMakeRect(roundedRectInPoints.origin.x, screenFrame.size.height - roundedRectInPoints.origin.y - roundedRectInPoints.size.height, roundedRectInPoints.size.width, roundedRectInPoints.size.height);
+    NSRect flippedRectInPixels = NSMakeRect(round(flippedRectInPoints.origin.x * backing), round(flippedRectInPoints.origin.y * backing), round(flippedRectInPoints.size.width * backing), round(flippedRectInPoints.size.height * backing));
+
+    unoedit_log(@"firstRectForCharacterRange range=%@ rect=%@ rounded=%@ flipped=%@ pixels=%@ actualRange=%@", NSStringFromRange(range), NSStringFromRect(rect), NSStringFromRect(roundedRectInPoints), NSStringFromRect(flippedRectInPoints), NSStringFromRect(flippedRectInPixels), actualRange != NULL ? NSStringFromRange(*actualRange) : @"<null>");
+    return flippedRectInPoints;
 }
 
 - (void)doCommandBySelector:(SEL)selector
@@ -294,6 +309,9 @@ void* unoedit_ime_create(void* windowHandle, void* managedContext, unoedit_inser
         return nil;
     }];
     unoedit_log(@"unoedit_ime_create success window=%p contentView=%@ textView=%@", window, window.contentView, bridge.textView);
+    NSScreen* screen = window.screen ?: [NSScreen mainScreen];
+    CGFloat backing = screen.backingScaleFactor;
+    unoedit_log(@"unoedit_ime_create backingScaleFactor=%f", backing);
     return (__bridge_retained void*)bridge;
 }
 
@@ -339,15 +357,19 @@ bool unoedit_ime_is_focused(void* bridgeHandle)
     return focused;
 }
 
-void unoedit_ime_update_caret_rect(void* bridgeHandle, double x, double y, double width, double height)
+void unoedit_ime_update_caret_rect(void* bridgeHandle, unsigned long long eventId, double x, double y, double width, double height)
 {
     UnoEditMacInputBridge* bridge = (__bridge UnoEditMacInputBridge*)bridgeHandle;
     if (bridge == nil || bridge.window == nil || bridge.window.contentView == nil || bridge.textView == nil) {
-        unoedit_log(@"unoedit_ime_update_caret_rect ignored: bridge/window/contentView/textView missing.");
+        unoedit_log(@"unoedit_ime_update_caret_rect ignored: bridge/window/contentView/textView missing. id=%llu", (unsigned long long)eventId);
         return;
     }
 
     NSView* contentView = bridge.window.contentView;
+    unoedit_log(@"unoedit_ime_update_caret_rect id=%llu raw x=%f y=%f w=%f h=%f", (unsigned long long)eventId, x, y, width, height);
+    NSScreen* screen = bridge.window.screen ?: [NSScreen mainScreen];
+    CGFloat backing = screen.backingScaleFactor;
+    unoedit_log(@"unoedit_ime_update_caret_rect id=%llu backingScaleFactor=%f", (unsigned long long)eventId, backing);
     NSRect bounds = contentView.bounds;
     CGFloat caretWidth = (CGFloat)MAX(width, 2.0);
     CGFloat caretHeight = (CGFloat)MAX(height, 18.0);
@@ -359,7 +381,105 @@ void unoedit_ime_update_caret_rect(void* bridgeHandle, double x, double y, doubl
 
     bridge.textView.frame = NSMakeRect(caretX, caretY, caretWidth, caretHeight);
     bridge.textView.imeCaretRectInWindow = [contentView convertRect:bridge.textView.frame toView:nil];
-    unoedit_log(@"unoedit_ime_update_caret_rect frame=%@ bounds=%@ flipped=%d", NSStringFromRect(bridge.textView.frame), NSStringFromRect(bounds), isFlipped);
+    NSRect imeRectInWindow = bridge.textView.imeCaretRectInWindow;
+    NSRect screenRect = [bridge.window convertRectToScreen:imeRectInWindow];
+
+    // Convert to device pixels and round to integer pixel boundaries.
+    NSRect screenRectInPixels = NSMakeRect(screenRect.origin.x * backing, screenRect.origin.y * backing, screenRect.size.width * backing, screenRect.size.height * backing);
+    NSRect roundedScreenRectInPixels = NSMakeRect(round(screenRectInPixels.origin.x), round(screenRectInPixels.origin.y), round(screenRectInPixels.size.width), round(screenRectInPixels.size.height));
+    NSRect roundedScreenRectInPoints = NSMakeRect(roundedScreenRectInPixels.origin.x / backing, roundedScreenRectInPixels.origin.y / backing, roundedScreenRectInPixels.size.width / backing, roundedScreenRectInPixels.size.height / backing);
+
+    // Store the rounded rectangle in window coordinates so `firstRectForCharacterRange:` returns the rounded rect.
+    NSRect roundedWindowRect = [bridge.window convertRectFromScreen:roundedScreenRectInPoints];
+    bridge.textView.imeCaretRectInWindow = roundedWindowRect;
+
+    unoedit_log(@"unoedit_ime_update_caret_rect id=%llu frame=%@ bounds=%@ imeCaretRectInWindow=%@ screenRect_points=%@ screenRect_pixels=%@ rounded_points=%@ rounded_pixels=%@ flipped=%d", (unsigned long long)eventId, NSStringFromRect(bridge.textView.frame), NSStringFromRect(bounds), NSStringFromRect(imeRectInWindow), NSStringFromRect(screenRect), NSStringFromRect(screenRectInPixels), NSStringFromRect(roundedScreenRectInPoints), NSStringFromRect(roundedScreenRectInPixels), isFlipped);
+}
+
+double unoedit_ime_get_backing_scale(void* bridgeHandle)
+{
+    UnoEditMacInputBridge* bridge = (__bridge UnoEditMacInputBridge*)bridgeHandle;
+    if (bridge == nil || bridge.window == nil) {
+        unoedit_log(@"unoedit_ime_get_backing_scale ignored: bridge/window missing.");
+        return 1.0;
+    }
+
+    NSScreen* screen = bridge.window.screen ?: [NSScreen mainScreen];
+    double backing = (double)screen.backingScaleFactor;
+    unoedit_log(@"unoedit_ime_get_backing_scale=%f", backing);
+    return backing;
+}
+
+void unoedit_ime_get_first_rect(void* bridgeHandle, double* outX, double* outY, double* outW, double* outH)
+{
+    UnoEditMacInputBridge* bridge = (__bridge UnoEditMacInputBridge*)bridgeHandle;
+    if (bridge == nil || bridge.window == nil || bridge.textView == nil) {
+        if (outX) *outX = 0.0;
+        if (outY) *outY = 0.0;
+        if (outW) *outW = 0.0;
+        if (outH) *outH = 0.0;
+        return;
+    }
+
+    NSRect windowRect = bridge.textView.imeCaretRectInWindow;
+    if (NSEqualRects(windowRect, NSZeroRect)) {
+        windowRect = [bridge.textView convertRect:bridge.textView.bounds toView:nil];
+    }
+
+    NSRect rect = [bridge.window convertRectToScreen:windowRect];
+    NSScreen* screen = bridge.window.screen ?: [NSScreen mainScreen];
+    CGFloat backing = screen.backingScaleFactor;
+
+    NSRect rectInPixels = NSMakeRect(rect.origin.x * backing, rect.origin.y * backing, rect.size.width * backing, rect.size.height * backing);
+    NSRect roundedRectInPixels = NSMakeRect(round(rectInPixels.origin.x), round(rectInPixels.origin.y), round(rectInPixels.size.width), round(rectInPixels.size.height));
+    NSRect roundedRectInPoints = NSMakeRect(roundedRectInPixels.origin.x / backing, roundedRectInPixels.origin.y / backing, roundedRectInPixels.size.width / backing, roundedRectInPixels.size.height / backing);
+
+    NSRect screenFrame = screen.frame;
+    NSRect flippedRectInPoints = NSMakeRect(roundedRectInPoints.origin.x, screenFrame.size.height - roundedRectInPoints.origin.y - roundedRectInPoints.size.height, roundedRectInPoints.size.width, roundedRectInPoints.size.height);
+
+    if (outX) *outX = flippedRectInPoints.origin.x;
+    if (outY) *outY = flippedRectInPoints.origin.y;
+    if (outW) *outW = flippedRectInPoints.size.width;
+    if (outH) *outH = flippedRectInPoints.size.height;
+}
+
+void unoedit_ime_compute_first_rect_from_rect(void* bridgeHandle, double x, double y, double width, double height, double* outX, double* outY, double* outW, double* outH)
+{
+    UnoEditMacInputBridge* bridge = (__bridge UnoEditMacInputBridge*)bridgeHandle;
+    if (bridge == nil || bridge.window == nil || bridge.window.contentView == nil) {
+        if (outX) *outX = 0.0;
+        if (outY) *outY = 0.0;
+        if (outW) *outW = 0.0;
+        if (outH) *outH = 0.0;
+        return;
+    }
+
+    NSView* contentView = bridge.window.contentView;
+    NSRect bounds = contentView.bounds;
+    CGFloat caretWidth = (CGFloat)MAX(width, 2.0);
+    CGFloat caretHeight = (CGFloat)MAX(height, 18.0);
+    CGFloat caretX = (CGFloat)x;
+    BOOL isFlipped = contentView.isFlipped;
+    CGFloat caretY = isFlipped ? (CGFloat)y : (CGFloat)(bounds.size.height - y - caretHeight);
+
+    NSRect frame = NSMakeRect(caretX, caretY, caretWidth, caretHeight);
+    NSRect imeRectInWindow = [contentView convertRect:frame toView:nil];
+    NSRect screenRect = [bridge.window convertRectToScreen:imeRectInWindow];
+
+    NSScreen* screen = bridge.window.screen ?: [NSScreen mainScreen];
+    CGFloat backing = screen.backingScaleFactor;
+
+    NSRect screenRectInPixels = NSMakeRect(screenRect.origin.x * backing, screenRect.origin.y * backing, screenRect.size.width * backing, screenRect.size.height * backing);
+    NSRect roundedScreenRectInPixels = NSMakeRect(round(screenRectInPixels.origin.x), round(screenRectInPixels.origin.y), round(screenRectInPixels.size.width), round(screenRectInPixels.size.height));
+    NSRect roundedScreenRectInPoints = NSMakeRect(roundedScreenRectInPixels.origin.x / backing, roundedScreenRectInPixels.origin.y / backing, roundedScreenRectInPixels.size.width / backing, roundedScreenRectInPixels.size.height / backing);
+
+    NSRect screenFrame = screen.frame;
+    NSRect flippedRectInPoints = NSMakeRect(roundedScreenRectInPoints.origin.x, screenFrame.size.height - roundedScreenRectInPoints.origin.y - roundedScreenRectInPoints.size.height, roundedScreenRectInPoints.size.width, roundedScreenRectInPoints.size.height);
+
+    if (outX) *outX = flippedRectInPoints.origin.x;
+    if (outY) *outY = flippedRectInPoints.origin.y;
+    if (outW) *outW = flippedRectInPoints.size.width;
+    if (outH) *outH = flippedRectInPoints.size.height;
 }
 
 }

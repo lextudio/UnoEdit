@@ -28,18 +28,18 @@
         <!-- Moved UI controls from the Skia Desktop sample into the core (mirrored layout). 
           These are included here so the shared control sources live in the UnoEdit tree.
           XAML files are added as None to avoid triggering platform build steps in the portable project. -->
-        <Compile Include="Controls\EditorTextMetrics.cs" />
-        <Compile Include="Controls\TextEditorTheme.cs" />
-        <Compile Include="Controls\TextLineViewModel.cs" />
-        <Compile Include="Controls\TextView.PlatformInput.cs" />
-        <Compile Include="Controls\HighlightedTextBlock.xaml.cs" />
-        <Compile Include="Controls\TextArea.xaml.cs" />
-        <Compile Include="Controls\TextEditor.xaml.cs" />
-        <Compile Include="Controls\TextView.xaml.cs" />
-        <None Include="Controls\HighlightedTextBlock.xaml" />
-        <None Include="Controls\TextArea.xaml" />
-        <None Include="Controls\TextEditor.xaml" />
-        <None Include="Controls\TextView.xaml" />
+      <Compile Include="EditorTextMetrics.cs" />
+      <Compile Include="TextEditorTheme.cs" />
+      <Compile Include="TextLineViewModel.cs" />
+      <Compile Include="TextView.PlatformInput.cs" />
+      <Compile Include="HighlightedTextBlock.xaml.cs" />
+      <Compile Include="TextArea.xaml.cs" />
+      <Compile Include="TextEditor.xaml.cs" />
+      <Compile Include="TextView.xaml.cs" />
+      <None Include="HighlightedTextBlock.xaml" />
+      <None Include="TextArea.xaml" />
+      <None Include="TextEditor.xaml" />
+      <None Include="TextView.xaml" />
 
     <!-- Document model remains linked to upstream AvalonEdit so edits stay in sync. -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\**\*.cs">

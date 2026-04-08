@@ -7,7 +7,7 @@ set -euo pipefail
 LOG=/tmp/unoedit_ime.log
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # When this script lives under UnoEdit/scripts, default project is relative
-PROJECT="${PROJECT:-$SCRIPT_DIR/../samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj}"
+PROJECT="${PROJECT:-$SCRIPT_DIR/../src/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj}"
 
 export UNO_RUNTIME_TESTS_RUN_TESTS=1
 export UNO_RUNTIME_TESTS_OUTPUT_PATH=/tmp/unoedit_runtime_tests.xml

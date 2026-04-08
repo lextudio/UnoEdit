@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/samples/" />
-  <Folder Name="/samples/UnoEdit.Skia.Desktop/">
-    <Project Path="samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj" />
+  <Folder Name="/src/UnoEdit.Skia.Desktop/">
+    <Project Path="src/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/UnoEdit/UnoEdit.csproj" />

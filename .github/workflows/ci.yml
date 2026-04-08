@@ -49,14 +49,14 @@ jobs:
             xvfb libgl1-mesa-dri libgbm1 mesa-utils libx11-6 libxext6 libxrender1 libxrandr2 libxcursor1 libxi6 libxss1
       - name: Build Skia Desktop app
         run: |
-          dotnet build samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj \
+          dotnet build src/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj \
             -c Release -f net10.0-desktop --nologo
         working-directory: ${{ github.workspace }}
       - name: Run RuntimeTests headlessly
         run: |
           mkdir -p test-results
           xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' \
-            dotnet "samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/bin/Release/net10.0-desktop/UnoEdit.Skia.Desktop.dll"
+            dotnet "src/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/bin/Release/net10.0-desktop/UnoEdit.Skia.Desktop.dll"
         env:
           UNO_RUNTIME_TESTS_RUN_TESTS: 'true'
           UNO_RUNTIME_TESTS_OUTPUT_PATH: ${{ github.workspace }}/test-results/runtime-tests.xml

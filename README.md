@@ -12,7 +12,7 @@ Repository layout:
 
 - `src/UnoEdit`: portable core assembled from AvalonEdit's non-WPF document and utility layers
 - `tests/UnoEdit.Tests`: cross-platform regression tests for the portable core
-- `samples/UnoEdit.Skia.Desktop`: Uno Skia Desktop host for the first editor shell
+- `src/UnoEdit.Skia.Desktop`: Uno Skia Desktop host for the first editor shell
 
 Current status:
 

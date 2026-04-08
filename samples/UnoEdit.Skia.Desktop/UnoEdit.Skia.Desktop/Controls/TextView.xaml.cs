@@ -38,6 +38,13 @@ public sealed partial class TextView : UserControl
             typeof(TextView),
             new PropertyMetadata(0, OnSelectionRangeChanged));
 
+    public static readonly DependencyProperty ThemeProperty =
+        DependencyProperty.Register(
+            nameof(Theme),
+            typeof(TextEditorTheme),
+            typeof(TextView),
+            new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
+
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
     private const double LineHeight = 22d;
     private const double CharacterWidth = 8.4d;
@@ -61,6 +68,7 @@ public sealed partial class TextView : UserControl
         LinesItemsControl.ItemsSource = _lines;
         Loaded += OnLoaded;
         SizeChanged += OnSizeChanged;
+        ApplyThemeToChrome();
     }
 
     public TextDocument? Document
@@ -87,6 +95,12 @@ public sealed partial class TextView : UserControl
         set => SetValue(SelectionEndOffsetProperty, value);
     }
 
+    public TextEditorTheme Theme
+    {
+        get => (TextEditorTheme)GetValue(ThemeProperty);
+        set => SetValue(ThemeProperty, value);
+    }
+
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textView = (TextView)dependencyObject;
@@ -104,6 +118,13 @@ public sealed partial class TextView : UserControl
         var textView = (TextView)dependencyObject;
         textView.RefreshViewport();
         textView.SelectionChanged?.Invoke(textView, EventArgs.Empty);
+    }
+
+    private static void OnThemeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView.ApplyThemeToChrome();
+        textView.RefreshViewport();
     }
 
     private void AttachDocument(TextDocument? oldDocument, TextDocument? newDocument)
@@ -142,6 +163,13 @@ public sealed partial class TextView : UserControl
         }
 
         RefreshViewport();
+    }
+
+    /// <summary>Update named chrome elements in the XAML tree to match the current <see cref="Theme"/>.</summary>
+    private void ApplyThemeToChrome()
+    {
+        var t = Theme ?? TextEditorTheme.Dark;
+        RootBorder.Background = new SolidColorBrush(t.EditorBackground);
     }
 
     private void HandleDocumentTextChanged(object? sender, EventArgs e)
@@ -598,6 +626,18 @@ public sealed partial class TextView : UserControl
         CaretOffsetChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Scroll the viewport so a 1-based line number is visible, without moving the caret.</summary>
+    public void ScrollToLine(int lineNumber)
+    {
+        if (_document is null) return;
+        int clamped = Math.Clamp(lineNumber, 1, _document.LineCount);
+        double targetTop = (clamped - 1) * LineHeight;
+        double viewportTop    = TextScrollViewer.VerticalOffset;
+        double viewportBottom = viewportTop + TextScrollViewer.ViewportHeight;
+        if (targetTop < viewportTop || targetTop + LineHeight > viewportBottom)
+            TextScrollViewer.ChangeView(null, targetTop, null, false);
+    }
+
     private void EnsureCaretVisible()
     {
         if (_document is null)
@@ -694,6 +734,7 @@ public sealed partial class TextView : UserControl
                 new Thickness(selectionLeft, 0, 0, 0),
                 selectionWidth,
                 selectionOpacity,
+                Theme,
                 highlightedLine));
         }
 

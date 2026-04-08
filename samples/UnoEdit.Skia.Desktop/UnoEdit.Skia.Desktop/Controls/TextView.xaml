@@ -13,7 +13,8 @@
     CapturePointer / ReleasePointerCapture happen on the same element that
     receives the captured PointerReleased event.
   -->
-  <Border Background="#01000000"
+  <Border x:Name="RootBorder"
+          Background="#01000000"
           IsTabStop="True">
     <ScrollViewer x:Name="TextScrollViewer"
                   HorizontalScrollBarVisibility="Auto"
@@ -47,14 +48,14 @@
 
                 <!-- Line highlight (current-line background) -->
                 <Border Grid.ColumnSpan="2"
-                        Background="#162033"
+                        Background="{Binding LineHighlightBrush}"
                         Opacity="{Binding HighlightOpacity}" />
 
                 <!-- Gutter: line number -->
                 <TextBlock Text="{Binding Number}"
                            FontFamily="Consolas"
                            HorizontalTextAlignment="Right"
-                           Foreground="#64748B"
+                           Foreground="{Binding GutterForegroundBrush}"
                            Padding="12,0,0,0"
                            VerticalAlignment="Center" />
 
@@ -68,7 +69,7 @@
                         Height="16"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        Background="#2563EB"
+                        Background="{Binding SelectionBrush}"
                         Margin="{Binding SelectionMargin}"
                         Width="{Binding SelectionWidth}"
                         Opacity="{Binding SelectionOpacity}" />
@@ -79,7 +80,7 @@
                         Height="16"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        Background="#F8FAFC"
+                        Background="{Binding CaretBrush}"
                         Margin="{Binding CaretMargin}"
                         Opacity="{Binding CaretOpacity}" />
               </Grid>

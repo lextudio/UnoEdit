@@ -11,11 +11,24 @@
     </Grid.RowDefinitions>
 
     <StackPanel Spacing="4">
-      <TextBlock FontSize="28"
-                 FontWeight="SemiBold"
-                 Text="UnoEdit Desktop Bootstrap" />
-      <TextBlock Opacity="0.72"
-                 Text="This host is using the portable UnoEdit document core from the ported AvalonEdit model." />
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Spacing="2">
+          <TextBlock FontSize="28"
+                     FontWeight="SemiBold"
+                     Text="UnoEdit Desktop Bootstrap" />
+          <TextBlock Opacity="0.72"
+                     Text="This host is using the portable UnoEdit document core from the ported AvalonEdit model." />
+        </StackPanel>
+        <ToggleButton x:Name="ThemeToggle"
+                      Grid.Column="1"
+                      Content="☀ Light"
+                      VerticalAlignment="Center"
+                      Click="OnThemeToggleClick" />
+      </Grid>
     </StackPanel>
 
     <Border Grid.Row="1"

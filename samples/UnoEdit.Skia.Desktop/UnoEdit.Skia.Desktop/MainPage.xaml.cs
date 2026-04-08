@@ -1,10 +1,12 @@
 using ICSharpCode.AvalonEdit.Document;
+using UnoEdit.Skia.Desktop.Controls;
 
 namespace UnoEdit.Skia.Desktop;
 
 public sealed partial class MainPage : Page
 {
     private readonly TextDocument _document;
+    private bool _isDarkTheme = true;
 
     public MainPage()
     {
@@ -13,6 +15,13 @@ public sealed partial class MainPage : Page
         _document = new TextDocument(BuildSampleText());
         Editor.Document = _document;
         StatsTextBlock.Text = BuildStats(_document);
+    }
+
+    private void OnThemeToggleClick(object sender, RoutedEventArgs e)
+    {
+        _isDarkTheme = !_isDarkTheme;
+        Editor.Theme = _isDarkTheme ? TextEditorTheme.Dark : TextEditorTheme.Light;
+        ThemeToggle.Content = _isDarkTheme ? "☀ Light" : "🌙 Dark";
     }
 
     private static string BuildSampleText()

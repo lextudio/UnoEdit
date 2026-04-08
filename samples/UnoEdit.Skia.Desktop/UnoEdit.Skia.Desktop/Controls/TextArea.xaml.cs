@@ -32,6 +32,13 @@ public sealed partial class TextArea : UserControl
             typeof(TextArea),
             new PropertyMetadata(0, OnSelectionRangeChanged));
 
+    public static readonly DependencyProperty ThemeProperty =
+        DependencyProperty.Register(
+            nameof(Theme),
+            typeof(TextEditorTheme),
+            typeof(TextArea),
+            new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
+
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
 
@@ -66,10 +73,27 @@ public sealed partial class TextArea : UserControl
         set => SetValue(SelectionEndOffsetProperty, value);
     }
 
+    public TextEditorTheme Theme
+    {
+        get => (TextEditorTheme)GetValue(ThemeProperty);
+        set => SetValue(ThemeProperty, value);
+    }
+
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.Document = args.NewValue as TextDocument;
+    }
+
+    private static void OnThemeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.Theme = (args.NewValue as TextEditorTheme) ?? TextEditorTheme.Dark;
+    }
+
+    public void ScrollToLine(int lineNumber)
+    {
+        PART_TextView.ScrollToLine(lineNumber);
     }
 
     private static void OnCurrentOffsetChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

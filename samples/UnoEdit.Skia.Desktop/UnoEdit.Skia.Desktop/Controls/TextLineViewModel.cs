@@ -18,9 +18,12 @@ public readonly struct TextRun
 
 public sealed class TextLineViewModel
 {
-    // Default foreground color (#E2E8F0)
+    // Default foreground color (#E2E8F0) — used only when no theme is provided (static builds/tests).
     private static readonly Windows.UI.Color DefaultForeground =
         Windows.UI.Color.FromArgb(255, 226, 232, 240);
+
+    // Per-instance default foreground from the active theme.
+    private readonly Windows.UI.Color _defaultForeground;
 
     /// <summary>Tab width in spaces. Must match the rendering constant in <see cref="TextView"/>.</summary>
     public const int TabWidth = 4;
@@ -72,6 +75,7 @@ public sealed class TextLineViewModel
         Thickness selectionMargin,
         double selectionWidth,
         double selectionOpacity,
+        TextEditorTheme theme,
         HighlightedLine? highlightedLine = null)
     {
         Number = number.ToString();
@@ -82,7 +86,12 @@ public sealed class TextLineViewModel
         SelectionMargin = selectionMargin;
         SelectionWidth = selectionWidth;
         SelectionOpacity = selectionOpacity;
-        Runs = BuildRuns(text, highlightedLine);
+        LineHighlightBrush  = new SolidColorBrush(theme.LineHighlight);
+        SelectionBrush      = new SolidColorBrush(theme.SelectionColor);
+        CaretBrush          = new SolidColorBrush(theme.CaretColor);
+        GutterForegroundBrush = new SolidColorBrush(theme.GutterForeground);
+        _defaultForeground  = theme.DefaultForeground;
+        Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground);
     }
 
     public string Number { get; }
@@ -101,16 +110,21 @@ public sealed class TextLineViewModel
 
     public double SelectionOpacity { get; }
 
+    public SolidColorBrush LineHighlightBrush   { get; }
+    public SolidColorBrush SelectionBrush       { get; }
+    public SolidColorBrush CaretBrush           { get; }
+    public SolidColorBrush GutterForegroundBrush { get; }
+
     /// <summary>Pre-computed color runs for syntax-highlighted rendering.</summary>
     public IReadOnlyList<TextRun> Runs { get; }
 
-    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line)
+    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground)
     {
         // Expand tabs to spaces so the visual width matches the column math in TextView.
         string expanded = ExpandTabs(text);
 
         if (line == null || line.Sections.Count == 0 || expanded.Length == 0)
-            return new[] { new TextRun(expanded, DefaultForeground) };
+            return new[] { new TextRun(expanded, defaultForeground) };
 
         int lineStart = line.DocumentLine.Offset;
         // Map from logical offsets to per-expanded-character color, handling tab expansion.
@@ -154,9 +168,9 @@ public sealed class TextLineViewModel
         int pos = 0;
         while (pos < visualLen)
         {
-            var c = colors[pos] ?? DefaultForeground;
+            var c = colors[pos] ?? defaultForeground;
             int end = pos + 1;
-            while (end < visualLen && (colors[end] ?? DefaultForeground) == c)
+            while (end < visualLen && (colors[end] ?? defaultForeground) == c)
                 end++;
             runs.Add(new TextRun(expanded.Substring(pos, end - pos), c));
             pos = end;

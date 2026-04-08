@@ -16,6 +16,9 @@
     <Compile Include="Compatibility\SystemWindowsCompatibility.cs" />
     <Compile Include="Compatibility\WeakEventManagerBase.cs" />
     <Compile Include="Compatibility\XmlExtensionMethods.cs" />
+    <Compile Include="Rendering\ReferenceSegment.cs" />
+    <Compile Include="Rendering\IReferenceSegmentSource.cs" />
+    <Compile Include="Rendering\TabColumnHelper.cs" />
 
     <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\*.cs"
              Exclude="..\..\..\avalonedit\ICSharpCode.AvalonEdit\Document\TextUtilities.cs">

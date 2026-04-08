@@ -1,4 +1,5 @@
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Rendering;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -44,8 +45,9 @@ public sealed partial class TextEditor : UserControl
     public TextEditor()
     {
         this.InitializeComponent();
-        PART_TextArea.CaretOffsetChanged += OnTextAreaCaretOffsetChanged;
-        PART_TextArea.SelectionChanged += OnTextAreaSelectionChanged;
+        PART_TextArea.CaretOffsetChanged  += OnTextAreaCaretOffsetChanged;
+        PART_TextArea.SelectionChanged    += OnTextAreaSelectionChanged;
+        PART_TextArea.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
         ApplyThemeToChrome();
     }
 
@@ -78,6 +80,15 @@ public sealed partial class TextEditor : UserControl
         get => (TextEditorTheme)GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
     }
+
+    public IReferenceSegmentSource? ReferenceSegmentSource
+    {
+        get => PART_TextArea.ReferenceSegmentSource;
+        set => PART_TextArea.ReferenceSegmentSource = value;
+    }
+
+    /// <summary>Raised when the user Ctrl+Clicks a reference segment.</summary>
+    public event EventHandler<ReferenceSegment>? NavigationRequested;
 
     /// <summary>Scroll the editor viewport so the given 1-based line number is visible.</summary>
     public void ScrollToLine(int lineNumber)

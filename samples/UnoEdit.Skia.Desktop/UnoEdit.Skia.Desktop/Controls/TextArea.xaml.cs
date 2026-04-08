@@ -1,4 +1,5 @@
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Rendering;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -41,12 +42,14 @@ public sealed partial class TextArea : UserControl
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
+    public event EventHandler<ReferenceSegment>? NavigationRequested;
 
     public TextArea()
     {
         this.InitializeComponent();
-        PART_TextView.CaretOffsetChanged += OnTextViewCaretOffsetChanged;
-        PART_TextView.SelectionChanged += OnTextViewSelectionChanged;
+        PART_TextView.CaretOffsetChanged  += OnTextViewCaretOffsetChanged;
+        PART_TextView.SelectionChanged    += OnTextViewSelectionChanged;
+        PART_TextView.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
     }
 
     public TextDocument? Document
@@ -77,6 +80,12 @@ public sealed partial class TextArea : UserControl
     {
         get => (TextEditorTheme)GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
+    }
+
+    public IReferenceSegmentSource? ReferenceSegmentSource
+    {
+        get => PART_TextView.ReferenceSegmentSource;
+        set => PART_TextView.ReferenceSegmentSource = value;
     }
 
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

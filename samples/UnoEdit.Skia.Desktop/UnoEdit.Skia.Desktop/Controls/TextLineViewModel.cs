@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Rendering;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -25,8 +26,8 @@ public sealed class TextLineViewModel
     // Per-instance default foreground from the active theme.
     private readonly Windows.UI.Color _defaultForeground;
 
-    /// <summary>Tab width in spaces. Must match the rendering constant in <see cref="TextView"/>.</summary>
-    public const int TabWidth = 4;
+    /// <summary>Tab width in spaces. Must match <see cref="ICSharpCode.AvalonEdit.Rendering.TabColumnHelper.TabWidth"/>.</summary>
+    public const int TabWidth = ICSharpCode.AvalonEdit.Rendering.TabColumnHelper.TabWidth;
 
     /// <summary>
     /// Compute the visual (display) column for a given logical column in a line's text,
@@ -34,37 +35,14 @@ public sealed class TextLineViewModel
     /// Columns are 0-based here (unlike AvalonEdit's 1-based TextLocation).
     /// </summary>
     public static int LogicalToVisualColumn(string text, int logicalColumn)
-    {
-        int visual = 0;
-        for (int i = 0; i < logicalColumn && i < text.Length; i++)
-        {
-            if (text[i] == '\t')
-                visual = ((visual / TabWidth) + 1) * TabWidth;
-            else
-                visual++;
-        }
-        return visual;
-    }
+        => ICSharpCode.AvalonEdit.Rendering.TabColumnHelper.LogicalToVisualColumn(text, logicalColumn);
 
     /// <summary>
     /// Compute the logical column for a given visual (pixel-column) position in a line.
     /// Returns the 0-based logical column index closest to the given visual column.
     /// </summary>
     public static int VisualToLogicalColumn(string text, int visualColumn)
-    {
-        int visual = 0;
-        for (int i = 0; i < text.Length; i++)
-        {
-            int nextVisual = text[i] == '\t'
-                ? ((visual / TabWidth) + 1) * TabWidth
-                : visual + 1;
-            // Snap to nearest boundary
-            if (visualColumn <= (visual + nextVisual) / 2)
-                return i;
-            visual = nextVisual;
-        }
-        return text.Length;
-    }
+        => ICSharpCode.AvalonEdit.Rendering.TabColumnHelper.VisualToLogicalColumn(text, visualColumn);
 
     public TextLineViewModel(
         int number,
@@ -76,7 +54,8 @@ public sealed class TextLineViewModel
         double selectionWidth,
         double selectionOpacity,
         TextEditorTheme theme,
-        HighlightedLine? highlightedLine = null)
+        HighlightedLine? highlightedLine = null,
+        IReadOnlyList<ReferenceSegment>? referenceSegments = null)
     {
         Number = number.ToString();
         Text = text;
@@ -86,11 +65,12 @@ public sealed class TextLineViewModel
         SelectionMargin = selectionMargin;
         SelectionWidth = selectionWidth;
         SelectionOpacity = selectionOpacity;
-        LineHighlightBrush  = new SolidColorBrush(theme.LineHighlight);
-        SelectionBrush      = new SolidColorBrush(theme.SelectionColor);
-        CaretBrush          = new SolidColorBrush(theme.CaretColor);
+        LineHighlightBrush   = new SolidColorBrush(theme.LineHighlight);
+        SelectionBrush       = new SolidColorBrush(theme.SelectionColor);
+        CaretBrush           = new SolidColorBrush(theme.CaretColor);
         GutterForegroundBrush = new SolidColorBrush(theme.GutterForeground);
-        _defaultForeground  = theme.DefaultForeground;
+        _defaultForeground   = theme.DefaultForeground;
+        ReferenceSegments    = referenceSegments ?? System.Array.Empty<ReferenceSegment>();
         Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground);
     }
 
@@ -114,6 +94,9 @@ public sealed class TextLineViewModel
     public SolidColorBrush SelectionBrush       { get; }
     public SolidColorBrush CaretBrush           { get; }
     public SolidColorBrush GutterForegroundBrush { get; }
+
+    /// <summary>Reference segments that fall within this line (for underline rendering).</summary>
+    public IReadOnlyList<ReferenceSegment> ReferenceSegments { get; }
 
     /// <summary>Pre-computed color runs for syntax-highlighted rendering.</summary>
     public IReadOnlyList<TextRun> Runs { get; }

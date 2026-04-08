@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
 using System.Windows.Documents;
@@ -44,6 +45,13 @@ public sealed partial class TextView : UserControl
             typeof(TextEditorTheme),
             typeof(TextView),
             new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
+
+    public static readonly DependencyProperty ReferenceSegmentSourceProperty =
+        DependencyProperty.Register(
+            nameof(ReferenceSegmentSource),
+            typeof(IReferenceSegmentSource),
+            typeof(TextView),
+            new PropertyMetadata(null, (d, _) => ((TextView)d).RefreshViewport()));
 
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
     private const double LineHeight = 22d;
@@ -100,6 +108,15 @@ public sealed partial class TextView : UserControl
         get => (TextEditorTheme)GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
     }
+
+    public IReferenceSegmentSource? ReferenceSegmentSource
+    {
+        get => (IReferenceSegmentSource?)GetValue(ReferenceSegmentSourceProperty);
+        set => SetValue(ReferenceSegmentSourceProperty, value);
+    }
+
+    /// <summary>Raised when a reference segment is Ctrl+Clicked. The event arg carries the segment.</summary>
+    public event EventHandler<ReferenceSegment>? NavigationRequested;
 
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
@@ -215,6 +232,20 @@ public sealed partial class TextView : UserControl
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
         int targetOffset = GetOffsetFromViewPoint(point.X, point.Y);
         bool extendSelection = IsShiftPressed();
+        bool ctrlClick = IsControlPressed();
+
+        // Ctrl+Click on a reference segment — fire navigation and do not start selection.
+        if (ctrlClick && ReferenceSegmentSource is { } src)
+        {
+            var seg = src.GetSegments(targetOffset, targetOffset + 1)
+                        .FirstOrDefault(s => s.Contains(targetOffset));
+            if (seg is not null)
+            {
+                NavigationRequested?.Invoke(this, seg);
+                e.Handled = true;
+                return;
+            }
+        }
 
         _isPointerSelecting = true;
         CapturePointer(e.Pointer);
@@ -725,6 +756,34 @@ public sealed partial class TextView : UserControl
             HighlightedLine? highlightedLine = null;
             try { highlightedLine = _highlighter?.HighlightLine(lineNumber); } catch { /* ignore errors during highlighting */ }
 
+            // Collect reference segments for this line, converted to line-relative visual-column offsets
+            // so HighlightedTextBlock can compare them against visual run positions directly.
+            System.Collections.Generic.IReadOnlyList<ReferenceSegment>? lineRefs = null;
+            if (ReferenceSegmentSource is { } refSrc)
+            {
+                var segs = refSrc.GetSegments(line.Offset, line.EndOffset);
+                if (segs.Count > 0)
+                {
+                    var converted = new System.Collections.Generic.List<ReferenceSegment>(segs.Count);
+                    foreach (var seg in segs)
+                    {
+                        // Clip to line boundaries, then convert to visual column range.
+                        int logStart = Math.Max(0, seg.StartOffset - line.Offset);
+                        int logEnd   = Math.Min(lineText.Length, seg.EndOffset - line.Offset);
+                        int visStart = TextLineViewModel.LogicalToVisualColumn(lineText, logStart);
+                        int visEnd   = TextLineViewModel.LogicalToVisualColumn(lineText, logEnd);
+                        converted.Add(new ReferenceSegment
+                        {
+                            StartOffset = visStart,
+                            EndOffset   = visEnd,
+                            Reference   = seg.Reference,
+                            IsLocal     = seg.IsLocal,
+                        });
+                    }
+                    lineRefs = converted;
+                }
+            }
+
             _lines.Add(new TextLineViewModel(
                 line.LineNumber,
                 lineText.Length == 0 ? " " : lineText,
@@ -735,7 +794,8 @@ public sealed partial class TextView : UserControl
                 selectionWidth,
                 selectionOpacity,
                 Theme,
-                highlightedLine));
+                highlightedLine,
+                lineRefs));
         }
 
         TopSpacer.Height = (firstVisibleLine - 1) * LineHeight;

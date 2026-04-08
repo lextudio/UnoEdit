@@ -195,6 +195,16 @@ public sealed partial class TextView : UserControl
             return;
         }
 
+        // Safety net: if pointer capture was lost without PointerReleased firing
+        // (can happen in Uno Platform Skia on focus change or window deactivation),
+        // cancel the drag rather than leaving selection stuck in drag mode.
+        if (!e.GetCurrentPoint(null).Properties.IsLeftButtonPressed)
+        {
+            _isPointerSelecting = false;
+            ReleasePointerCapture(e.Pointer);
+            return;
+        }
+
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
         int targetOffset = GetOffsetFromViewPoint(point.X, point.Y);
 

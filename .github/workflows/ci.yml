@@ -58,7 +58,7 @@ jobs:
           xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' \
             dotnet "samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/bin/Release/net10.0-desktop/UnoEdit.Skia.Desktop.dll"
         env:
-          UNO_RUNTIME_TESTS_RUN_TESTS: '{}'
+          UNO_RUNTIME_TESTS_RUN_TESTS: 'true'
           UNO_RUNTIME_TESTS_OUTPUT_PATH: ${{ github.workspace }}/test-results/runtime-tests.xml
         working-directory: ${{ github.workspace }}
         timeout-minutes: 5

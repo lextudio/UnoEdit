@@ -82,6 +82,9 @@ public sealed partial class TextArea : UserControl
         set => SetValue(ThemeProperty, value);
     }
 
+    /// <summary>Provides access to the inner TextView for testing and advanced scenarios.</summary>
+    public TextView TextView => PART_TextView;
+
     public IReferenceSegmentSource? ReferenceSegmentSource
     {
         get => PART_TextView.ReferenceSegmentSource;

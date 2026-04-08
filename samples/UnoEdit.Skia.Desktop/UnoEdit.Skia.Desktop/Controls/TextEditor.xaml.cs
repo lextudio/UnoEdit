@@ -81,6 +81,9 @@ public sealed partial class TextEditor : UserControl
         set => SetValue(ThemeProperty, value);
     }
 
+    /// <summary>Provides access to the inner TextArea for testing and advanced scenarios.</summary>
+    public TextArea TextArea => PART_TextArea;
+
     public IReferenceSegmentSource? ReferenceSegmentSource
     {
         get => PART_TextArea.ReferenceSegmentSource;

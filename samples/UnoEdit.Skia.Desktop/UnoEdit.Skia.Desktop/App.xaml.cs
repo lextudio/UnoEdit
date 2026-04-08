@@ -1,6 +1,9 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
+using System.IO;
 
 namespace UnoEdit.Skia.Desktop;
 
@@ -42,11 +45,79 @@ public partial class App : Application
         {
             // When UNO_RUNTIME_TESTS_RUN_TESTS is set (CI headless mode), navigate to
             // the runtime-tests host page so the engine can discover and run tests.
-            bool runTests = !string.IsNullOrEmpty(
-                System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS"));
+            var runTestsEnv = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS");
+            // Normalize "1" / "yes" / any non-JSON non-bool truthy value so the engine doesn't
+            // treat it as a test-name filter.  The engine only clears the value when it parses
+            // as boolean "true"; any other non-JSON string becomes a filter expression.
+            if (!string.IsNullOrEmpty(runTestsEnv)
+                && !runTestsEnv.TrimStart().StartsWith('{')
+                && !bool.TryParse(runTestsEnv, out _))
+            {
+                System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS", "true");
+                runTestsEnv = "true";
+            }
+            bool runTests = !string.IsNullOrEmpty(runTestsEnv) && runTestsEnv != "false" && runTestsEnv != "0";
 
             if (runTests)
+            {
+                // Diagnostic: report whether test attributes are present on types
+                try
+                {
+                    var entryAsm = typeof(App).GetTypeInfo().Assembly;
+                    Console.WriteLine($"[RuntimeTests-Diag] Entry assembly: {entryAsm.GetName().Name}");
+                    var allTypes = entryAsm.GetTypes();
+                    var classesWithTestClass = allTypes.Count(t => t.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestClass")));
+                    var methodsWithTestMethod = allTypes.Sum(t => t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).Count(m => m.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestMethod"))));
+                    Console.WriteLine($"[RuntimeTests-Diag] Types={allTypes.Length}, ClassesWithTestClass={classesWithTestClass}, MethodsWithTestMethod={methodsWithTestMethod}");
+
+                    var loaded = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name + "@" + (a.GetName().Version?.ToString() ?? "n/a"));
+                    Console.WriteLine("[RuntimeTests-Diag] LoadedAssemblies: " + string.Join(", ", loaded));
+
+                        // Show the TestMethodAttribute type that UnitTestsControl would use
+                        try
+                        {
+                            var tmType = typeof(Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute);
+                            Console.WriteLine($"[RuntimeTests-Diag] TMAttr Type: {tmType.FullName} from {tmType.Assembly.FullName}");
+
+                            var sampleTestType = allTypes.FirstOrDefault(t => t.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestClass")));
+                            if (sampleTestType is not null)
+                            {
+                                var m = sampleTestType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                                    .FirstOrDefault(m2 => m2.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestMethod")));
+                                if (m is not null)
+                                {
+                                    foreach (var a in m.GetCustomAttributes(false))
+                                    {
+                                        Console.WriteLine($"[RuntimeTests-Diag] MethodAttr: {a.GetType().FullName} from {a.GetType().Assembly.FullName}");
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[RuntimeTests-Diag] Failed to inspect TestMethodAttribute types: {ex}");
+                        }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RuntimeTests-Diag] Failed to inspect assembly: {ex}");
+                }
+
+                // Ensure the runtime-tests engine has an output destination.
+                // The engine aborts if `UNO_RUNTIME_TESTS_OUTPUT_PATH` is not set,
+                // so provide a sensible default inside the app output folder.
+                var outputPath = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH");
+                if (string.IsNullOrEmpty(outputPath))
+                {
+                    var dir = Path.Combine(AppContext.BaseDirectory, "test-results");
+                    Directory.CreateDirectory(dir);
+                    outputPath = Path.Combine(dir, "runtime-tests.xml");
+                    System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH", outputPath);
+                    Console.WriteLine($"[RuntimeTests] UNO_RUNTIME_TESTS_OUTPUT_PATH not set; using '{outputPath}'");
+                }
+
                 rootFrame.Navigate(typeof(RuntimeTestsPage), args.Arguments);
+            }
             else
                 rootFrame.Navigate(typeof(MainPage), args.Arguments);
         }

@@ -8,8 +8,8 @@
   <ItemGroup>
     <!-- Uno RuntimeTests engine (source package — embeds headless MSTest runner) -->
     <PackageVersion Include="Uno.UI.RuntimeTests.Engine" Version="2.0.0-dev.75" />
-    <!-- MSTest 3.x required: RuntimeTests.Engine source uses ExpectedExceptionAttribute
-         which was removed in MSTest 4.0. Use latest 3.x (still has the attribute). -->
-    <PackageVersion Include="MSTest.TestFramework" Version="3.11.1" />
+        <!-- Align MSTest version with Uno.UI.RuntimeTests.Engine to ensure test attributes
+          have the same runtime identity for discovery. -->
+        <PackageVersion Include="MSTest.TestFramework" Version="2.1.2" />
   </ItemGroup>
 </Project>

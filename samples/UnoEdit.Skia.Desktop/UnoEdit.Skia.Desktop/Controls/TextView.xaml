@@ -60,15 +60,14 @@
                     <ColumnDefinition Width="16" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="{Binding Number}"
-                             FontFamily="Consolas"
+                             FontSize="13"
                              HorizontalTextAlignment="Right"
                              Foreground="{Binding GutterForegroundBrush}"
                              Padding="0,0,2,0"
                              VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1"
+                  <TextBlock Grid.Column="1"
                              Text="{Binding FoldMarkerGlyph}"
-                             FontFamily="Consolas"
-                             FontSize="11"
+                             FontSize="10"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center"
                              Foreground="{Binding GutterForegroundBrush}"
@@ -80,6 +79,7 @@
                 <!-- Text column -->
                 <local:HighlightedTextBlock Grid.Column="1"
                                             ViewModel="{Binding}"
+                                            FontSize="13"
                                             VerticalAlignment="Center" />
 
                 <!-- Selection highlight -->

@@ -2,7 +2,6 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <TextBlock x:Name="PART_Text"
-             FontFamily="Consolas"
              TextWrapping="NoWrap"
              VerticalAlignment="Center" />
 </UserControl>

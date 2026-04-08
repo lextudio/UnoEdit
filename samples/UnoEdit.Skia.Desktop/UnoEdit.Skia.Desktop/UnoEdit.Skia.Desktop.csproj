@@ -40,4 +40,15 @@
     <PackageReference Include="MSTest.TestFramework" />
   </ItemGroup>
 
+  <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
+    <UnoEditMacInputSource>$(MSBuildProjectDirectory)/Platforms/MacOS/Native/UnoEditMacInput.mm</UnoEditMacInputSource>
+  </PropertyGroup>
+
+  <Target Name="BuildUnoEditMacInputBridge"
+          AfterTargets="Build"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(UnoEditMacInputSource)')">
+            <Message Importance="high" Text="Building native macOS IME bridge: $(TargetDir)libUnoEditMacInput.dylib" />
+            <Exec Command="xcrun clang++ -dynamiclib -fobjc-arc -framework AppKit -framework Foundation -o &quot;$(TargetDir)libUnoEditMacInput.dylib&quot; &quot;$(UnoEditMacInputSource)&quot;" />
+  </Target>
+
 </Project>

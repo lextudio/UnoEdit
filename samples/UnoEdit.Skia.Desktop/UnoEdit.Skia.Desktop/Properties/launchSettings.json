@@ -12,6 +12,21 @@
       "commandName": "Project",
       "compatibleTargetFramework": "desktop"
     },
+    "UnoEdit.Skia.Desktop (Desktop IME)": {
+      "commandName": "Project",
+      "compatibleTargetFramework": "desktop",
+      "environmentVariables": {
+        "UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME": "1"
+      }
+    },
+    "UnoEdit.Skia.Desktop (Desktop IME Debug)": {
+      "commandName": "Project",
+      "compatibleTargetFramework": "desktop",
+      "environmentVariables": {
+        "UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME": "1",
+        "UNOEDIT_DEBUG_MACOS_IME": "1"
+      }
+    },
     "UnoEdit.Skia.Desktop (Desktop WSL2)": {
       "commandName": "WSL2",
       "commandLineArgs": "{ProjectDir}/bin/Debug/net10.0-desktop/UnoEdit.Skia.Desktop.dll",

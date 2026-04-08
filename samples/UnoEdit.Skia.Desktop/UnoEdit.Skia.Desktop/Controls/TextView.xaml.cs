@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using System.Windows.Documents;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -63,8 +64,12 @@ public sealed partial class TextView : UserControl
             new PropertyMetadata(null, OnFoldingManagerChanged));
 
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
+    private readonly TextBlock _measurementProbe = new()
+    {
+        TextWrapping = TextWrapping.NoWrap,
+    };
     private const double LineHeight = 22d;
-    private const double CharacterWidth = 8.4d;
+    private const double DefaultCharacterWidth = 7.8d;
     private const double TextLeftPadding = 0d;
     private const double GutterWidth = 72d;
     private const int OverscanLineCount = 4;
@@ -75,18 +80,26 @@ public sealed partial class TextView : UserControl
     private int _desiredColumn = 1;
     private int _selectionAnchorOffset;
     private bool _isPointerSelecting;
+    private double _characterWidth = DefaultCharacterWidth;
     private List<int> _visibleDocLines = new();
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
 
+    private double CharacterWidth => _characterWidth;
+
     public TextView()
     {
         this.InitializeComponent();
+        FontFamily = EditorTextMetrics.CreateFontFamily();
+        FontSize = EditorTextMetrics.FontSize;
+        _measurementProbe.FontFamily = EditorTextMetrics.CreateFontFamily();
+        _measurementProbe.FontSize = EditorTextMetrics.FontSize;
         LinesItemsControl.ItemsSource = _lines;
         Loaded += OnLoaded;
         SizeChanged += OnSizeChanged;
         ApplyThemeToChrome();
+        InitializePlatformInputBridge();
     }
 
     public TextDocument? Document
@@ -243,17 +256,106 @@ public sealed partial class TextView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        UpdateTextMetrics();
         RefreshViewport();
+        UpdatePlatformInputBridge();
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         RefreshViewport();
+        UpdatePlatformInputBridge();
+    }
+
+    private void UpdateTextMetrics()
+    {
+        double measuredCharacterWidth = MeasureCharacterWidth();
+        if (measuredCharacterWidth > 0)
+        {
+            _characterWidth = measuredCharacterWidth;
+        }
+    }
+
+    private static double MeasureCharacterWidth()
+    {
+        const int sampleLength = 32;
+        string sampleText = new('0', sampleLength);
+        var probe = new TextBlock
+        {
+            Text = sampleText,
+            FontFamily = EditorTextMetrics.CreateFontFamily(),
+            FontSize = EditorTextMetrics.FontSize,
+            TextWrapping = TextWrapping.NoWrap,
+        };
+
+        probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double width = probe.DesiredSize.Width;
+        return width > 0 ? width / sampleLength : DefaultCharacterWidth;
+    }
+
+    private double GetDisplayColumnX(string lineText, int logicalColumn)
+    {
+        int clampedLogicalColumn = Math.Clamp(logicalColumn, 0, lineText.Length);
+        if (clampedLogicalColumn == 0)
+        {
+            return 0d;
+        }
+
+        string prefix = TextLineViewModel.ExpandTabs(lineText[..clampedLogicalColumn]);
+        return MeasureDisplayTextWidth(prefix);
+    }
+
+    private double MeasureDisplayTextWidth(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return 0d;
+        }
+
+        _measurementProbe.Text = text;
+        _measurementProbe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return _measurementProbe.DesiredSize.Width;
+    }
+
+    private int GetLogicalColumnFromDisplayX(string lineText, double documentX)
+    {
+        if (string.IsNullOrEmpty(lineText) || documentX <= 0)
+        {
+            return 0;
+        }
+
+        int low = 0;
+        int high = lineText.Length;
+        while (low < high)
+        {
+            int mid = (low + high + 1) / 2;
+            if (GetDisplayColumnX(lineText, mid) <= documentX)
+            {
+                low = mid;
+            }
+            else
+            {
+                high = mid - 1;
+            }
+        }
+
+        if (low < lineText.Length)
+        {
+            double left = GetDisplayColumnX(lineText, low);
+            double right = GetDisplayColumnX(lineText, low + 1);
+            if (Math.Abs(documentX - right) < Math.Abs(documentX - left))
+            {
+                return low + 1;
+            }
+        }
+
+        return low;
     }
 
     private void OnScrollViewerViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
     {
         RefreshViewport();
+        UpdatePlatformInputBridge();
     }
 
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -264,6 +366,7 @@ public sealed partial class TextView : UserControl
         }
 
         Focus(FocusState.Programmatic);
+        FocusPlatformInputBridge();
 
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
 
@@ -400,12 +503,18 @@ public sealed partial class TextView : UserControl
 
         bool extendSelection = IsShiftPressed();
         bool controlPressed = IsControlPressed();
-        string? inputText = !controlPressed ? TranslateKeyToText(e.Key, extendSelection) : null;
 
         // Ctrl+M Ctrl+M — toggle fold at caret line (standard editor shortcut).
         if (controlPressed && e.Key == Windows.System.VirtualKey.M)
         {
             e.Handled = ToggleFoldAtCaret();
+            return;
+        }
+
+        if (ShouldDeferToPlatformTextInput(controlPressed))
+        {
+            LogMacIme($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
+            e.Handled = true;
             return;
         }
 
@@ -435,7 +544,7 @@ public sealed partial class TextView : UserControl
             Windows.System.VirtualKey.End when controlPressed => MoveToDocumentBoundary(false, extendSelection),
             Windows.System.VirtualKey.Home => MoveToLineBoundary(true, extendSelection),
             Windows.System.VirtualKey.End => MoveToLineBoundary(false, extendSelection),
-            _ when inputText is not null => InsertText(inputText),
+            _ when !controlPressed => InsertPrintableKey(e.Key, extendSelection),
             _ => false
         };
 
@@ -445,6 +554,60 @@ public sealed partial class TextView : UserControl
         }
 
         e.Handled = handled;
+    }
+
+    private static string? TranslateKeyToText(Windows.System.VirtualKey key, bool shiftPressed)
+    {
+        if (key >= Windows.System.VirtualKey.A && key <= Windows.System.VirtualKey.Z)
+        {
+            int delta = key - Windows.System.VirtualKey.A;
+            char character = (char)('a' + delta);
+            return shiftPressed ? char.ToUpperInvariant(character).ToString() : character.ToString();
+        }
+        if (key >= Windows.System.VirtualKey.Number0 && key <= Windows.System.VirtualKey.Number9)
+        {
+            int delta = key - Windows.System.VirtualKey.Number0;
+            return shiftPressed ? ShiftedDigit(delta) : ((char)('0' + delta)).ToString();
+        }
+        if (key >= Windows.System.VirtualKey.NumberPad0 && key <= Windows.System.VirtualKey.NumberPad9)
+        {
+            int delta = key - Windows.System.VirtualKey.NumberPad0;
+            return ((char)('0' + delta)).ToString();
+        }
+        return key switch
+        {
+            Windows.System.VirtualKey.Space    => " ",
+            Windows.System.VirtualKey.Multiply => "*",
+            Windows.System.VirtualKey.Add      => "+",
+            Windows.System.VirtualKey.Subtract => "-",
+            Windows.System.VirtualKey.Decimal  => ".",
+            Windows.System.VirtualKey.Divide   => "/",
+            (Windows.System.VirtualKey)186 => shiftPressed ? ":" : ";",
+            (Windows.System.VirtualKey)187 => shiftPressed ? "+" : "=",
+            (Windows.System.VirtualKey)188 => shiftPressed ? "<" : ",",
+            (Windows.System.VirtualKey)189 => shiftPressed ? "_" : "-",
+            (Windows.System.VirtualKey)190 => shiftPressed ? ">" : ".",
+            (Windows.System.VirtualKey)191 => shiftPressed ? "?" : "/",
+            (Windows.System.VirtualKey)192 => shiftPressed ? "~" : "`",
+            (Windows.System.VirtualKey)219 => shiftPressed ? "{" : "[",
+            (Windows.System.VirtualKey)220 => shiftPressed ? "|" : "\\",
+            (Windows.System.VirtualKey)221 => shiftPressed ? "}" : "]",
+            (Windows.System.VirtualKey)222 => shiftPressed ? "\"" : "'",
+            _ => null
+        };
+    }
+
+    private static string ShiftedDigit(int digit) => digit switch
+    {
+        0 => ")", 1 => "!", 2 => "@", 3 => "#", 4 => "$",
+        5 => "%", 6 => "^", 7 => "&", 8 => "*", 9 => "(",
+        _ => string.Empty
+    };
+
+    private bool InsertPrintableKey(Windows.System.VirtualKey key, bool shiftPressed)
+    {
+        string? text = TranslateKeyToText(key, shiftPressed);
+        return text is not null && InsertText(text);
     }
 
     private bool MoveHorizontal(int delta, bool extendSelection)
@@ -762,6 +925,7 @@ public sealed partial class TextView : UserControl
         _desiredColumn = _document.GetLocation(CurrentOffset).Column;
         EnsureCaretVisible();
         RefreshViewport();
+        UpdatePlatformInputBridge();
         CaretOffsetChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -851,8 +1015,7 @@ public sealed partial class TextView : UserControl
             bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
             int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
             // Convert logical column to visual column so tab characters are handled correctly.
-            int caretVisualColumn = TextLineViewModel.LogicalToVisualColumn(lineText, caretColumn - 1);
-            double caretLeft = Math.Max(0, caretVisualColumn * CharacterWidth);
+            double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
             double selectionOpacity = 0d;
             double selectionLeft = 0d;
             double selectionWidth = 0d;
@@ -865,10 +1028,10 @@ public sealed partial class TextView : UserControl
                 {
                     int startLogical = lineSelectionStart - line.Offset;
                     int endLogical   = lineSelectionEnd   - line.Offset;
-                    int startVis = TextLineViewModel.LogicalToVisualColumn(lineText, startLogical);
-                    int endVis   = TextLineViewModel.LogicalToVisualColumn(lineText, endLogical);
-                    selectionLeft = Math.Max(0, startVis * CharacterWidth);
-                    selectionWidth = Math.Max(2, (endVis - startVis) * CharacterWidth);
+                    double startX = GetDisplayColumnX(lineText, startLogical);
+                    double endX = GetDisplayColumnX(lineText, endLogical);
+                    selectionLeft = Math.Max(0, startX);
+                    selectionWidth = Math.Max(2, endX - startX);
                     selectionOpacity = 0.45d;
                 }
             }
@@ -1023,10 +1186,8 @@ public sealed partial class TextView : UserControl
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 
         double documentX = x + TextScrollViewer.HorizontalOffset - GutterWidth - TextLeftPadding;
-        int visualColumn = Math.Max(0, (int)(documentX / CharacterWidth));
         string lineText = _document.GetText(documentLine);
-        // Convert visual column (accounting for tabs) back to logical column.
-        int logicalColumn = TextLineViewModel.VisualToLogicalColumn(lineText, visualColumn);
+        int logicalColumn = GetLogicalColumnFromDisplayX(lineText, documentX);
         int targetColumn = Math.Clamp(logicalColumn + 1, 1, documentLine.Length + 1);
         _desiredColumn = targetColumn;
         return _document.GetOffset(targetLine, targetColumn);
@@ -1125,67 +1286,9 @@ public sealed partial class TextView : UserControl
             || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(flags);
     }
 
-    private static string? TranslateKeyToText(Windows.System.VirtualKey key, bool shiftPressed)
-    {
-        if (key >= Windows.System.VirtualKey.A && key <= Windows.System.VirtualKey.Z)
-        {
-            int delta = key - Windows.System.VirtualKey.A;
-            char character = (char)('a' + delta);
-            return shiftPressed ? char.ToUpperInvariant(character).ToString() : character.ToString();
-        }
+    partial void InitializePlatformInputBridge();
+    partial void UpdatePlatformInputBridge();
+    partial void FocusPlatformInputBridge();
+    private partial bool ShouldDeferToPlatformTextInput(bool controlPressed);
 
-        if (key >= Windows.System.VirtualKey.Number0 && key <= Windows.System.VirtualKey.Number9)
-        {
-            int delta = key - Windows.System.VirtualKey.Number0;
-            return shiftPressed ? ShiftedDigit(delta) : ((char)('0' + delta)).ToString();
-        }
-
-        if (key >= Windows.System.VirtualKey.NumberPad0 && key <= Windows.System.VirtualKey.NumberPad9)
-        {
-            int delta = key - Windows.System.VirtualKey.NumberPad0;
-            return ((char)('0' + delta)).ToString();
-        }
-
-        return key switch
-        {
-            Windows.System.VirtualKey.Space => " ",
-            // Multiply (*), Add (+), Subtract (-), Decimal (.), Divide (/)
-            Windows.System.VirtualKey.Multiply => "*",
-            Windows.System.VirtualKey.Add => "+",
-            Windows.System.VirtualKey.Subtract => "-",
-            Windows.System.VirtualKey.Decimal => ".",
-            Windows.System.VirtualKey.Divide => "/",
-            // OEM punctuation keys
-            (Windows.System.VirtualKey)186 => shiftPressed ? ":" : ";",   // Semicolon / Colon
-            (Windows.System.VirtualKey)187 => shiftPressed ? "+" : "=",   // Equal / Plus
-            (Windows.System.VirtualKey)188 => shiftPressed ? "<" : ",",   // Comma / Less-than
-            (Windows.System.VirtualKey)189 => shiftPressed ? "_" : "-",   // Minus / Underscore
-            (Windows.System.VirtualKey)190 => shiftPressed ? ">" : ".",   // Period / Greater-than
-            (Windows.System.VirtualKey)191 => shiftPressed ? "?" : "/",   // Slash / Question
-            (Windows.System.VirtualKey)192 => shiftPressed ? "~" : "`",   // Backtick / Tilde
-            (Windows.System.VirtualKey)219 => shiftPressed ? "{" : "[",   // Open bracket / brace
-            (Windows.System.VirtualKey)220 => shiftPressed ? "|" : "\\",  // Backslash / Pipe
-            (Windows.System.VirtualKey)221 => shiftPressed ? "}" : "]",   // Close bracket / brace
-            (Windows.System.VirtualKey)222 => shiftPressed ? "\"" : "'",  // Quote / Double-quote
-            _ => null
-        };
-    }
-
-    private static string ShiftedDigit(int digit)
-    {
-        return digit switch
-        {
-            0 => ")",
-            1 => "!",
-            2 => "@",
-            3 => "#",
-            4 => "$",
-            5 => "%",
-            6 => "^",
-            7 => "&",
-            8 => "*",
-            9 => "(",
-            _ => string.Empty
-        };
-    }
 }

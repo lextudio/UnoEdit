@@ -14,6 +14,8 @@ public sealed partial class HighlightedTextBlock : UserControl
     public HighlightedTextBlock()
     {
         this.InitializeComponent();
+        PART_Text.FontFamily = EditorTextMetrics.CreateFontFamily();
+        PART_Text.FontSize = EditorTextMetrics.FontSize;
     }
 
     public TextLineViewModel? ViewModel

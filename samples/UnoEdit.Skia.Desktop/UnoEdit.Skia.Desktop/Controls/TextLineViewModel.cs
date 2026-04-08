@@ -183,7 +183,7 @@ public sealed class TextLineViewModel
     }
 
     /// <summary>Expand tab characters to the next multiple-of-<see cref="TabWidth"/> space boundary.</summary>
-    private static string ExpandTabs(string text)
+    internal static string ExpandTabs(string text)
     {
         if (!text.Contains('\t'))
             return text;

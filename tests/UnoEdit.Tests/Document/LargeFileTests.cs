@@ -25,7 +25,7 @@ namespace UnoEdit.Tests.Document
                 sb.Append(i);
                 sb.Append(": public static string Method");
                 sb.Append(i);
-                sb.AppendLine("() => \"hello\";");
+                sb.Append("() => \"hello\";\n");
             }
 
             return new TextDocument(sb.ToString());
@@ -125,7 +125,7 @@ namespace UnoEdit.Tests.Document
             int line = 0;
             while (sb.Length < LargeFileCharCount)
             {
-                sb.AppendLine($"public void Method{line++}() {{ /* body */ }}");
+                sb.Append($"public void Method{line++}() {{ /* body */ }}\n");
             }
 
             string text = sb.ToString();

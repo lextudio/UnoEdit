@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -35,6 +36,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: recursive
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -42,8 +44,9 @@ jobs:
       - name: Install xvfb and mesa (headless Skia)
         run: |
           sudo apt-get update -qq
+          # Install headless dependencies for Skia/GL — prefer commonly available package names.
           sudo apt-get install -y --no-install-recommends \
-            xvfb libgl1-mesa-dri libgles2-mesa
+            xvfb libgl1-mesa-dri libgbm1 mesa-utils libx11-6 libxext6 libxrender1 libxrandr2 libxcursor1 libxi6 libxss1
       - name: Build Skia Desktop app
         run: |
           dotnet build samples/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop/UnoEdit.Skia.Desktop.csproj \
@@ -60,7 +63,7 @@ jobs:
         working-directory: ${{ github.workspace }}
         timeout-minutes: 5
       - name: Publish RuntimeTest results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         if: always()
         with:
           name: RuntimeTests (Skia Desktop)

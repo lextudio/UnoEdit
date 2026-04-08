@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
+using System.Windows.Documents;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -233,14 +234,22 @@ public sealed partial class TextView : UserControl
             Windows.System.VirtualKey.Z when controlPressed && extendSelection => Redo(),
             Windows.System.VirtualKey.Z when controlPressed => Undo(),
             Windows.System.VirtualKey.X when controlPressed => CutSelection(),
+            Windows.System.VirtualKey.Back when controlPressed => DeleteWord(backward: true),
+            Windows.System.VirtualKey.Delete when controlPressed => DeleteWord(backward: false),
             Windows.System.VirtualKey.Back => Backspace(),
             Windows.System.VirtualKey.Delete => Delete(),
             Windows.System.VirtualKey.Enter => InsertText(Environment.NewLine),
             Windows.System.VirtualKey.Tab => InsertText("\t"),
+            Windows.System.VirtualKey.Left when controlPressed => MoveWordBoundary(backward: true, extendSelection),
+            Windows.System.VirtualKey.Right when controlPressed => MoveWordBoundary(backward: false, extendSelection),
             Windows.System.VirtualKey.Left => MoveHorizontal(-1, extendSelection),
             Windows.System.VirtualKey.Right => MoveHorizontal(1, extendSelection),
             Windows.System.VirtualKey.Up => MoveVertical(-1, extendSelection),
             Windows.System.VirtualKey.Down => MoveVertical(1, extendSelection),
+            Windows.System.VirtualKey.PageUp => MovePageVertical(-1, extendSelection),
+            Windows.System.VirtualKey.PageDown => MovePageVertical(1, extendSelection),
+            Windows.System.VirtualKey.Home when controlPressed => MoveToDocumentBoundary(true, extendSelection),
+            Windows.System.VirtualKey.End when controlPressed => MoveToDocumentBoundary(false, extendSelection),
             Windows.System.VirtualKey.Home => MoveToLineBoundary(true, extendSelection),
             Windows.System.VirtualKey.End => MoveToLineBoundary(false, extendSelection),
             _ when inputText is not null => InsertText(inputText),
@@ -295,6 +304,90 @@ public sealed partial class TextView : UserControl
         int targetColumn = moveToStart ? 1 : line.Length + 1;
         int targetOffset = _document.GetOffset(location.Line, targetColumn);
         UpdateCaretAndSelection(targetOffset, extendSelection);
+        return true;
+    }
+
+    private bool MoveToDocumentBoundary(bool moveToStart, bool extendSelection)
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        int targetOffset = moveToStart ? 0 : _document.TextLength;
+        UpdateCaretAndSelection(targetOffset, extendSelection);
+        return true;
+    }
+
+    private bool MovePageVertical(int direction, bool extendSelection)
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        double viewportHeight = TextScrollViewer.ViewportHeight > 0 ? TextScrollViewer.ViewportHeight : ActualHeight;
+        int pageLines = Math.Max(1, (int)(viewportHeight / LineHeight) - 1);
+        TextLocation location = _document.GetLocation(CurrentOffset);
+        int targetLineNumber = ClampLineNumber(location.Line + direction * pageLines);
+        DocumentLine targetLine = _document.GetLineByNumber(targetLineNumber);
+        int targetColumn = ClampColumn(targetLine, _desiredColumn);
+        int targetOffset = _document.GetOffset(targetLineNumber, targetColumn);
+        UpdateCaretAndSelection(targetOffset, extendSelection);
+        return true;
+    }
+
+    private bool MoveWordBoundary(bool backward, bool extendSelection)
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        LogicalDirection dir = backward ? LogicalDirection.Backward : LogicalDirection.Forward;
+        int nextOffset = TextUtilities.GetNextCaretPosition(_document, CurrentOffset, dir, CaretPositioningMode.WordStartOrSymbol);
+        if (nextOffset < 0)
+        {
+            nextOffset = backward ? 0 : _document.TextLength;
+        }
+
+        UpdateCaretAndSelection(nextOffset, extendSelection);
+        return true;
+    }
+
+    private bool DeleteWord(bool backward)
+    {
+        if (_document is null)
+        {
+            return false;
+        }
+
+        if (HasSelection())
+        {
+            DeleteSelectedText();
+            return true;
+        }
+
+        LogicalDirection dir = backward ? LogicalDirection.Backward : LogicalDirection.Forward;
+        int boundary = TextUtilities.GetNextCaretPosition(_document, CurrentOffset, dir, CaretPositioningMode.WordStartOrSymbol);
+        if (boundary < 0)
+        {
+            boundary = backward ? 0 : _document.TextLength;
+        }
+
+        int startOffset = backward ? boundary : CurrentOffset;
+        int length = Math.Abs(boundary - CurrentOffset);
+        if (length == 0)
+        {
+            return false;
+        }
+
+        using (_document.RunUpdate())
+        {
+            _document.Remove(startOffset, length);
+        }
+
+        CollapseSelection(startOffset);
         return true;
     }
 
@@ -709,9 +802,33 @@ public sealed partial class TextView : UserControl
             return shiftPressed ? ShiftedDigit(delta) : ((char)('0' + delta)).ToString();
         }
 
+        if (key >= Windows.System.VirtualKey.NumberPad0 && key <= Windows.System.VirtualKey.NumberPad9)
+        {
+            int delta = key - Windows.System.VirtualKey.NumberPad0;
+            return ((char)('0' + delta)).ToString();
+        }
+
         return key switch
         {
             Windows.System.VirtualKey.Space => " ",
+            // Multiply (*), Add (+), Subtract (-), Decimal (.), Divide (/)
+            Windows.System.VirtualKey.Multiply => "*",
+            Windows.System.VirtualKey.Add => "+",
+            Windows.System.VirtualKey.Subtract => "-",
+            Windows.System.VirtualKey.Decimal => ".",
+            Windows.System.VirtualKey.Divide => "/",
+            // OEM punctuation keys
+            (Windows.System.VirtualKey)186 => shiftPressed ? ":" : ";",   // Semicolon / Colon
+            (Windows.System.VirtualKey)187 => shiftPressed ? "+" : "=",   // Equal / Plus
+            (Windows.System.VirtualKey)188 => shiftPressed ? "<" : ",",   // Comma / Less-than
+            (Windows.System.VirtualKey)189 => shiftPressed ? "_" : "-",   // Minus / Underscore
+            (Windows.System.VirtualKey)190 => shiftPressed ? ">" : ".",   // Period / Greater-than
+            (Windows.System.VirtualKey)191 => shiftPressed ? "?" : "/",   // Slash / Question
+            (Windows.System.VirtualKey)192 => shiftPressed ? "~" : "`",   // Backtick / Tilde
+            (Windows.System.VirtualKey)219 => shiftPressed ? "{" : "[",   // Open bracket / brace
+            (Windows.System.VirtualKey)220 => shiftPressed ? "|" : "\\",  // Backslash / Pipe
+            (Windows.System.VirtualKey)221 => shiftPressed ? "}" : "]",   // Close bracket / brace
+            (Windows.System.VirtualKey)222 => shiftPressed ? "\"" : "'",  // Quote / Double-quote
             _ => null
         };
     }
@@ -733,43 +850,4 @@ public sealed partial class TextView : UserControl
             _ => string.Empty
         };
     }
-}
-
-public sealed class TextLineViewModel
-{
-    public TextLineViewModel(
-        int number,
-        string text,
-        double caretOpacity,
-        double highlightOpacity,
-        Thickness caretMargin,
-        Thickness selectionMargin,
-        double selectionWidth,
-        double selectionOpacity)
-    {
-        Number = number.ToString();
-        Text = text;
-        CaretOpacity = caretOpacity;
-        HighlightOpacity = highlightOpacity;
-        CaretMargin = caretMargin;
-        SelectionMargin = selectionMargin;
-        SelectionWidth = selectionWidth;
-        SelectionOpacity = selectionOpacity;
-    }
-
-    public string Number { get; }
-
-    public string Text { get; }
-
-    public double CaretOpacity { get; }
-
-    public double HighlightOpacity { get; }
-
-    public Thickness CaretMargin { get; }
-
-    public Thickness SelectionMargin { get; }
-
-    public double SelectionWidth { get; }
-
-    public double SelectionOpacity { get; }
 }

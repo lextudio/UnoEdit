@@ -27,5 +27,6 @@
     <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\CaretNavigationTests.cs" Link="Utils\CaretNavigationTests.cs" />
     <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\CompressingTreeListTests.cs" Link="Utils\CompressingTreeListTests.cs" />
     <Compile Include="..\..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\RopeTests.cs" Link="Utils\RopeTests.cs" />
+    <Compile Include="Document\LargeFileTests.cs" />
   </ItemGroup>
 </Project>

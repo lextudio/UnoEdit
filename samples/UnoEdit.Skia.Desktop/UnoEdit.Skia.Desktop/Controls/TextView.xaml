@@ -1,73 +1,95 @@
 <UserControl x:Class="UnoEdit.Skia.Desktop.Controls.TextView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="using:UnoEdit.Skia.Desktop.Controls">
-  <Grid Background="Transparent"
-        IsTabStop="True"
-        KeyDown="OnRootKeyDown"
-        PointerPressed="OnRootPointerPressed"
-        PointerMoved="OnRootPointerMoved"
-        PointerReleased="OnRootPointerReleased">
+             xmlns:local="using:UnoEdit.Skia.Desktop.Controls"
+             KeyDown="OnRootKeyDown">
+  <!--
+    Background="#01000000" = nearly transparent but still hit-testable in Uno Skia.
+    Pure Transparent receives no pointer events in Skia renderer.
+    Keyboard events go to the UserControl itself (Control subclass = focusable).
+  -->
+  <Border Background="#01000000"
+          IsTabStop="True"
+          PointerPressed="OnRootPointerPressed"
+          PointerMoved="OnRootPointerMoved"
+          PointerReleased="OnRootPointerReleased">
     <ScrollViewer x:Name="TextScrollViewer"
                   HorizontalScrollBarVisibility="Auto"
                   VerticalScrollBarVisibility="Auto"
                   ViewChanged="OnScrollViewerViewChanged">
       <StackPanel x:Name="ContentStackPanel"
                   VerticalAlignment="Top">
-      <Border x:Name="TopSpacer" Height="0" />
+        <Border x:Name="TopSpacer" Height="0" />
 
-      <ItemsControl x:Name="LinesItemsControl">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="local:TextLineViewModel">
-            <Grid Height="22"
-                  ColumnSpacing="16">
-              <Border Grid.ColumnSpan="2"
-                      Background="#162033"
-                      Opacity="{Binding HighlightOpacity}" />
+        <ItemsControl x:Name="LinesItemsControl">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <!--
+              x:DataType is intentionally omitted: all bindings below use classic {Binding}
+              (reflection-based), which is more reliable in Uno Platform Skia than compiled
+              x:Bind. Adding x:DataType here would trigger compiled-binding code generation
+              against a type that was previously co-located in the code-behind, causing
+              silent binding failures in the Skia renderer.
+            -->
+            <DataTemplate>
+              <Grid Height="22"
+                    ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="56" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="56" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
+                <!-- Line highlight (current-line background) -->
+                <Border Grid.ColumnSpan="2"
+                        Background="#162033"
+                        Opacity="{Binding HighlightOpacity}" />
 
-              <TextBlock Text="{Binding Number}"
-                         FontFamily="Consolas"
-                         HorizontalTextAlignment="Right"
-                         Foreground="#64748B"
-                         Padding="12,0,0,0"
-                         VerticalAlignment="Center" />
+                <!-- Gutter: line number -->
+                <TextBlock Text="{Binding Number}"
+                           FontFamily="Consolas"
+                           HorizontalTextAlignment="Right"
+                           Foreground="#64748B"
+                           Padding="12,0,0,0"
+                           VerticalAlignment="Center" />
 
-              <TextBlock Grid.Column="1"
-                         Text="{Binding Text}"
-                         FontFamily="Consolas"
-                         Foreground="#E2E8F0"
-                         TextWrapping="NoWrap"
-                         VerticalAlignment="Center" />
+                <!-- Text column -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding Text}"
+                           FontFamily="Consolas"
+                           Foreground="#E2E8F0"
+                           TextWrapping="NoWrap"
+                           VerticalAlignment="Center" />
 
-              <Border Grid.Column="1"
-                      Height="16"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Center"
-                      Background="#2563EB"
-                      Margin="{Binding SelectionMargin}"
-                      Width="{Binding SelectionWidth}"
-                      Opacity="{Binding SelectionOpacity}" />
+                <!-- Selection highlight -->
+                <Border Grid.Column="1"
+                        Height="16"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Background="#2563EB"
+                        Margin="{Binding SelectionMargin}"
+                        Width="{Binding SelectionWidth}"
+                        Opacity="{Binding SelectionOpacity}" />
 
-              <Border Grid.Column="1"
-                      Width="2"
-                      Height="16"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Center"
-                      Background="#F8FAFC"
-                      Margin="{Binding CaretMargin}"
-                      Opacity="{Binding CaretOpacity}" />
-            </Grid>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+                <!-- Caret -->
+                <Border Grid.Column="1"
+                        Width="2"
+                        Height="16"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Background="#F8FAFC"
+                        Margin="{Binding CaretMargin}"
+                        Opacity="{Binding CaretOpacity}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
-      <Border x:Name="BottomSpacer" Height="0" />
+        <Border x:Name="BottomSpacer" Height="0" />
       </StackPanel>
     </ScrollViewer>
-  </Grid>
+  </Border>
 </UserControl>

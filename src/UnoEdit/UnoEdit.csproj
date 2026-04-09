@@ -1,6 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Uno.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-desktop</TargetFramework>
     <AssemblyName>UnoEdit</AssemblyName>
     <RootNamespace>ICSharpCode.AvalonEdit</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -16,6 +16,7 @@
     <Compile Include="Compatibility\ExtensionMethods.cs" />
     <Compile Include="Compatibility\InputShims.cs" />
     <Compile Include="Compatibility\SystemWindowsCompatibility.cs" />
+    <Compile Include="Compatibility\WpfTypeAliases.cs" />
     <Compile Include="Compatibility\WeakEventManagerBase.cs" />
     <Compile Include="Compatibility\XmlExtensionMethods.cs" />
     <Compile Include="Rendering\ReferenceSegment.cs" />
@@ -29,20 +30,20 @@
     <Compile Include="Folding\FoldingManager.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
 
-        <!-- UI controls: included as None to avoid platform build steps in this portable project.
-          Paths mirror AvalonEdit's folder layout. .uno.cs suffix marks Uno-specific code-behind. -->
-      <None Include="Editing\TextArea.xaml" />
-      <None Include="Editing\TextArea.xaml.uno.cs" />
-      <None Include="Rendering\TextView.xaml" />
-      <None Include="Rendering\TextView.xaml.uno.cs" />
-      <None Include="Rendering\TextView.PlatformInput.cs" />
-      <None Include="Rendering\EditorTextMetrics.cs" />
-      <None Include="Rendering\TextLineViewModel.cs" />
-      <None Include="Rendering\HighlightedTextBlock.xaml" />
-      <None Include="Rendering\HighlightedTextBlock.xaml.uno.cs" />
-      <None Include="TextEditor.xaml" />
-      <None Include="TextEditor.xaml.uno.cs" />
-      <None Include="Themes\TextEditorTheme.cs" />
+    <!-- UI controls: listed as None so IDEs can navigate to them.
+         Paths mirror AvalonEdit's folder layout. .uno.cs suffix marks Uno-specific code-behind. -->
+    <None Include="Editing\TextArea.xaml" />
+    <None Include="Editing\TextArea.xaml.uno.cs" />
+    <None Include="Rendering\TextView.xaml" />
+    <None Include="Rendering\TextView.xaml.uno.cs" />
+    <None Include="Rendering\TextView.PlatformInput.cs" />
+    <None Include="Rendering\EditorTextMetrics.cs" />
+    <None Include="Rendering\TextLineViewModel.cs" />
+    <None Include="Rendering\HighlightedTextBlock.xaml" />
+    <None Include="Rendering\HighlightedTextBlock.xaml.uno.cs" />
+    <None Include="TextEditor.xaml" />
+    <None Include="TextEditor.xaml.uno.cs" />
+    <None Include="Themes\TextEditorTheme.cs" />
 
     <!-- Phase 1: pure Level-0 files — no WPF dependencies -->
 
@@ -76,6 +77,10 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\RegexSearchStrategy.cs"   Link="Search\RegexSearchStrategy.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\SearchStrategyFactory.cs" Link="Search\SearchStrategyFactory.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\Localization.cs"          Link="Search\Localization.cs" />
+
+    <!-- Rendering — Phase 3: LayerPosition fork — only change: null 4th arg to RegisterAttached
+         (WinUI3/Uno requires PropertyMetadata; WPF makes it optional) -->
+    <Compile Include="Rendering\LayerPosition.cs" />
 
     <!-- Rendering — pure data model (no WPF rendering API) -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\CollapsedLineSection.cs"                 Link="Rendering\CollapsedLineSection.cs" />
@@ -183,4 +188,15 @@
     <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV1.xsd"
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
+
+  <!-- XAML files live in this folder but are compiled by the app project (UnoEdit.Skia.Desktop),
+       not by this library.  Remove them from Uno SDK's automatic <Page> glob AFTER that glob
+       has been evaluated (Uno.DefaultItems.targets runs after the project file, so a plain
+       <Page Remove> in an <ItemGroup> would be a no-op).  Running the removal inside a
+       <Target> fires at build time, after all SDK imports have been processed. -->
+  <Target Name="RemoveXamlPagesFromLibrary" BeforeTargets="BeforeBuild;CoreCompile">
+    <ItemGroup>
+      <Page Remove="**\*.xaml" />
+    </ItemGroup>
+  </Target>
 </Project>

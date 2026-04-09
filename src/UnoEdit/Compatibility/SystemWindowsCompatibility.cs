@@ -122,6 +122,33 @@ namespace System.Windows
 		public const string Rtf         = "Rtf";
 		public const string Html        = "Html";
 	}
+
+	/// <summary>
+	/// Extends Uno's <see cref="Microsoft.UI.Xaml.FrameworkPropertyMetadata"/> with the WPF
+	/// constructors that Uno omits (1-arg callback, 2-arg default+callback).
+	/// Uno's type is not sealed, so inheritance works cleanly.
+	/// </summary>
+	public class FrameworkPropertyMetadata : Microsoft.UI.Xaml.FrameworkPropertyMetadata
+	{
+		/// <summary>WPF-compat: creates metadata with only a property-changed callback (no default value).</summary>
+		public FrameworkPropertyMetadata(PropertyChangedCallback propertyChangedCallback)
+			: base(null, Microsoft.UI.Xaml.FrameworkPropertyMetadataOptions.None, propertyChangedCallback) { }
+
+		/// <summary>WPF-compat: creates metadata with a default value and a property-changed callback.</summary>
+		public FrameworkPropertyMetadata(object defaultValue, PropertyChangedCallback propertyChangedCallback)
+			: base(defaultValue, Microsoft.UI.Xaml.FrameworkPropertyMetadataOptions.None, propertyChangedCallback) { }
+
+		/// <summary>Forwards all other WPF constructors — pass through to Uno base.</summary>
+		public FrameworkPropertyMetadata(object defaultValue)
+			: base(defaultValue) { }
+
+		public FrameworkPropertyMetadata(object defaultValue, FrameworkPropertyMetadataOptions options)
+			: base(defaultValue, options) { }
+
+		public FrameworkPropertyMetadata(object defaultValue, FrameworkPropertyMetadataOptions options,
+		                                  PropertyChangedCallback propertyChangedCallback)
+			: base(defaultValue, options, propertyChangedCallback) { }
+	}
 }
 
 namespace System.Windows.Media

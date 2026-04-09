@@ -1,4 +1,4 @@
-// Forked from AvalonEdit for UnoEdit — V1Loader removed (only V2 xshd format supported).
+// Forked from AvalonEdit for UnoEdit — V1Loader removed (V1 xshd format not supported).
 // Original: ICSharpCode.AvalonEdit/Highlighting/Xshd/HighlightingLoader.cs
 
 using System;
@@ -30,7 +30,8 @@ namespace ICSharpCode.AvalonEdit.Highlighting.Xshd
 				if (reader.NamespaceURI == V2Loader.Namespace) {
 					return V2Loader.LoadDefinition(reader, skipValidation);
 				} else {
-					throw new NotSupportedException("Only XSHD version 2 (namespace '" + V2Loader.Namespace + "') is supported in this build.");
+					throw new HighlightingDefinitionInvalidException(
+						"V1 xshd format is not supported in UnoEdit. Please use V2 format.");
 				}
 			} catch (XmlSchemaException ex) {
 				throw WrapException(ex, ex.LineNumber, ex.LinePosition);
@@ -69,24 +70,31 @@ namespace ICSharpCode.AvalonEdit.Highlighting.Xshd
 		{
 			XmlSchemaSet schemaSet = new XmlSchemaSet();
 			schemaSet.Add(null, schemaInput);
-			schemaSet.ValidationEventHandler += ValidationHandler;
-			schemaSet.Compile();
+			schemaSet.ValidationEventHandler += delegate (object sender, ValidationEventArgs args) {
+				throw new HighlightingDefinitionInvalidException(args.Message);
+			};
 			return schemaSet;
-		}
-
-		static void ValidationHandler(object sender, ValidationEventArgs args)
-		{
-			throw new HighlightingDefinitionInvalidException(args.Message);
 		}
 		#endregion
 
+		#region Load Highlighting from XSHD
 		/// <summary>
-		/// Loads a highlighting definition from the syntax definition.
+		/// Creates a highlighting definition from the XSHD file.
 		/// </summary>
 		public static IHighlightingDefinition Load(XshdSyntaxDefinition syntaxDefinition, IHighlightingDefinitionReferenceResolver resolver)
 		{
-			if (syntaxDefinition == null) throw new ArgumentNullException("syntaxDefinition");
+			if (syntaxDefinition == null)
+				throw new ArgumentNullException("syntaxDefinition");
 			return new XmlHighlightingDefinition(syntaxDefinition, resolver);
 		}
+
+		/// <summary>
+		/// Creates a highlighting definition from the XSHD file.
+		/// </summary>
+		public static IHighlightingDefinition Load(XmlReader reader, IHighlightingDefinitionReferenceResolver resolver)
+		{
+			return Load(LoadXshd(reader), resolver);
+		}
+		#endregion
 	}
 }

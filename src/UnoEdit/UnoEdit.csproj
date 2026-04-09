@@ -14,6 +14,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Compatibility\CollectionExtensions.cs" />
     <Compile Include="Compatibility\ExtensionMethods.cs" />
+    <Compile Include="Compatibility\InputShims.cs" />
     <Compile Include="Compatibility\SystemWindowsCompatibility.cs" />
     <Compile Include="Compatibility\WeakEventManagerBase.cs" />
     <Compile Include="Compatibility\XmlExtensionMethods.cs" />
@@ -111,13 +112,19 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
 
-    <!-- Highlighting: forked files (in src/UnoEdit/Highlighting/) -->
+    <!-- Phase 2: CodeCompletion — IOverloadProvider has no WPF deps -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\CodeCompletion\IOverloadProvider.cs" Link="CodeCompletion\IOverloadProvider.cs" />
+    <!-- ICompletionData deferred to Phase 4: Complete(TextArea, ...) needs ICSharpCode.AvalonEdit.Editing.TextArea -->
+
+    <!-- Highlighting: forked files (API changes or missing deps — keep as forks) -->
     <Compile Include="Highlighting\HighlightingBrush.cs" />
     <Compile Include="Highlighting\HighlightingColor.cs" />
     <Compile Include="Highlighting\HighlightedLine.cs" />
-    <Compile Include="Highlighting\HighlightingDefinitionTypeConverter.cs" />
     <Compile Include="Highlighting\Xshd\V2Loader.cs" />
     <Compile Include="Highlighting\Resources\Resources.cs" />
+
+    <!-- Highlighting: Phase 2 — forks replaced with direct links (no WPF deps) -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionTypeConverter.cs"      Link="Highlighting\HighlightingDefinitionTypeConverter.cs" />
 
     <!-- Highlighting: portable files linked directly from avalonedit -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\DocumentHighlighter.cs"                       Link="Highlighting\DocumentHighlighter.cs" />
@@ -131,7 +138,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlighter.cs"                              Link="Highlighting\IHighlighter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinition.cs"                   Link="Highlighting\IHighlightingDefinition.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinitionReferenceResolver.cs"  Link="Highlighting\IHighlightingDefinitionReferenceResolver.cs" />
-    <!-- Xshd: forked files -->
+    <!-- Xshd: forked files — HighlightingLoader removes V1Loader ref; V2Loader removes SystemColorHighlightingBrush -->
     <Compile Include="Highlighting\Xshd\HighlightingLoader.cs" />
     <!-- Xshd: portable files -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\IXshdVisitor.cs"         Link="Highlighting\Xshd\IXshdVisitor.cs" />

@@ -1,9 +1,10 @@
-// Forked from AvalonEdit for UnoEdit — removed HTML/RichText rendering methods.
+// Forked from AvalonEdit for UnoEdit — WriteTo/ToHtml/ToRichText*/ToInlineBuilder removed.
+// Those methods depend on RichTextWriter, HtmlOptions, RichTextModel, RichText,
+// HighlightedInlineBuilder which are not linked in UnoEdit.
 // Original: ICSharpCode.AvalonEdit/Highlighting/HighlightedLine.cs
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 
 using ICSharpCode.AvalonEdit.Document;
@@ -77,7 +78,6 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 			ValidateInvariants();
 			additionalLine.ValidateInvariants();
 #endif
-
 			int pos = 0;
 			Stack<int> activeSectionEndOffsets = new Stack<int>();
 			int lineEndOffset = this.DocumentLine.EndOffset;
@@ -108,7 +108,6 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 				}
 				Insert(ref i, ref newSectionStart, newSection.Offset + newSection.Length, newSection.Color, insertionStack);
 			}
-
 #if DEBUG
 			ValidateInvariants();
 #endif
@@ -118,7 +117,6 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		{
 			if (newSectionStart >= insertionEndPos)
 				return;
-
 			while (insertionStack.Peek() <= newSectionStart) {
 				insertionStack.Pop();
 			}
@@ -147,7 +145,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		/// <inheritdoc/>
 		public override string ToString()
 		{
-			return "[HighlightedLine " + DocumentLine + " sections=" + Sections.Count + "]";
+			return "[HighlightedLine " + DocumentLine + "]";
 		}
 	}
 }

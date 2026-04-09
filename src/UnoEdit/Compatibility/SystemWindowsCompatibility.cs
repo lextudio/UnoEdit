@@ -83,6 +83,45 @@ namespace System.Windows.Documents
 		Backward = 0,
 		Forward = 1
 	}
+
+	/// <summary>Compiler shim for System.Windows.Documents.Inline.</summary>
+	public abstract class Inline { }
+
+	/// <summary>Compiler shim for System.Windows.Documents.Run.</summary>
+	public class Run : Inline
+	{
+		public string Text { get; set; }
+		public Run() { }
+		public Run(string text) { Text = text; }
+	}
+}
+
+namespace System.Windows
+{
+	/// <summary>Compiler shim for DataObject clipboard transfer object.</summary>
+	public class DataObject
+	{
+		readonly System.Collections.Generic.Dictionary<string, object> _data =
+			new System.Collections.Generic.Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+		public DataObject() { }
+		public DataObject(string format, object data) { _data[format] = data; }
+
+		public void SetData(string format, object data) => _data[format] = data;
+		public object GetData(string format) =>
+			_data.TryGetValue(format, out object v) ? v : null;
+		public bool GetDataPresent(string format) => _data.ContainsKey(format);
+	}
+
+	/// <summary>Compiler shim for DataFormats clipboard format constants.</summary>
+	public static class DataFormats
+	{
+		public const string Text        = "Text";
+		public const string UnicodeText = "UnicodeText";
+		public const string OemText     = "OemText";
+		public const string Rtf         = "Rtf";
+		public const string Html        = "Html";
+	}
 }
 
 namespace System.Windows.Media
@@ -251,6 +290,9 @@ namespace System.Windows.Media
 			return value?.ToString() ?? "";
 		}
 	}
+
+	/// <summary>Compiler shim for System.Windows.Media.ImageSource.</summary>
+	public abstract class ImageSource { }
 
 	/// <summary>Parses font-style strings. Shim for WPF's TypeConverter.</summary>
 	public sealed class FontStyleConverter

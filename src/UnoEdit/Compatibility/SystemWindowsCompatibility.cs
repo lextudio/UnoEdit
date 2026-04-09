@@ -321,6 +321,17 @@ namespace System.Windows.Media
 	/// <summary>Compiler shim for System.Windows.Media.ImageSource.</summary>
 	public abstract class ImageSource { }
 
+	/// <summary>
+	/// Compiler shim for System.Windows.Media.DrawingContext.
+	/// On Uno the actual drawing is performed through Uno's Skia canvas; this stub
+	/// exists only so that <see cref="ICSharpCode.AvalonEdit.Rendering.IBackgroundRenderer"/>
+	/// can keep the same interface signature as the WPF version.
+	/// </summary>
+	public abstract class DrawingContext : System.IDisposable
+	{
+		public virtual void Dispose() { }
+	}
+
 	/// <summary>Parses font-style strings. Shim for WPF's TypeConverter.</summary>
 	public sealed class FontStyleConverter
 	{

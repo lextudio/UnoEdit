@@ -10,21 +10,22 @@ Current scope:
 
 Repository layout:
 
-- `src/UnoEdit`: portable core assembled from AvalonEdit's non-WPF document and utility layers
-- `src/UnoEdit.Tests`: cross-platform regression tests for the portable core
+- `src/UnoEdit`: shared desktop-targeted library assembled from AvalonEdit's platform-neutral code plus Uno-specific forks
+- `src/UnoEdit.Tests`: desktop-targeted regression suite for the shared library
 - `src/UnoEdit.Sample`: Uno Skia Desktop host for the first editor shell
 
 Current status:
 
-- Portable `UnoEdit` core project created on .NET 10
-- Cross-platform test project created on .NET 10
-- WPF-only `LogicalDirection` and weak-event plumbing replaced with small compatibility shims for the core port
-- Desktop-only Uno Skia sample host created and wired to the portable core
+- `UnoEdit`, `UnoEdit.Tests`, and `UnoEdit.Sample` all target `net10.0-desktop`
+- Phase 4 shared/WPF splits from AvalonEdit are being reused in UnoEdit with Uno-specific `.uno.cs` follow-through
+- The shared rendering host now includes Uno-side `TextView` collection/service plumbing plus `VisualLine.uno.cs` and `VisualLineText.cs`
+- Folding, highlighting, navigation, selection, editing, clipboard, undo/redo, references, and theme plumbing are all integrated in the desktop sample
 - Full solution build is green, including the desktop host
+- The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
+- Current regression total: `210` passing tests
 
 Next steps:
 
-1. Keep the portable test suite green as more shared source is added.
-2. Replace the temporary `TextBox` viewer with a minimal custom editor surface.
-3. Build the first `TextEditor` / `TextArea` / `TextView` shell on top of the portable core.
-4. Add viewport layout, scrolling, caret, and selection rendering for desktop.
+1. Continue Phase 5 by completing more `.uno.cs` counterparts for the Phase 4 shared rendering/editor splits.
+2. Keep the desktop regression suite green as more shared AvalonEdit files move under UnoEdit.
+3. Tighten rendering fidelity and remaining IME/runtime edge cases in the Uno Skia host.

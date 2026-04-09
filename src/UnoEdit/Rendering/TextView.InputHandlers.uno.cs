@@ -9,9 +9,55 @@ public sealed partial class TextView
 {
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        e.Handled = SelectionMouseHandler.HandlePointerPressed(this, e);
+    }
+
+    private void OnRootPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        e.Handled = SelectionMouseHandler.HandlePointerMoved(this, e);
+    }
+
+    private void OnRootPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        e.Handled = SelectionMouseHandler.HandlePointerReleased(this, e);
+    }
+
+    private void OnFoldGlyphPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        e.Handled = SelectionMouseHandler.HandleFoldGlyphPointerPressed(this, sender);
+    }
+
+    private async void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
+    {
         if (_document is null)
         {
             return;
+        }
+
+        bool extendSelection = IsShiftPressed();
+        bool controlPressed = IsControlPressed();
+
+        if (ShouldDeferToPlatformTextInput(controlPressed))
+        {
+            LogMacIme($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
+            e.Handled = true;
+            return;
+        }
+
+        bool handled = await EditingCommandHandler.HandleKeyDownAsync(this, e.Key, controlPressed, extendSelection);
+        if (!handled)
+        {
+            handled = CaretNavigationCommandHandler.HandleKeyDown(this, e.Key, controlPressed, extendSelection);
+        }
+
+        e.Handled = handled;
+    }
+
+    internal bool HandlePointerPressedCore(PointerRoutedEventArgs e)
+    {
+        if (_document is null)
+        {
+            return false;
         }
 
         Focus(FocusState.Programmatic);
@@ -20,8 +66,7 @@ public sealed partial class TextView
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
         if (TryToggleFoldAtViewportPoint(point.X, point.Y))
         {
-            e.Handled = true;
-            return;
+            return true;
         }
 
         int targetOffset = GetOffsetFromViewPoint(point.X, point.Y);
@@ -35,8 +80,7 @@ public sealed partial class TextView
             if (segment is not null)
             {
                 NavigationRequested?.Invoke(this, segment);
-                e.Handled = true;
-                return;
+                return true;
             }
         }
 
@@ -49,14 +93,14 @@ public sealed partial class TextView
             _selectionAnchorOffset = targetOffset;
         }
 
-        e.Handled = true;
+        return true;
     }
 
-    private void OnRootPointerMoved(object sender, PointerRoutedEventArgs e)
+    internal bool HandlePointerMovedCore(PointerRoutedEventArgs e)
     {
         if (_document is null || !_isPointerSelecting)
         {
-            return;
+            return false;
         }
 
         // Uno Skia can occasionally lose capture on focus/window transitions.
@@ -64,7 +108,7 @@ public sealed partial class TextView
         {
             _isPointerSelecting = false;
             ReleasePointerCapture(e.Pointer);
-            return;
+            return false;
         }
 
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
@@ -73,103 +117,39 @@ public sealed partial class TextView
         CurrentOffset = targetOffset;
         SelectionStartOffset = Math.Min(_selectionAnchorOffset, targetOffset);
         SelectionEndOffset = Math.Max(_selectionAnchorOffset, targetOffset);
-        e.Handled = true;
+        return true;
     }
 
-    private void OnRootPointerReleased(object sender, PointerRoutedEventArgs e)
+    internal bool HandlePointerReleasedCore(PointerRoutedEventArgs e)
     {
         if (!_isPointerSelecting)
         {
-            return;
+            return false;
         }
 
         _isPointerSelecting = false;
         ReleasePointerCapture(e.Pointer);
-        e.Handled = true;
+        return true;
     }
 
-    private void OnFoldGlyphPointerPressed(object sender, PointerRoutedEventArgs e)
+    internal bool HandleFoldGlyphPointerPressedCore(object sender)
     {
         if (_document is null)
         {
-            return;
+            return false;
         }
 
         if (sender is not FrameworkElement { DataContext: TextLineViewModel lineViewModel })
         {
-            return;
+            return false;
         }
 
         if (!int.TryParse(lineViewModel.Number, out int lineNumber))
         {
-            return;
+            return false;
         }
 
-        if (TryToggleFoldAtDocumentLine(lineNumber))
-        {
-            e.Handled = true;
-        }
-    }
-
-    private async void OnRootKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (_document is null)
-        {
-            return;
-        }
-
-        bool extendSelection = IsShiftPressed();
-        bool controlPressed = IsControlPressed();
-
-        if (controlPressed && e.Key == Windows.System.VirtualKey.M)
-        {
-            e.Handled = ToggleFoldAtCaret();
-            return;
-        }
-
-        if (ShouldDeferToPlatformTextInput(controlPressed))
-        {
-            LogMacIme($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
-            e.Handled = true;
-            return;
-        }
-
-        bool handled = e.Key switch
-        {
-            Windows.System.VirtualKey.A when controlPressed => SelectAll(),
-            Windows.System.VirtualKey.C when controlPressed => CopySelection(),
-            Windows.System.VirtualKey.Y when controlPressed => Redo(),
-            Windows.System.VirtualKey.Z when controlPressed && extendSelection => Redo(),
-            Windows.System.VirtualKey.Z when controlPressed => Undo(),
-            Windows.System.VirtualKey.X when controlPressed => CutSelection(),
-            Windows.System.VirtualKey.Back when controlPressed => DeleteWord(backward: true),
-            Windows.System.VirtualKey.Delete when controlPressed => DeleteWord(backward: false),
-            Windows.System.VirtualKey.Back => Backspace(),
-            Windows.System.VirtualKey.Delete => Delete(),
-            Windows.System.VirtualKey.Enter => InsertText(Environment.NewLine),
-            Windows.System.VirtualKey.Tab => InsertText("\t"),
-            Windows.System.VirtualKey.Left when controlPressed => MoveWordBoundary(backward: true, extendSelection),
-            Windows.System.VirtualKey.Right when controlPressed => MoveWordBoundary(backward: false, extendSelection),
-            Windows.System.VirtualKey.Left => MoveHorizontal(-1, extendSelection),
-            Windows.System.VirtualKey.Right => MoveHorizontal(1, extendSelection),
-            Windows.System.VirtualKey.Up => MoveVertical(-1, extendSelection),
-            Windows.System.VirtualKey.Down => MoveVertical(1, extendSelection),
-            Windows.System.VirtualKey.PageUp => MovePageVertical(-1, extendSelection),
-            Windows.System.VirtualKey.PageDown => MovePageVertical(1, extendSelection),
-            Windows.System.VirtualKey.Home when controlPressed => MoveToDocumentBoundary(true, extendSelection),
-            Windows.System.VirtualKey.End when controlPressed => MoveToDocumentBoundary(false, extendSelection),
-            Windows.System.VirtualKey.Home => MoveToLineBoundary(true, extendSelection),
-            Windows.System.VirtualKey.End => MoveToLineBoundary(false, extendSelection),
-            _ when !controlPressed => InsertPrintableKey(e.Key, extendSelection),
-            _ => false
-        };
-
-        if (!handled && controlPressed && e.Key == Windows.System.VirtualKey.V)
-        {
-            handled = await PasteAsync();
-        }
-
-        e.Handled = handled;
+        return TryToggleFoldAtDocumentLine(lineNumber);
     }
 
     private bool TryToggleFoldAtViewportPoint(double x, double y)
@@ -195,7 +175,7 @@ public sealed partial class TextView
         return TryToggleFoldForLine(line);
     }
 
-    private bool ToggleFoldAtCaret()
+    internal bool ToggleFoldAtCaret()
     {
         if (_document is null)
         {

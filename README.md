@@ -20,13 +20,13 @@ Current status:
 - Phase 4 shared/WPF splits from AvalonEdit are being reused in UnoEdit with Uno-specific `.uno.cs` follow-through
 - The shared rendering host now includes Uno-side `TextView` collection/service plumbing plus `VisualLine.uno.cs` and `VisualLineText.cs`
 - Folding, highlighting, navigation, selection, editing, clipboard, undo/redo, references, and theme plumbing are all integrated in the desktop sample
-- Phase 6 has started by extracting the Uno desktop host's input/editing behavior into dedicated `TextView` handler partials instead of keeping all of it in one code-behind file
+- Phase 6 is complete for the current desktop-first scope: the Uno desktop host now has explicit mouse-selection, navigation, and editing handler files instead of keeping all interaction logic in one code-behind file
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
 - Current regression total: `210` passing tests
 
 Next steps:
 
-1. Continue Phase 6 by moving more of AvalonEdit's `Editing/` layer into `src/UnoEdit` with intentional Uno-side counterparts.
+1. Continue converging more upstream AvalonEdit editing/rendering files into `src/UnoEdit` where that reduces duplication without destabilizing the desktop host.
 2. Keep the desktop regression suite green as more shared AvalonEdit files move under UnoEdit.
 3. Tighten rendering fidelity and remaining IME/runtime edge cases in the Uno Skia host.

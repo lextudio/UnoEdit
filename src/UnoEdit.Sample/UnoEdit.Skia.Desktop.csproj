@@ -51,6 +51,9 @@
     <Compile Include="../UnoEdit/Rendering/TextView.PlatformInput.cs" />
     <Compile Include="../UnoEdit/Rendering/TextView.EditOperations.uno.cs" />
     <Compile Include="../UnoEdit/Rendering/TextView.InputHandlers.uno.cs" />
+    <Compile Include="../UnoEdit/Editing/SelectionMouseHandler.uno.cs" />
+    <Compile Include="../UnoEdit/Editing/CaretNavigationCommandHandler.uno.cs" />
+    <Compile Include="../UnoEdit/Editing/EditingCommandHandler.uno.cs" />
     <Compile Include="../UnoEdit/Rendering/HighlightedTextBlock.xaml.uno.cs" />
     <Compile Include="../UnoEdit/Editing/TextArea.xaml.uno.cs" />
     <Compile Include="../UnoEdit/TextEditor.xaml.uno.cs" />

@@ -34,6 +34,9 @@
          Paths mirror AvalonEdit's folder layout. .uno.cs suffix marks Uno-specific code-behind. -->
     <None Include="Editing\TextArea.xaml" />
     <None Include="Editing\TextArea.xaml.uno.cs" />
+    <None Include="Editing\SelectionMouseHandler.uno.cs" />
+    <None Include="Editing\CaretNavigationCommandHandler.uno.cs" />
+    <None Include="Editing\EditingCommandHandler.uno.cs" />
     <None Include="Rendering\TextView.xaml" />
     <None Include="Rendering\TextView.xaml.uno.cs" />
     <None Include="Rendering\TextView.PlatformInput.cs" />

@@ -6,7 +6,7 @@ namespace UnoEdit.Skia.Desktop.Controls;
 
 public sealed partial class TextView
 {
-    private static string? TranslateKeyToText(Windows.System.VirtualKey key, bool shiftPressed)
+    internal static string? TranslateKeyToText(Windows.System.VirtualKey key, bool shiftPressed)
     {
         if (key >= Windows.System.VirtualKey.A && key <= Windows.System.VirtualKey.Z)
         {
@@ -50,7 +50,7 @@ public sealed partial class TextView
         };
     }
 
-    private static string ShiftedDigit(int digit) => digit switch
+    internal static string ShiftedDigit(int digit) => digit switch
     {
         0 => ")",
         1 => "!",
@@ -65,13 +65,13 @@ public sealed partial class TextView
         _ => string.Empty
     };
 
-    private bool InsertPrintableKey(Windows.System.VirtualKey key, bool shiftPressed)
+    internal bool InsertPrintableKey(Windows.System.VirtualKey key, bool shiftPressed)
     {
         string? text = TranslateKeyToText(key, shiftPressed);
         return text is not null && InsertText(text);
     }
 
-    private bool MoveHorizontal(int delta, bool extendSelection)
+    internal bool MoveHorizontal(int delta, bool extendSelection)
     {
         if (_document is null)
         {
@@ -83,7 +83,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool MoveVertical(int delta, bool extendSelection)
+    internal bool MoveVertical(int delta, bool extendSelection)
     {
         if (_document is null)
         {
@@ -106,7 +106,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool MoveToLineBoundary(bool moveToStart, bool extendSelection)
+    internal bool MoveToLineBoundary(bool moveToStart, bool extendSelection)
     {
         if (_document is null)
         {
@@ -121,7 +121,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool MoveToDocumentBoundary(bool moveToStart, bool extendSelection)
+    internal bool MoveToDocumentBoundary(bool moveToStart, bool extendSelection)
     {
         if (_document is null)
         {
@@ -133,7 +133,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool MovePageVertical(int direction, bool extendSelection)
+    internal bool MovePageVertical(int direction, bool extendSelection)
     {
         if (_document is null)
         {
@@ -158,7 +158,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool MoveWordBoundary(bool backward, bool extendSelection)
+    internal bool MoveWordBoundary(bool backward, bool extendSelection)
     {
         if (_document is null)
         {
@@ -176,7 +176,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool DeleteWord(bool backward)
+    internal bool DeleteWord(bool backward)
     {
         if (_document is null)
         {
@@ -212,7 +212,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool Backspace()
+    internal bool Backspace()
     {
         if (_document is null)
         {
@@ -239,7 +239,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool Delete()
+    internal bool Delete()
     {
         if (_document is null)
         {
@@ -266,7 +266,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool InsertText(string text)
+    internal bool InsertText(string text)
     {
         if (_document is null)
         {
@@ -288,7 +288,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool SelectAll()
+    internal bool SelectAll()
     {
         if (_document is null)
         {
@@ -302,7 +302,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool CopySelection()
+    internal bool CopySelection()
     {
         if (_document is null || !HasSelection())
         {
@@ -321,7 +321,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool Undo()
+    internal bool Undo()
     {
         if (_document is null || !_document.UndoStack.CanUndo)
         {
@@ -333,7 +333,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool Redo()
+    internal bool Redo()
     {
         if (_document is null || !_document.UndoStack.CanRedo)
         {
@@ -345,7 +345,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private bool CutSelection()
+    internal bool CutSelection()
     {
         if (!CopySelection())
         {
@@ -356,7 +356,7 @@ public sealed partial class TextView
         return true;
     }
 
-    private async Task<bool> PasteAsync()
+    internal async Task<bool> PasteAsync()
     {
         if (_document is null)
         {
@@ -378,7 +378,7 @@ public sealed partial class TextView
         return InsertText(text);
     }
 
-    private void UpdateCaretAndSelection(int targetOffset, bool extendSelection)
+    internal void UpdateCaretAndSelection(int targetOffset, bool extendSelection)
     {
         CurrentOffset = targetOffset;
 
@@ -397,12 +397,12 @@ public sealed partial class TextView
         _desiredColumn = _document?.GetLocation(CurrentOffset).Column ?? 1;
     }
 
-    private bool HasSelection()
+    internal bool HasSelection()
     {
         return SelectionStartOffset != SelectionEndOffset;
     }
 
-    private string GetSelectedText()
+    internal string GetSelectedText()
     {
         if (_document is null || !HasSelection())
         {
@@ -414,7 +414,7 @@ public sealed partial class TextView
         return _document.GetText(startOffset, endOffset - startOffset);
     }
 
-    private void DeleteSelectedText()
+    internal void DeleteSelectedText()
     {
         if (_document is null || !HasSelection())
         {
@@ -430,7 +430,7 @@ public sealed partial class TextView
         CollapseSelection(startOffset);
     }
 
-    private int DeleteSelectedTextInternal()
+    internal int DeleteSelectedTextInternal()
     {
         if (_document is null)
         {
@@ -447,7 +447,7 @@ public sealed partial class TextView
         return startOffset;
     }
 
-    private void CollapseSelection(int offset)
+    internal void CollapseSelection(int offset)
     {
         _selectionAnchorOffset = offset;
         CurrentOffset = offset;

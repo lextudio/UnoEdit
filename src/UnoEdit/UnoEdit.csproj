@@ -65,6 +65,8 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\DragDropException.cs"                 Link="Editing\DragDropException.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\NoReadOnlySections.cs"                Link="Editing\NoReadOnlySections.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\TextSegmentReadOnlySectionProvider.cs" Link="Editing\TextSegmentReadOnlySectionProvider.cs" />
+    <!-- Editing — partial class splits (shared logic + Uno-specific partials).
+         Caret.cs deferred: depends on TextArea / TextView / VisualLine (Phase 4/5 links). -->
 
     <!-- Snippets — pure leaf files (no SnippetElement / InsertionContext deps) -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Snippets\IActiveElement.cs"  Link="Snippets\IActiveElement.cs" />

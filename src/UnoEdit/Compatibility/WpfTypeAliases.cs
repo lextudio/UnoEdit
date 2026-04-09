@@ -20,3 +20,10 @@ global using FrameworkPropertyMetadataOptions  = Microsoft.UI.Xaml.FrameworkProp
 // Note: FrameworkPropertyMetadata is NOT aliased here because Uno's version is missing
 // WPF constructors (1-arg callback, 2-arg default+callback). A shim subclass in
 // Compatibility/SystemWindowsCompatibility.cs fills those gaps instead.
+
+// System.Windows geometry / media types
+global using Rect                              = Windows.Foundation.Rect;
+global using Size                              = Windows.Foundation.Size;
+global using Point                             = Windows.Foundation.Point;
+global using Brush                             = Microsoft.UI.Xaml.Media.Brush;
+

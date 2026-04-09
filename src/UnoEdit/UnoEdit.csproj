@@ -37,6 +37,8 @@
     <None Include="Rendering\TextView.xaml" />
     <None Include="Rendering\TextView.xaml.uno.cs" />
     <None Include="Rendering\TextView.PlatformInput.cs" />
+    <None Include="Rendering\TextView.EditOperations.uno.cs" />
+    <None Include="Rendering\TextView.InputHandlers.uno.cs" />
     <None Include="Rendering\EditorTextMetrics.cs" />
     <None Include="Rendering\TextLineViewModel.cs" />
     <None Include="Rendering\HighlightedTextBlock.xaml" />

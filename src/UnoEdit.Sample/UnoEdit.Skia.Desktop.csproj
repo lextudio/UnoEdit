@@ -54,12 +54,14 @@
     <Compile Include="../UnoEdit/Editing/SelectionMouseHandler.uno.cs" />
     <Compile Include="../UnoEdit/Editing/CaretNavigationCommandHandler.uno.cs" />
     <Compile Include="../UnoEdit/Editing/EditingCommandHandler.uno.cs" />
+    <Compile Include="../UnoEdit/Search/SearchPanel.xaml.uno.cs" />
     <Compile Include="../UnoEdit/Rendering/HighlightedTextBlock.xaml.uno.cs" />
     <Compile Include="../UnoEdit/Editing/TextArea.xaml.uno.cs" />
     <Compile Include="../UnoEdit/TextEditor.xaml.uno.cs" />
     <Compile Include="../UnoEdit/Rendering/TextView.xaml.uno.cs" />
 
     <Page Include="../UnoEdit/Rendering/HighlightedTextBlock.xaml" />
+    <Page Include="../UnoEdit/Search/SearchPanel.xaml" />
     <Page Include="../UnoEdit/Editing/TextArea.xaml" />
     <Page Include="../UnoEdit/TextEditor.xaml" />
     <Page Include="../UnoEdit/Rendering/TextView.xaml" />

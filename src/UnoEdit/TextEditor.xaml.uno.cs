@@ -1,5 +1,7 @@
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Rendering;
+using Microsoft.UI.Input;
+using Microsoft.UI.Xaml.Input;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -45,9 +47,11 @@ public sealed partial class TextEditor : UserControl
     public TextEditor()
     {
         this.InitializeComponent();
+        PART_SearchPanel.Attach(this);
         PART_TextArea.CaretOffsetChanged  += OnTextAreaCaretOffsetChanged;
         PART_TextArea.SelectionChanged    += OnTextAreaSelectionChanged;
         PART_TextArea.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
+        KeyDown += OnEditorKeyDown;
         ApplyThemeToChrome();
     }
 
@@ -83,6 +87,8 @@ public sealed partial class TextEditor : UserControl
 
     /// <summary>Provides access to the inner TextArea for testing and advanced scenarios.</summary>
     public TextArea TextArea => PART_TextArea;
+
+    public SearchPanel SearchPanel => PART_SearchPanel;
 
     public IReferenceSegmentSource? ReferenceSegmentSource
     {
@@ -128,6 +134,7 @@ public sealed partial class TextEditor : UserControl
         var editor = (TextEditor)dependencyObject;
         editor.AttachDocument(args.OldValue as TextDocument, args.NewValue as TextDocument);
         editor.PART_TextArea.Document = args.NewValue as TextDocument;
+        editor.PART_SearchPanel.UpdateDocument(args.NewValue as TextDocument);
         editor.UpdateSummary();
     }
 
@@ -136,6 +143,7 @@ public sealed partial class TextEditor : UserControl
         var editor = (TextEditor)dependencyObject;
         var theme = (args.NewValue as TextEditorTheme) ?? TextEditorTheme.Dark;
         editor.PART_TextArea.Theme = theme;
+        editor.PART_SearchPanel.UpdateTheme(theme);
         editor.ApplyThemeToChrome();
     }
 
@@ -193,6 +201,7 @@ public sealed partial class TextEditor : UserControl
 
     private void OnDocumentTextChanged(object? sender, EventArgs e)
     {
+        PART_SearchPanel.RefreshSearch();
         UpdateSummary();
     }
 
@@ -233,5 +242,93 @@ public sealed partial class TextEditor : UserControl
         int selectionLength = Math.Abs(SelectionEndOffset - SelectionStartOffset);
         string selectionSummary = selectionLength > 0 ? $"  Sel {selectionLength}" : string.Empty;
         SummaryTextBlock.Text = $"{Document.LineCount} lines  {Document.TextLength} chars  Ln {location.Line}, Col {location.Column}{selectionSummary}";
+    }
+
+    public void OpenSearchPanel()
+    {
+        PART_SearchPanel.Open(GetSelectedTextOrNull());
+    }
+
+    public void CloseSearchPanel()
+    {
+        PART_SearchPanel.Close();
+    }
+
+    public void FindNext()
+    {
+        PART_SearchPanel.Open();
+        PART_SearchPanel.FindNext();
+    }
+
+    public void FindPrevious()
+    {
+        PART_SearchPanel.Open();
+        PART_SearchPanel.FindPrevious();
+    }
+
+    private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        bool controlPressed = IsControlPressed();
+        bool shiftPressed = IsShiftPressed();
+
+        if (controlPressed && e.Key == Windows.System.VirtualKey.F)
+        {
+            OpenSearchPanel();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Windows.System.VirtualKey.F3)
+        {
+            if (shiftPressed)
+            {
+                FindPrevious();
+            }
+            else
+            {
+                FindNext();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Windows.System.VirtualKey.Escape && PART_SearchPanel.IsOpen)
+        {
+            CloseSearchPanel();
+            e.Handled = true;
+        }
+    }
+
+    private string? GetSelectedTextOrNull()
+    {
+        if (Document is null || SelectionStartOffset == SelectionEndOffset)
+        {
+            return null;
+        }
+
+        int startOffset = Math.Min(SelectionStartOffset, SelectionEndOffset);
+        int endOffset = Math.Max(SelectionStartOffset, SelectionEndOffset);
+        if (endOffset <= startOffset)
+        {
+            return null;
+        }
+
+        string text = Document.GetText(startOffset, endOffset - startOffset);
+        return text.Contains('\n') ? null : text;
+    }
+
+    private static bool IsShiftPressed()
+    {
+        return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+    }
+
+    private static bool IsControlPressed()
+    {
+        var flags = Windows.UI.Core.CoreVirtualKeyStates.Down;
+        return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(flags)
+            || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(flags)
+            || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(flags);
     }
 }

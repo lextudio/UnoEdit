@@ -11,6 +11,7 @@
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
       </Grid.RowDefinitions>
 
@@ -34,9 +35,13 @@
                    FontSize="12" />
       </Grid>
 
+      <controls:SearchPanel x:Name="PART_SearchPanel"
+                            Grid.Row="1"
+                            Visibility="Collapsed" />
+
       <controls:TextArea x:Name="PART_TextArea"
                          AutomationProperties.AutomationId="TextArea"
-                         Grid.Row="1" />
+                         Grid.Row="2" />
     </Grid>
   </Border>
 </UserControl>

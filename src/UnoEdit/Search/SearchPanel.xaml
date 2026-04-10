@@ -1,0 +1,74 @@
+<UserControl x:Class="UnoEdit.Skia.Desktop.Controls.SearchPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Border x:Name="RootBorder"
+          Margin="12,12,12,0"
+          Padding="10"
+          CornerRadius="8"
+          BorderThickness="1"
+          Background="#172033"
+          BorderBrush="#334155">
+    <Grid ColumnSpacing="8" RowSpacing="8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <TextBox x:Name="SearchTextBox"
+               Grid.Column="0"
+               Header="Find"
+               PlaceholderText="Search in document"
+               TextChanged="OnSearchTextChanged"
+               KeyDown="OnSearchTextBoxKeyDown" />
+
+      <Button x:Name="PreviousButton"
+              Grid.Column="1"
+              MinWidth="44"
+              Click="OnPreviousClick"
+              Content="↑" />
+      <Button x:Name="NextButton"
+              Grid.Column="2"
+              MinWidth="44"
+              Click="OnNextClick"
+              Content="↓" />
+      <Button x:Name="CloseButton"
+              Grid.Column="4"
+              MinWidth="44"
+              Click="OnCloseClick"
+              Content="✕" />
+
+      <CheckBox x:Name="MatchCaseCheckBox"
+                Grid.Row="1"
+                Grid.Column="0"
+                Content="Match case"
+                Checked="OnOptionChanged"
+                Unchecked="OnOptionChanged" />
+      <CheckBox x:Name="WholeWordsCheckBox"
+                Grid.Row="1"
+                Grid.Column="1"
+                Grid.ColumnSpan="2"
+                Content="Whole words"
+                Checked="OnOptionChanged"
+                Unchecked="OnOptionChanged" />
+      <CheckBox x:Name="UseRegexCheckBox"
+                Grid.Row="1"
+                Grid.Column="3"
+                Content="Regex"
+                Checked="OnOptionChanged"
+                Unchecked="OnOptionChanged" />
+      <TextBlock x:Name="ResultsTextBlock"
+                 Grid.Row="1"
+                 Grid.Column="4"
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Right"
+                 Text="No results" />
+    </Grid>
+  </Border>
+</UserControl>

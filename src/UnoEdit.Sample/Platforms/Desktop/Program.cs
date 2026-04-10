@@ -10,8 +10,6 @@ internal class Program
 #if DEBUG
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME")))
             Environment.SetEnvironmentVariable("UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME", "1");
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_MACOS_IME")))
-            Environment.SetEnvironmentVariable("UNOEDIT_DEBUG_MACOS_IME", "1");
 #endif
         App.InitializeLogging();
 

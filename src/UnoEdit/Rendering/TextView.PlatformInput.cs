@@ -40,6 +40,8 @@ public sealed partial class TextView
 
     partial void InitializePlatformInputBridge()
     {
+        Console.WriteLine("[UnoEdit IME probe] __UNO_SKIA_MACOS__ branch is ACTIVE.");
+        LogMacIme($"InitializePlatformInputBridge called. ImeEnabled={IsExperimentalMacImeEnabled()}");
         if (!IsExperimentalMacImeEnabled())
         {
             LogMacIme($"Experimental bridge disabled. Set {ExperimentalMacImeEnvVar}=1 to enable.");
@@ -354,6 +356,22 @@ public sealed partial class TextView
                 LogMacIme($"UpdateCaretRect adjusted -> x={adjusted.X:F3}, y={adjusted.Y:F3}, w={adjusted.Width:F3}, h={adjusted.Height:F3} (pixels: {rpx},{rpy},{rpw},{rph}) id={eventId}");
 
                 NativeMethods.unoedit_ime_update_caret_rect(_bridgeHandle, (ulong)eventId, adjusted.X, adjusted.Y, adjusted.Width, adjusted.Height);
+
+                // Read back native layout info for diagnostics
+                try
+                {
+                    NativeMethods.unoedit_ime_get_layout_info(_bridgeHandle,
+                        out double winX, out double winY, out double winW, out double winH,
+                        out double cvW, out double cvH,
+                        out int cvFlipped,
+                        out double tvX, out double tvY, out double tvW, out double tvH,
+                        out double scrW, out double scrH,
+                        out double imeWX, out double imeWY, out double imeWW, out double imeWH);
+                    NativeMethods.unoedit_ime_get_first_rect(_bridgeHandle,
+                        out double frX, out double frY, out double frW, out double frH);
+                    LogMacIme($"NATIVE LAYOUT id={eventId}: window=({winX:F0},{winY:F0},{winW:F0},{winH:F0}) cvBounds=({cvW:F0},{cvH:F0}) cvFlipped={cvFlipped} tvFrame=({tvX:F0},{tvY:F0},{tvW:F0},{tvH:F0}) screen=({scrW:F0},{scrH:F0}) imeWinRect=({imeWX:F0},{imeWY:F0},{imeWW:F0},{imeWH:F0}) firstRect=({frX:F0},{frY:F0},{frW:F0},{frH:F0})");
+                }
+                catch { /* ignore */ }
         }
 
         public void Dispose()
@@ -441,6 +459,21 @@ public sealed partial class TextView
 
             [DllImport("libUnoEditMacInput.dylib", CallingConvention = CallingConvention.Cdecl)]
             internal static extern double unoedit_ime_get_backing_scale(nint bridgeHandle);
+
+            [DllImport("libUnoEditMacInput.dylib", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern void unoedit_ime_get_first_rect(
+                nint bridgeHandle,
+                out double outX, out double outY, out double outW, out double outH);
+
+            [DllImport("libUnoEditMacInput.dylib", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern void unoedit_ime_get_layout_info(
+                nint bridgeHandle,
+                out double windowX, out double windowY, out double windowW, out double windowH,
+                out double cvBoundsW, out double cvBoundsH,
+                out int cvFlipped,
+                out double tvFrameX, out double tvFrameY, out double tvFrameW, out double tvFrameH,
+                out double screenW, out double screenH,
+                out double imeWinX, out double imeWinY, out double imeWinW, out double imeWinH);
         }
     }
 #else

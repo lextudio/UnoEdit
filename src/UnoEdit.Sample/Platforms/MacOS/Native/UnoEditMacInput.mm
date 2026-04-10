@@ -202,13 +202,10 @@ static void unoedit_log(NSString* format, ...)
     NSRect roundedRectInPixels = NSMakeRect(round(rectInPixels.origin.x), round(rectInPixels.origin.y), round(rectInPixels.size.width), round(rectInPixels.size.height));
     NSRect roundedRectInPoints = NSMakeRect(roundedRectInPixels.origin.x / backing, roundedRectInPixels.origin.y / backing, roundedRectInPixels.size.width / backing, roundedRectInPixels.size.height / backing);
 
-    // Convert to top-left-origin screen coordinates so IME candidate windows align with managed layout.
-    NSRect screenFrame = screen.frame;
-    NSRect flippedRectInPoints = NSMakeRect(roundedRectInPoints.origin.x, screenFrame.size.height - roundedRectInPoints.origin.y - roundedRectInPoints.size.height, roundedRectInPoints.size.width, roundedRectInPoints.size.height);
-    NSRect flippedRectInPixels = NSMakeRect(round(flippedRectInPoints.origin.x * backing), round(flippedRectInPoints.origin.y * backing), round(flippedRectInPoints.size.width * backing), round(flippedRectInPoints.size.height * backing));
-
-    unoedit_log(@"firstRectForCharacterRange range=%@ rect=%@ rounded=%@ flipped=%@ pixels=%@ actualRange=%@", NSStringFromRange(range), NSStringFromRect(rect), NSStringFromRect(roundedRectInPoints), NSStringFromRect(flippedRectInPoints), NSStringFromRect(flippedRectInPixels), actualRange != NULL ? NSStringFromRange(*actualRange) : @"<null>");
-    return flippedRectInPoints;
+    // convertRectToScreen: returns AppKit bottom-left origin screen coordinates,
+    // which is exactly what firstRectForCharacterRange: must return per NSTextInputClient protocol.
+    unoedit_log(@"firstRectForCharacterRange range=%@ screenRect=%@ rounded=%@ actualRange=%@", NSStringFromRange(range), NSStringFromRect(rect), NSStringFromRect(roundedRectInPoints), actualRange != NULL ? NSStringFromRange(*actualRange) : @"<null>");
+    return roundedRectInPoints;
 }
 
 - (void)doCommandBySelector:(SEL)selector
@@ -434,13 +431,10 @@ void unoedit_ime_get_first_rect(void* bridgeHandle, double* outX, double* outY, 
     NSRect roundedRectInPixels = NSMakeRect(round(rectInPixels.origin.x), round(rectInPixels.origin.y), round(rectInPixels.size.width), round(rectInPixels.size.height));
     NSRect roundedRectInPoints = NSMakeRect(roundedRectInPixels.origin.x / backing, roundedRectInPixels.origin.y / backing, roundedRectInPixels.size.width / backing, roundedRectInPixels.size.height / backing);
 
-    NSRect screenFrame = screen.frame;
-    NSRect flippedRectInPoints = NSMakeRect(roundedRectInPoints.origin.x, screenFrame.size.height - roundedRectInPoints.origin.y - roundedRectInPoints.size.height, roundedRectInPoints.size.width, roundedRectInPoints.size.height);
-
-    if (outX) *outX = flippedRectInPoints.origin.x;
-    if (outY) *outY = flippedRectInPoints.origin.y;
-    if (outW) *outW = flippedRectInPoints.size.width;
-    if (outH) *outH = flippedRectInPoints.size.height;
+    if (outX) *outX = roundedRectInPoints.origin.x;
+    if (outY) *outY = roundedRectInPoints.origin.y;
+    if (outW) *outW = roundedRectInPoints.size.width;
+    if (outH) *outH = roundedRectInPoints.size.height;
 }
 
 void unoedit_ime_compute_first_rect_from_rect(void* bridgeHandle, double x, double y, double width, double height, double* outX, double* outY, double* outW, double* outH)
@@ -473,13 +467,10 @@ void unoedit_ime_compute_first_rect_from_rect(void* bridgeHandle, double x, doub
     NSRect roundedScreenRectInPixels = NSMakeRect(round(screenRectInPixels.origin.x), round(screenRectInPixels.origin.y), round(screenRectInPixels.size.width), round(screenRectInPixels.size.height));
     NSRect roundedScreenRectInPoints = NSMakeRect(roundedScreenRectInPixels.origin.x / backing, roundedScreenRectInPixels.origin.y / backing, roundedScreenRectInPixels.size.width / backing, roundedScreenRectInPixels.size.height / backing);
 
-    NSRect screenFrame = screen.frame;
-    NSRect flippedRectInPoints = NSMakeRect(roundedScreenRectInPoints.origin.x, screenFrame.size.height - roundedScreenRectInPoints.origin.y - roundedScreenRectInPoints.size.height, roundedScreenRectInPoints.size.width, roundedScreenRectInPoints.size.height);
-
-    if (outX) *outX = flippedRectInPoints.origin.x;
-    if (outY) *outY = flippedRectInPoints.origin.y;
-    if (outW) *outW = flippedRectInPoints.size.width;
-    if (outH) *outH = flippedRectInPoints.size.height;
+    if (outX) *outX = roundedScreenRectInPoints.origin.x;
+    if (outY) *outY = roundedScreenRectInPoints.origin.y;
+    if (outW) *outW = roundedScreenRectInPoints.size.width;
+    if (outH) *outH = roundedScreenRectInPoints.size.height;
 }
 
 }

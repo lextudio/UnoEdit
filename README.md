@@ -27,9 +27,10 @@ Current status:
 - Phase 9 source convergence has started: upstream `XmlFoldingStrategy.cs`, `TextViewWeakEventManager.cs`, `AbstractMargin.cs`, `HtmlOptions.cs`, and `PixelSnapHelpers.cs` are now linked directly; all except `AbstractMargin.cs` are covered by shared regression tests, and `AbstractMargin.cs` is build-verified against the current shared surface
 - The remaining `Utils/ExtensionMethods.cs` backlog item is now closed through an UnoEdit-maintained compatibility subset that preserves the shared math/XML/device-transform helpers without reintroducing WPF visual-tree dependencies
 - Highlighted-line HTML export is back: `HtmlRichTextWriter.cs` is now linked, `HighlightedLine.ToHtml()` / `ToRichText()` are restored for the shared highlighting stack, and the minimal rich-text model path is available again without reviving the WPF inline-builder surface
+- `RichTextModelWriter.cs` is now linked as well, so the shared highlighting stack can write formatted text back into documents and preserve highlighting state during insertion
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
-- Current regression total: `231` passing tests
+- Current regression total: `233` passing tests
 - The headless Uno runtime-test host is now green again after fixing the search-panel navigation regression
 
 Next steps:

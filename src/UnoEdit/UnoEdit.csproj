@@ -176,6 +176,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinition.cs"                   Link="Highlighting\IHighlightingDefinition.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinitionReferenceResolver.cs"  Link="Highlighting\IHighlightingDefinitionReferenceResolver.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextModel.cs"                             Link="Highlighting\RichTextModel.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextModelWriter.cs"                       Link="Highlighting\RichTextModelWriter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PlainRichTextWriter.cs"                              Link="Utils\PlainRichTextWriter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RichTextWriter.cs"                                   Link="Utils\RichTextWriter.cs" />
     <!-- Xshd: forked files — HighlightingLoader removes V1Loader ref; V2Loader removes SystemColorHighlightingBrush -->

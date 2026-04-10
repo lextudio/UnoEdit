@@ -44,6 +44,7 @@
     <Compile Include="Highlighting\ColorConverterTests.cs" />
     <Compile Include="Highlighting\HtmlOptionsTests.cs" />
     <Compile Include="Highlighting\RichTextHtmlTests.cs" />
+    <Compile Include="Highlighting\RichTextModelWriterTests.cs" />
     <Compile Include="Highlighting\TabColumnHelperTests.cs" />
     <Compile Include="Highlighting\HighlightingTests.cs" />
   </ItemGroup>

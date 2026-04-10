@@ -46,6 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="WindowExtensions.cs" />
     <Compile Include="../UnoEdit/Rendering/EditorTextMetrics.cs" />
     <Compile Include="../UnoEdit/Themes/TextEditorTheme.cs" />
     <Compile Include="../UnoEdit/Rendering/TextLineViewModel.cs" />

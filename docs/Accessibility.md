@@ -1,4 +1,4 @@
-**Accessibility changes — Folding & Announcements**
+# Accessibility changes — Folding & Announcements
 
 - Added focusable fold markers so keyboard users can expand/collapse folds.
 - Added a hidden live-region `LiveRegionAnnouncer` in `TextView.xaml` that is updated when folds toggle.

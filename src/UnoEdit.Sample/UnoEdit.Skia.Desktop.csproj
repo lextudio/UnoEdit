@@ -42,6 +42,7 @@
   <ItemGroup>
     <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
     <PackageReference Include="MSTest.TestFramework" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 
   <ItemGroup>

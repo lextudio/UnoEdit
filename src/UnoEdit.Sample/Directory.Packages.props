@@ -8,9 +8,9 @@
   <ItemGroup>
     <!-- Uno RuntimeTests engine (source package — embeds headless MSTest runner) -->
     <PackageVersion Include="Uno.UI.RuntimeTests.Engine" Version="2.0.0-dev.79" />
-    <!-- Align MSTest version with Uno.UI.RuntimeTests.Engine to ensure test attributes
+        <!-- Align MSTest version with Uno.UI.RuntimeTests.Engine to ensure test attributes
           have the same runtime identity for discovery. -->
-    <PackageVersion Include="MSTest.TestFramework" Version="4.2.1" />
+        <PackageVersion Include="MSTest.TestFramework" Version="3.11.1" />
     <!-- Pin patched Tmds.DBus.Protocol to avoid GHSA-xrw6-gwf8-vvr9 (CVE-2026-39959) -->
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>

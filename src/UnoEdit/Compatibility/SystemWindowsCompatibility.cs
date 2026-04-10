@@ -74,6 +74,24 @@ namespace System.Windows
 		public static FontWeight ExtraBold  => FontWeight.FromOpenTypeWeight(800);
 		public static FontWeight Black      => FontWeight.FromOpenTypeWeight(900);
 	}
+
+	public readonly struct Vector : IEquatable<Vector>
+	{
+		public double X { get; }
+		public double Y { get; }
+
+		public Vector(double x, double y)
+		{
+			X = x;
+			Y = y;
+		}
+
+		public bool Equals(Vector other) => X.Equals(other.X) && Y.Equals(other.Y);
+		public override bool Equals(object? obj) => obj is Vector other && Equals(other);
+		public override int GetHashCode() => HashCode.Combine(X, Y);
+		public static bool operator ==(Vector left, Vector right) => left.Equals(right);
+		public static bool operator !=(Vector left, Vector right) => !left.Equals(right);
+	}
 }
 
 namespace System.Windows.Documents
@@ -87,8 +105,17 @@ namespace System.Windows.Documents
 	/// <summary>Compiler shim for System.Windows.Documents.Inline.</summary>
 	public abstract class Inline { }
 
+	/// <summary>Compiler shim for System.Windows.Documents.TextElement.</summary>
+	public abstract class TextElement : Inline
+	{
+		public object Foreground { get; set; }
+		public object Background { get; set; }
+		public System.Windows.FontWeight FontWeight { get; set; }
+		public System.Windows.FontStyle FontStyle { get; set; }
+	}
+
 	/// <summary>Compiler shim for System.Windows.Documents.Run.</summary>
-	public class Run : Inline
+	public class Run : TextElement
 	{
 		public string Text { get; set; }
 		public Run() { }

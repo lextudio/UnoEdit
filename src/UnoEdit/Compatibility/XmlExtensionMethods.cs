@@ -1,4 +1,4 @@
-// XML extension methods shim — avoids linking WPF-contaminated ExtensionMethods.cs from AvalonEdit.
+// XML reader extension retained separately to avoid expanding the main shim file with every overload.
 using System.Xml;
 
 namespace ICSharpCode.AvalonEdit.Utils

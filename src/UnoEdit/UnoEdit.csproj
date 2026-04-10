@@ -154,6 +154,7 @@
     <Compile Include="Highlighting\HighlightingBrush.cs" />
     <Compile Include="Highlighting\HighlightingColor.cs" />
     <Compile Include="Highlighting\HighlightedLine.cs" />
+    <Compile Include="Highlighting\RichText.cs" />
     <Compile Include="Highlighting\Xshd\V2Loader.cs" />
     <Compile Include="Highlighting\Resources\Resources.cs" />
 
@@ -162,6 +163,7 @@
 
     <!-- Highlighting: portable files linked directly from avalonedit -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\DocumentHighlighter.cs"                       Link="Highlighting\DocumentHighlighter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HtmlRichTextWriter.cs"                        Link="Highlighting\HtmlRichTextWriter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightedSection.cs"                        Link="Highlighting\HighlightedSection.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionInvalidException.cs"    Link="Highlighting\HighlightingDefinitionInvalidException.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingEngine.cs"                        Link="Highlighting\HighlightingEngine.cs" />
@@ -173,6 +175,9 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlighter.cs"                              Link="Highlighting\IHighlighter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinition.cs"                   Link="Highlighting\IHighlightingDefinition.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinitionReferenceResolver.cs"  Link="Highlighting\IHighlightingDefinitionReferenceResolver.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextModel.cs"                             Link="Highlighting\RichTextModel.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PlainRichTextWriter.cs"                              Link="Utils\PlainRichTextWriter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RichTextWriter.cs"                                   Link="Utils\RichTextWriter.cs" />
     <!-- Xshd: forked files — HighlightingLoader removes V1Loader ref; V2Loader removes SystemColorHighlightingBrush -->
     <Compile Include="Highlighting\Xshd\HighlightingLoader.cs" />
     <!-- Xshd: portable files -->

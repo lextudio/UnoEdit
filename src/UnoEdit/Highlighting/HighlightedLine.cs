@@ -1,10 +1,10 @@
-// Forked from AvalonEdit for UnoEdit — WriteTo/ToHtml/ToRichText*/ToInlineBuilder removed.
-// Those methods depend on RichTextWriter, HtmlOptions, RichTextModel, RichText,
-// HighlightedInlineBuilder which are not linked in UnoEdit.
+// Forked from AvalonEdit for UnoEdit — HighlightedInlineBuilder/WPF-only inline helpers removed.
 // Original: ICSharpCode.AvalonEdit/Highlighting/HighlightedLine.cs
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 
 using ICSharpCode.AvalonEdit.Document;
@@ -142,10 +142,114 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		}
 		#endregion
 
+		#region WriteTo / ToHtml
+		sealed class HtmlElement : IComparable<HtmlElement>
+		{
+			internal readonly int Offset;
+			internal readonly int Nesting;
+			internal readonly bool IsEnd;
+			internal readonly HighlightingColor Color;
+
+			public HtmlElement(int offset, int nesting, bool isEnd, HighlightingColor color)
+			{
+				Offset = offset;
+				Nesting = nesting;
+				IsEnd = isEnd;
+				Color = color;
+			}
+
+			public int CompareTo(HtmlElement other)
+			{
+				int r = Offset.CompareTo(other.Offset);
+				if (r != 0)
+					return r;
+				if (IsEnd != other.IsEnd)
+					return IsEnd ? -1 : 1;
+				return IsEnd ? other.Nesting.CompareTo(Nesting) : Nesting.CompareTo(other.Nesting);
+			}
+		}
+
+		internal void WriteTo(RichTextWriter writer)
+		{
+			int startOffset = DocumentLine.Offset;
+			WriteTo(writer, startOffset, startOffset + DocumentLine.Length);
+		}
+
+		internal void WriteTo(RichTextWriter writer, int startOffset, int endOffset)
+		{
+			if (writer == null)
+				throw new ArgumentNullException("writer");
+			int documentLineStartOffset = DocumentLine.Offset;
+			int documentLineEndOffset = documentLineStartOffset + DocumentLine.Length;
+			if (startOffset < documentLineStartOffset || startOffset > documentLineEndOffset)
+				throw new ArgumentOutOfRangeException("startOffset", startOffset, "Value must be between " + documentLineStartOffset + " and " + documentLineEndOffset);
+			if (endOffset < startOffset || endOffset > documentLineEndOffset)
+				throw new ArgumentOutOfRangeException("endOffset", endOffset, "Value must be between startOffset and " + documentLineEndOffset);
+			ISegment requestedSegment = new SimpleSegment(startOffset, endOffset - startOffset);
+
+			List<HtmlElement> elements = new List<HtmlElement>();
+			for (int i = 0; i < Sections.Count; i++) {
+				HighlightedSection s = Sections[i];
+				if (SimpleSegment.GetOverlap(s, requestedSegment).Length > 0) {
+					elements.Add(new HtmlElement(s.Offset, i, false, s.Color));
+					elements.Add(new HtmlElement(s.Offset + s.Length, i, true, s.Color));
+				}
+			}
+			elements.Sort();
+
+			IDocument document = Document;
+			int textOffset = startOffset;
+			foreach (HtmlElement e in elements) {
+				int newOffset = Math.Min(e.Offset, endOffset);
+				if (newOffset > startOffset)
+					document.WriteTextTo(writer, textOffset, newOffset - textOffset);
+				textOffset = Math.Max(textOffset, newOffset);
+				if (e.IsEnd)
+					writer.EndSpan();
+				else
+					writer.BeginSpan(e.Color);
+			}
+			document.WriteTextTo(writer, textOffset, endOffset - textOffset);
+		}
+
+		public string ToHtml(HtmlOptions options = null)
+		{
+			StringWriter stringWriter = new StringWriter(CultureInfo.InvariantCulture);
+			using (var htmlWriter = new HtmlRichTextWriter(stringWriter, options)) {
+				WriteTo(htmlWriter);
+			}
+			return stringWriter.ToString();
+		}
+
+		public string ToHtml(int startOffset, int endOffset, HtmlOptions options = null)
+		{
+			StringWriter stringWriter = new StringWriter(CultureInfo.InvariantCulture);
+			using (var htmlWriter = new HtmlRichTextWriter(stringWriter, options)) {
+				WriteTo(htmlWriter, startOffset, endOffset);
+			}
+			return stringWriter.ToString();
+		}
+
+		public RichTextModel ToRichTextModel()
+		{
+			var builder = new RichTextModel();
+			int startOffset = DocumentLine.Offset;
+			foreach (HighlightedSection section in Sections) {
+				builder.ApplyHighlighting(section.Offset - startOffset, section.Length, section.Color);
+			}
+			return builder;
+		}
+
+		public RichText ToRichText()
+		{
+			return new RichText(Document.GetText(DocumentLine), ToRichTextModel());
+		}
+		#endregion
+
 		/// <inheritdoc/>
 		public override string ToString()
 		{
-			return "[HighlightedLine " + DocumentLine + "]";
+			return "[" + GetType().Name + " " + ToHtml() + "]";
 		}
 	}
 }

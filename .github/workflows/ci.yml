@@ -55,8 +55,8 @@ jobs:
       - name: Run RuntimeTests headlessly
         run: |
           mkdir -p test-results
-            xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' \
-            dotnet "src/UnoEdit.Sample/bin/Release/net10.0-desktop/UnoEdit.Skia.Desktop.dll"
+          xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24' \
+            dotnet run --project src/UnoEdit.Sample/UnoEdit.Skia.Desktop.csproj -c Release -f net10.0-desktop --no-build
         env:
           UNO_RUNTIME_TESTS_RUN_TESTS: 'true'
           UNO_RUNTIME_TESTS_OUTPUT_PATH: ${{ github.workspace }}/test-results/runtime-tests.xml

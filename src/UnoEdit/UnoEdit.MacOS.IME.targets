@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    This targets file automatically copies the macOS IME bridge dylib from the UnoEdit
+    library output to consuming projects. Import this in projects that use UnoEdit on macOS.
+
+    Importing in a .csproj:
+      <Import Project=".../UnoEdit/UnoEdit.MacOS.IME.targets" />
+  -->
+
+  <Target Name="CopyUnoEditMacOSImeBridge"
+          AfterTargets="Build"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
+    <PropertyGroup>
+      <UnoEditDir>$(MSBuildThisFileDirectory)</UnoEditDir>
+      <UnoEditOutputPath>$(UnoEditDir)bin/$(Configuration)/$(TargetFramework)/</UnoEditOutputPath>
+      <UnoEditDylib>$(UnoEditOutputPath)libUnoEditMacInput.dylib</UnoEditDylib>
+    </PropertyGroup>
+
+    <Copy SourceFiles="$(UnoEditDylib)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('$(UnoEditDylib)')">
+      <Output TaskParameter="DestinationFiles" ItemName="CopiedDylibFiles" />
+    </Copy>
+
+    <Message Importance="high" Text="[UnoEdit macOS IME] Copied libUnoEditMacInput.dylib to $(OutputPath)" Condition="Exists('$(UnoEditDylib)')" />
+    <Message Importance="high" Text="[UnoEdit macOS IME] Warning: libUnoEditMacInput.dylib not found at $(UnoEditDylib)" Condition="!Exists('$(UnoEditDylib)')" />
+  </Target>
+</Project>

@@ -34,6 +34,9 @@
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
   </ItemGroup>
 
+  <!-- Import macOS IME support automatically -->
+  <Import Project="../UnoEdit/UnoEdit.MacOS.IME.targets" />
+
   <!--
     Uno.UI.RuntimeTests.Engine — embeds a headless MSTest runner into the app.
     Tests only execute when UNO_RUNTIME_TESTS_RUN_TESTS env var is set (CI or local).
@@ -68,16 +71,5 @@
     <Page Include="../UnoEdit/TextEditor.xaml" />
     <Page Include="../UnoEdit/Rendering/TextView.xaml" />
   </ItemGroup>
-
-  <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
-    <UnoEditMacInputSource>$(MSBuildProjectDirectory)/Platforms/MacOS/Native/UnoEditMacInput.mm</UnoEditMacInputSource>
-  </PropertyGroup>
-
-  <Target Name="BuildUnoEditMacInputBridge"
-          AfterTargets="Build"
-          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(UnoEditMacInputSource)')">
-            <Message Importance="high" Text="Building native macOS IME bridge: $(TargetDir)libUnoEditMacInput.dylib" />
-            <Exec Command="xcrun clang++ -dynamiclib -fobjc-arc -framework AppKit -framework Foundation -o &quot;$(TargetDir)libUnoEditMacInput.dylib&quot; &quot;$(UnoEditMacInputSource)&quot;" />
-  </Target>
 
 </Project>

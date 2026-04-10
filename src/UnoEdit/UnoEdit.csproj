@@ -221,9 +221,24 @@
        has been evaluated (Uno.DefaultItems.targets runs after the project file, so a plain
        <Page Remove> in an <ItemGroup> would be a no-op).  Running the removal inside a
        <Target> fires at build time, after all SDK imports have been processed. -->
+  <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
+    <UnoEditMacInputSource>$(MSBuildProjectDirectory)/Platforms/MacOS/Native/UnoEditMacInput.mm</UnoEditMacInputSource>
+    <UnoEditMacInputOutput>$(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</UnoEditMacInputOutput>
+  </PropertyGroup>
+
   <Target Name="RemoveXamlPagesFromLibrary" BeforeTargets="BeforeBuild;CoreCompile">
     <ItemGroup>
       <Page Remove="**\*.xaml" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="BuildUnoEditMacInputBridge"
+          AfterTargets="Build"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(UnoEditMacInputSource)')">
+    <Message Importance="high" Text="Building native macOS IME bridge: $(UnoEditMacInputOutput)" />
+    <Exec Command="xcrun clang++ -dynamiclib -fobjc-arc -framework AppKit -framework Foundation -o &quot;$(UnoEditMacInputOutput)&quot; &quot;$(UnoEditMacInputSource)&quot;" />
+    <ItemGroup>
+      <NativeLibrary Include="$(UnoEditMacInputOutput)" />
     </ItemGroup>
   </Target>
 </Project>

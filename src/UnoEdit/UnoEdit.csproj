@@ -74,6 +74,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\DragDropException.cs"                 Link="Editing\DragDropException.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\NoReadOnlySections.cs"                Link="Editing\NoReadOnlySections.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\TextSegmentReadOnlySectionProvider.cs" Link="Editing\TextSegmentReadOnlySectionProvider.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\AbstractMargin.cs"                    Link="Editing\AbstractMargin.cs" />
     <!-- Editing — partial class splits (shared logic + Uno-specific partials).
          Caret.cs deferred: depends on TextArea / TextView / VisualLine (Phase 4/5 links). -->
 
@@ -138,6 +139,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ImmutableStack.cs" Link="Utils\ImmutableStack.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\NullSafeCollection.cs" Link="Utils\NullSafeCollection.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ObserveAddRemoveCollection.cs" Link="Utils\ObserveAddRemoveCollection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PixelSnapHelpers.cs" Link="Utils\PixelSnapHelpers.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Rope.cs" Link="Utils\Rope.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeNode.cs" Link="Utils\RopeNode.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeTextReader.cs" Link="Utils\RopeTextReader.cs" />
@@ -163,6 +165,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightedSection.cs"                        Link="Highlighting\HighlightedSection.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionInvalidException.cs"    Link="Highlighting\HighlightingDefinitionInvalidException.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingEngine.cs"                        Link="Highlighting\HighlightingEngine.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HtmlOptions.cs"                               Link="Highlighting\HtmlOptions.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingManager.cs"                       Link="Highlighting\HighlightingManager.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRule.cs"                          Link="Highlighting\HighlightingRule.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRuleSet.cs"                       Link="Highlighting\HighlightingRuleSet.cs" />

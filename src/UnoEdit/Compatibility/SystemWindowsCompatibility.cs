@@ -149,10 +149,47 @@ namespace System.Windows
 		                                  PropertyChangedCallback propertyChangedCallback)
 			: base(defaultValue, options, propertyChangedCallback) { }
 	}
+
+	public class PresentationSource
+	{
+		public System.Windows.Media.CompositionTarget CompositionTarget { get; set; }
+
+		public static PresentationSource FromVisual(System.Windows.Media.Visual visual)
+		{
+			return visual?.PresentationSource;
+		}
+	}
 }
 
 namespace System.Windows.Media
 {
+	public class Visual
+	{
+		public System.Windows.PresentationSource PresentationSource { get; set; }
+	}
+
+	public sealed class CompositionTarget
+	{
+		public Matrix TransformFromDevice { get; set; } = Matrix.Identity;
+		public Matrix TransformToDevice { get; set; } = Matrix.Identity;
+	}
+
+	public struct Matrix
+	{
+		public double M11 { get; set; }
+		public double M12 { get; set; }
+		public double M21 { get; set; }
+		public double M22 { get; set; }
+		public double OffsetX { get; set; }
+		public double OffsetY { get; set; }
+
+		public static Matrix Identity => new Matrix
+		{
+			M11 = 1,
+			M22 = 1
+		};
+	}
+
 	/// <summary>Portable shim for System.Windows.Media.Color.</summary>
 	public readonly struct Color : IEquatable<Color>
 	{

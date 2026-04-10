@@ -26,6 +26,7 @@
 
     <!-- Folding: NewFolding replaced by link; local fork removed -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\NewFolding.cs" Link="Folding\NewFolding.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\XmlFoldingStrategy.cs" Link="Folding\XmlFoldingStrategy.cs" />
     <Compile Include="Folding\FoldingSection.cs" />
     <Compile Include="Folding\FoldingManager.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
@@ -100,6 +101,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLinesInvalidException.cs"          Link="Rendering\VisualLinesInvalidException.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualYPosition.cs"                      Link="Rendering\VisualYPosition.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineConstructionStartEventArgs.cs" Link="Rendering\VisualLineConstructionStartEventArgs.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\TextViewWeakEventManager.cs"             Link="Rendering\TextViewWeakEventManager.cs" />
 
     <!-- Phase 5: shared partial class for VisualLine (WPF-only members stay in VisualLine.wpf.cs) -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLine.cs"                           Link="Rendering\VisualLine.cs" />

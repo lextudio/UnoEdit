@@ -36,6 +36,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		readonly ObserveAddRemoveCollection<IVisualLineTransformer> lineTransformers;
 		readonly ObserveAddRemoveCollection<IBackgroundRenderer> backgroundRenderers;
 		readonly ServiceContainer services = new ServiceContainer();
+		TextDocument document;
 
 		public TextView()
 		{
@@ -46,10 +47,27 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>Gets or sets the text document displayed by this view.</summary>
-		public TextDocument Document { get; set; }
+		public TextDocument Document {
+			get { return document; }
+			set {
+				if (!ReferenceEquals(document, value)) {
+					document = value;
+					OnDocumentChanged(EventArgs.Empty);
+				}
+			}
+		}
 
 		/// <summary>Gets or sets the editor options.</summary>
 		public TextEditorOptions Options { get; set; } = new TextEditorOptions();
+
+		/// <summary>Occurs when the document property changes.</summary>
+		public event EventHandler DocumentChanged;
+
+		/// <summary>Occurs when the current visual-line set changes.</summary>
+		public event EventHandler VisualLinesChanged;
+
+		/// <summary>Occurs when the text view scroll offset changes.</summary>
+		public event EventHandler ScrollOffsetChanged;
 
 		/// <summary>Gets a collection where element generators can be registered.</summary>
 		public IList<VisualLineElementGenerator> ElementGenerators {
@@ -98,6 +116,24 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// </summary>
 		public virtual void InvalidateLayer(KnownLayer knownLayer)
 		{
+		}
+
+		/// <summary>Raises the <see cref="DocumentChanged"/> event.</summary>
+		protected virtual void OnDocumentChanged(EventArgs e)
+		{
+			DocumentChanged?.Invoke(this, e);
+		}
+
+		/// <summary>Raises the <see cref="VisualLinesChanged"/> event.</summary>
+		protected virtual void OnVisualLinesChanged(EventArgs e)
+		{
+			VisualLinesChanged?.Invoke(this, e);
+		}
+
+		/// <summary>Raises the <see cref="ScrollOffsetChanged"/> event.</summary>
+		protected virtual void OnScrollOffsetChanged(EventArgs e)
+		{
+			ScrollOffsetChanged?.Invoke(this, e);
 		}
 
 		void ElementGenerator_Added(VisualLineElementGenerator generator)

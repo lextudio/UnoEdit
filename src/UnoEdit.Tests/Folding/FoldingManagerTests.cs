@@ -191,6 +191,51 @@ namespace UnoEdit.Tests.Folding
             Assert.That(count, Is.EqualTo(2), "Expected two brace-fold sections (outer class + inner method).");
         }
 
+        [Test]
+        public void XmlFoldingStrategy_FindsElementAndCommentFolds()
+        {
+            var xml = "<root>\n  <!-- comment\n       line -->\n  <child>\n    <leaf>value</leaf>\n  </child>\n</root>\n";
+            var doc = MakeDocument(xml);
+            var strategy = new XmlFoldingStrategy();
+
+            int firstErrorOffset;
+            var foldings = strategy.CreateNewFoldings(doc, out firstErrorOffset).ToList();
+
+            Assert.That(firstErrorOffset, Is.EqualTo(-1));
+            Assert.That(foldings.Count, Is.EqualTo(3));
+            Assert.That(foldings[0].Name, Is.EqualTo("<root>"));
+            Assert.That(foldings[1].Name, Does.StartWith("<!-- comment"));
+            Assert.That(foldings[2].Name, Is.EqualTo("<child>"));
+        }
+
+        [Test]
+        public void XmlFoldingStrategy_ShowAttributesWhenFolded_UsesAttributeText()
+        {
+            var xml = "<root>\n  <child id=\"42\" name=\"demo\">\n    <leaf />\n  </child>\n</root>\n";
+            var doc = MakeDocument(xml);
+            var strategy = new XmlFoldingStrategy { ShowAttributesWhenFolded = true };
+
+            int firstErrorOffset;
+            var foldings = strategy.CreateNewFoldings(doc, out firstErrorOffset).ToList();
+
+            Assert.That(firstErrorOffset, Is.EqualTo(-1));
+            Assert.That(foldings.Select(static f => f.Name), Does.Contain("<child id=\"42\" name=\"demo\">"));
+        }
+
+        [Test]
+        public void XmlFoldingStrategy_InvalidXml_ReturnsNoFoldingsAndFirstErrorOffset()
+        {
+            var xml = "<root>\n  <child>\n</root>\n";
+            var doc = MakeDocument(xml);
+            var strategy = new XmlFoldingStrategy();
+
+            int firstErrorOffset;
+            var foldings = strategy.CreateNewFoldings(doc, out firstErrorOffset).ToList();
+
+            Assert.That(foldings, Is.Empty);
+            Assert.That(firstErrorOffset, Is.GreaterThanOrEqualTo(0));
+        }
+
         // ------------------------------------------------------------------
         // GetFoldingsContaining / GetFoldingsAt
         // ------------------------------------------------------------------

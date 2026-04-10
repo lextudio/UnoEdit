@@ -37,6 +37,7 @@
     <Compile Include="Document\LargeFileTests.cs" />
     <Compile Include="Folding\FoldingManagerTests.cs" />
     <Compile Include="Rendering\RenderingSplitTests.cs" />
+    <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />
     <Compile Include="Rendering\VisibleLineMapperTests.cs" />
     <Compile Include="Highlighting\ColorConverterTests.cs" />
     <Compile Include="Highlighting\TabColumnHelperTests.cs" />

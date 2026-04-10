@@ -1,7 +1,6 @@
 <Project Sdk="Uno.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0-desktop</TargetFramework>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
 
     <!-- Use a 'Tests' assembly name so the embedded UnitTestsControl discovers test classes
          (UnitTestsControl searches assemblies whose name ends with 'Tests'). -->
@@ -47,7 +46,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="WindowExtensions.cs" />
     <Compile Include="../UnoEdit/Rendering/EditorTextMetrics.cs" />
     <Compile Include="../UnoEdit/Themes/TextEditorTheme.cs" />
     <Compile Include="../UnoEdit/Rendering/TextLineViewModel.cs" />

@@ -65,7 +65,8 @@ public sealed partial class SearchPanel : UserControl
         }
 
         Visibility = Visibility.Visible;
-        RefreshSearch(selectBestMatch: true);
+        _selectedResultIndex = -1;
+        RefreshSearch(selectBestMatch: false);
         SearchTextBox.Focus(FocusState.Programmatic);
         SearchTextBox.SelectAll();
     }
@@ -171,12 +172,14 @@ public sealed partial class SearchPanel : UserControl
 
     private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
     {
-        RefreshSearch(selectBestMatch: true);
+        _selectedResultIndex = -1;
+        RefreshSearch(selectBestMatch: false);
     }
 
     private void OnOptionChanged(object sender, RoutedEventArgs e)
     {
-        RefreshSearch(selectBestMatch: true);
+        _selectedResultIndex = -1;
+        RefreshSearch(selectBestMatch: false);
     }
 
     private void OnNextClick(object sender, RoutedEventArgs e)

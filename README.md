@@ -23,12 +23,14 @@ Current status:
 - Phase 6 is complete for the current desktop-first scope: the Uno desktop host now has explicit mouse-selection, navigation, and editing handler files instead of keeping all interaction logic in one code-behind file
 - Phase 7 is complete for the current desktop-first scope: the desktop host now includes a real Uno search panel with `Ctrl+F`, `F3`, and `Shift+F3` support
 - Phase 8 is complete for the current desktop-first scope: current Uno XAML files are paired explicitly, a shared `Themes/generic.xaml` dictionary exists, and the sample app merges it at startup
+- The latest macOS IME regression was fixed at the Uno focus boundary, preserving the shared AvalonEdit/UnoEdit structure while restoring native IME focus correctly
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
 - Current regression total: `210` passing tests
+- The headless Uno runtime-test host is now green again after fixing the search-panel navigation regression
 
 Next steps:
 
-1. Start the next post-bootstrap phase on deeper control templating, completion/snippet UI, or broader source convergence.
-2. Continue converging more upstream AvalonEdit editing/rendering files into `src/UnoEdit` where that reduces duplication without destabilizing the desktop host.
-3. Tighten rendering fidelity and remaining IME/runtime edge cases in the Uno Skia host.
+1. Continue selective source convergence from AvalonEdit into `src/UnoEdit` where that reduces duplication without destabilizing the desktop host.
+2. Start the next product-facing track from the stabilized base: ILSpy integration, completion/snippet UI, or deeper editor fidelity work.
+3. Expand IME validation and remaining desktop-fidelity checks where they provide real value.

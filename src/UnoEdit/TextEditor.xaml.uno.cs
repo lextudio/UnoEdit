@@ -256,13 +256,21 @@ public sealed partial class TextEditor : UserControl
 
     public void FindNext()
     {
-        PART_SearchPanel.Open();
+        if (!PART_SearchPanel.IsOpen)
+        {
+            PART_SearchPanel.Open();
+        }
+
         PART_SearchPanel.FindNext();
     }
 
     public void FindPrevious()
     {
-        PART_SearchPanel.Open();
+        if (!PART_SearchPanel.IsOpen)
+        {
+            PART_SearchPanel.Open();
+        }
+
         PART_SearchPanel.FindPrevious();
     }
 

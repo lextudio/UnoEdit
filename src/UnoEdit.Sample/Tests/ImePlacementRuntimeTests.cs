@@ -6,7 +6,6 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Uno.UI.RuntimeTests;
 using ICSharpCode.AvalonEdit.Document;
 using UnoEdit.Skia.Desktop.Controls;
-using System.Runtime.InteropServices;
 
 namespace UnoEdit.Skia.Desktop.Tests;
 

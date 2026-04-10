@@ -28,9 +28,11 @@ Current status:
 - The remaining `Utils/ExtensionMethods.cs` backlog item is now closed through an UnoEdit-maintained compatibility subset that preserves the shared math/XML/device-transform helpers without reintroducing WPF visual-tree dependencies
 - Highlighted-line HTML export is back: `HtmlRichTextWriter.cs` is now linked, `HighlightedLine.ToHtml()` / `ToRichText()` are restored for the shared highlighting stack, and the minimal rich-text model path is available again without reviving the WPF inline-builder surface
 - `RichTextModelWriter.cs` is now linked as well, so the shared highlighting stack can write formatted text back into documents and preserve highlighting state during insertion
+- Shared search command definitions now exist again through a narrow `SearchCommands.cs` fork; the command-routing/input-handler half is still deferred until the shared editing surface is expanded
+- Shared AvalonEdit command definitions now exist again through a narrow `AvalonEditCommands.cs` fork; this restores the command identifiers and default gestures without pretending the shared `TextEditor` type is already in the library
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
-- Current regression total: `233` passing tests
+- Current regression total: `236` passing tests
 - The headless Uno runtime-test host is now green again after fixing the search-panel navigation regression
 
 Next steps:

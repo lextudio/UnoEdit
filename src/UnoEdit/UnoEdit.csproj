@@ -57,6 +57,7 @@
     <!-- Phase 1: pure Level-0 files — no WPF dependencies -->
 
     <!-- Root-level -->
+    <Compile Include="AvalonEditCommands.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorOptions.cs"          Link="TextEditorOptions.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorWeakEventManager.cs" Link="TextEditorWeakEventManager.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextViewPosition.cs"           Link="TextViewPosition.cs" />
@@ -89,6 +90,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\RegexSearchStrategy.cs"   Link="Search\RegexSearchStrategy.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\SearchStrategyFactory.cs" Link="Search\SearchStrategyFactory.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\Localization.cs"          Link="Search\Localization.cs" />
+    <Compile Include="Search\SearchCommands.cs" />
 
     <!-- Rendering — Phase 3: LayerPosition fork — only change: null 4th arg to RegisterAttached
          (WinUI3/Uno requires PropertyMetadata; WPF makes it optional) -->

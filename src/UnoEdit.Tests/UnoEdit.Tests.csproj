@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="AvalonEditCommandsTests.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\ChangeTrackingTest.cs" Link="Document\ChangeTrackingTest.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\LineManagerTests.cs" Link="Document\LineManagerTests.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\TextAnchorTest.cs" Link="Document\TextAnchorTest.cs" />
@@ -41,6 +42,7 @@
     <Compile Include="Rendering\RenderingSplitTests.cs" />
     <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />
     <Compile Include="Rendering\VisibleLineMapperTests.cs" />
+    <Compile Include="Search\SearchCommandsTests.cs" />
     <Compile Include="Highlighting\ColorConverterTests.cs" />
     <Compile Include="Highlighting\HtmlOptionsTests.cs" />
     <Compile Include="Highlighting\RichTextHtmlTests.cs" />

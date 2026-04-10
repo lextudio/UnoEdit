@@ -99,15 +99,21 @@ namespace System.Windows.Input
 	public class RoutedCommand : ICommand
 	{
 		public string Name { get; }
+		public Type OwnerType { get; }
+		public InputGestureCollection InputGestures { get; }
 
 		public RoutedCommand(string name, Type ownerType)
 		{
 			Name = name ?? string.Empty;
+			OwnerType = ownerType;
+			InputGestures = new InputGestureCollection();
 		}
 
 		public RoutedCommand(string name, Type ownerType, InputGestureCollection inputGestures)
 		{
 			Name = name ?? string.Empty;
+			OwnerType = ownerType;
+			InputGestures = inputGestures ?? new InputGestureCollection();
 		}
 
 		public bool CanExecute(object parameter) => true;

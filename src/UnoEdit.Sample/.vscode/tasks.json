@@ -7,7 +7,7 @@
       "type": "process",
         "args": [
         "build",
-        "${workspaceFolder}/src/UnoEdit.Sample/UnoEdit.Skia.Desktop.csproj",
+        "${workspaceFolder}/src/UnoEdit.Sample/UnoEdit.Sample.csproj",
         "/property:GenerateFullPaths=true",
         "/property:TargetFramework=net10.0-desktop",
         "/consoleloggerparameters:NoSummary"
@@ -20,7 +20,7 @@
       "type": "process",
         "args": [
         "publish",
-        "${workspaceFolder}/src/UnoEdit.Sample/UnoEdit.Skia.Desktop.csproj",
+        "${workspaceFolder}/src/UnoEdit.Sample/UnoEdit.Sample.csproj",
         "/property:GenerateFullPaths=true",
         "/property:TargetFramework=net10.0-desktop",
         "/consoleloggerparameters:NoSummary"

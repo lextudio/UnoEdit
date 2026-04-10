@@ -61,6 +61,7 @@
     <Compile Include="../UnoEdit/Rendering/TextView.xaml.uno.cs" />
 
     <Page Include="../UnoEdit/Rendering/HighlightedTextBlock.xaml" />
+    <Page Include="../UnoEdit/Themes/generic.xaml" Link="Themes/generic.xaml" />
     <Page Include="../UnoEdit/Search/SearchPanel.xaml" />
     <Page Include="../UnoEdit/Editing/TextArea.xaml" />
     <Page Include="../UnoEdit/TextEditor.xaml" />

@@ -39,6 +39,7 @@
     <None Include="Editing\EditingCommandHandler.uno.cs" />
     <None Include="Search\SearchPanel.xaml" />
     <None Include="Search\SearchPanel.xaml.uno.cs" />
+    <None Include="Themes\generic.xaml" />
     <None Include="Rendering\TextView.xaml" />
     <None Include="Rendering\TextView.xaml.uno.cs" />
     <None Include="Rendering\TextView.PlatformInput.cs" />

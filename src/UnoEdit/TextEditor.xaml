@@ -1,13 +1,15 @@
+<!-- Uno equivalent of avalonedit/ICSharpCode.AvalonEdit/TextEditor.xaml
+     Keep in sync with the WPF version when making structural changes. -->
 <UserControl x:Class="UnoEdit.Skia.Desktop.Controls.TextEditor"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:UnoEdit.Skia.Desktop.Controls">
   <Border x:Name="EditorBorder"
           Padding="1"
-          BorderBrush="#334155"
-          BorderThickness="1"
-          CornerRadius="10"
-          Background="#111827">
+          BorderBrush="{StaticResource UnoEditorBorderBrush}"
+          BorderThickness="{StaticResource UnoTextEditorBorderThickness}"
+          CornerRadius="{StaticResource UnoTextEditorCornerRadius}"
+          Background="{StaticResource UnoEditorBackgroundBrush}">
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
@@ -17,7 +19,7 @@
 
       <Grid x:Name="TitleBarGrid"
             Padding="12,10"
-            Background="#0F172A">
+            Background="{StaticResource UnoEditorTitleBarBackgroundBrush}">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
@@ -25,13 +27,13 @@
 
         <TextBlock x:Name="TitleTextBlock"
                    Text="TextEditor"
-                   Foreground="#E5E7EB"
-                   FontSize="13"
+                   Foreground="{StaticResource UnoEditorTitleBarForegroundBrush}"
+                   FontSize="{StaticResource UnoEditorTextFontSize}"
                    FontWeight="SemiBold" />
         <TextBlock x:Name="SummaryTextBlock"
                    Grid.Column="1"
                    FontFamily="Consolas"
-                   Foreground="#94A3B8"
+                   Foreground="{StaticResource UnoEditorSummaryForegroundBrush}"
                    FontSize="12" />
       </Grid>
 

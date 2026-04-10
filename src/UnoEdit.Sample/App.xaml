@@ -7,6 +7,7 @@
       <ResourceDictionary.MergedDictionaries>
         <!-- Load WinUI resources -->
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+        <ResourceDictionary Source="ms-appx:///Themes/generic.xaml" />
       </ResourceDictionary.MergedDictionaries>
 
       <!-- Add resources here -->

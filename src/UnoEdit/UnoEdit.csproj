@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="GlobalUsings.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Compatibility\CollectionExtensions.cs" />
     <Compile Include="Compatibility\ExtensionMethods.cs" />
@@ -31,28 +32,27 @@
     <Compile Include="Folding\FoldingManager.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
 
-    <!-- UI controls: listed as None so IDEs can navigate to them.
-         Paths mirror AvalonEdit's folder layout. .uno.cs suffix marks Uno-specific code-behind. -->
-    <None Include="Editing\TextArea.xaml" />
-    <None Include="Editing\TextArea.xaml.uno.cs" />
-    <None Include="Editing\SelectionMouseHandler.uno.cs" />
-    <None Include="Editing\CaretNavigationCommandHandler.uno.cs" />
-    <None Include="Editing\EditingCommandHandler.uno.cs" />
-    <None Include="Search\SearchPanel.xaml" />
-    <None Include="Search\SearchPanel.xaml.uno.cs" />
-    <None Include="Themes\generic.xaml" />
-    <None Include="Rendering\TextView.xaml" />
-    <None Include="Rendering\TextView.xaml.uno.cs" />
-    <None Include="Rendering\TextView.PlatformInput.cs" />
-    <None Include="Rendering\TextView.EditOperations.uno.cs" />
-    <None Include="Rendering\TextView.InputHandlers.uno.cs" />
-    <None Include="Rendering\EditorTextMetrics.cs" />
-    <None Include="Rendering\TextLineViewModel.cs" />
-    <None Include="Rendering\HighlightedTextBlock.xaml" />
-    <None Include="Rendering\HighlightedTextBlock.xaml.uno.cs" />
-    <None Include="TextEditor.xaml" />
-    <None Include="TextEditor.xaml.uno.cs" />
-    <None Include="Themes\TextEditorTheme.cs" />
+    <!-- Core Uno control surface now ships from the library itself. -->
+    <Compile Include="Editing\TextArea.xaml.uno.cs" />
+    <Compile Include="Editing\SelectionMouseHandler.uno.cs" />
+    <Compile Include="Editing\CaretNavigationCommandHandler.uno.cs" />
+    <Compile Include="Editing\EditingCommandHandler.uno.cs" />
+    <Compile Include="Search\SearchPanel.xaml.uno.cs" />
+    <Compile Include="Rendering\TextView.xaml.uno.cs" />
+    <Compile Include="Rendering\TextView.PlatformInput.cs" />
+    <Compile Include="Rendering\TextView.EditOperations.uno.cs" />
+    <Compile Include="Rendering\TextView.InputHandlers.uno.cs" />
+    <Compile Include="Rendering\EditorTextMetrics.cs" />
+    <Compile Include="Rendering\TextLineViewModel.cs" />
+    <Compile Include="Rendering\HighlightedTextBlock.xaml.uno.cs" />
+    <Compile Include="TextEditor.xaml.uno.cs" />
+    <Compile Include="Themes\TextEditorTheme.cs" />
+    <Page Include="Editing\TextArea.xaml" />
+    <Page Include="Search\SearchPanel.xaml" />
+    <Page Include="Themes\generic.xaml" />
+    <Page Include="Rendering\TextView.xaml" />
+    <Page Include="Rendering\HighlightedTextBlock.xaml" />
+    <Page Include="TextEditor.xaml" />
 
     <!-- Phase 1: pure Level-0 files — no WPF dependencies -->
 
@@ -278,33 +278,22 @@
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
 
-  <!-- Platform-specific IME bridges: compiled by the app, listed here for IDE navigation -->
+  <!-- Platform-specific IME bridges used by the library-owned TextView input surface. -->
   <ItemGroup>
-    <None Include="PlatformsWindowsWin32ImeBridge.cs" />
-    <None Include="PlatformsLinuxDBusDBusConstants.cs" />
-    <None Include="PlatformsLinuxDBusDBusMessage.cs" />
-    <None Include="PlatformsLinuxDBusDBusReader.cs" />
-    <None Include="PlatformsLinuxDBusDBusWriter.cs" />
-    <None Include="PlatformsLinuxDBusDBusConnection.cs" />
-    <None Include="PlatformsLinuxIBusIBusConnection.cs" />
-    <None Include="PlatformsLinuxLinuxImeBridge.cs" />
+    <Compile Include="Rendering\Win32ImeBridge.cs" />
+    <Compile Include="Platforms\Linux\DBus\DBusConstants.cs" />
+    <Compile Include="Platforms\Linux\DBus\DBusMessage.cs" />
+    <Compile Include="Platforms\Linux\DBus\DBusReader.cs" />
+    <Compile Include="Platforms\Linux\DBus\DBusWriter.cs" />
+    <Compile Include="Platforms\Linux\DBus\DBusConnection.cs" />
+    <Compile Include="Platforms\Linux\IBus\IBusConnection.cs" />
+    <Compile Include="Platforms\Linux\LinuxImeBridge.cs" />
   </ItemGroup>
 
-  <!-- XAML files live in this folder but are compiled by the app project (UnoEdit.Skia.Desktop),
-       not by this library.  Remove them from Uno SDK's automatic <Page> glob AFTER that glob
-       has been evaluated (Uno.DefaultItems.targets runs after the project file, so a plain
-       <Page Remove> in an <ItemGroup> would be a no-op).  Running the removal inside a
-       <Target> fires at build time, after all SDK imports have been processed. -->
   <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
     <UnoEditMacInputSource>$(MSBuildProjectDirectory)/Platforms/MacOS/Native/UnoEditMacInput.mm</UnoEditMacInputSource>
     <UnoEditMacInputOutput>$(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</UnoEditMacInputOutput>
   </PropertyGroup>
-
-  <Target Name="RemoveXamlPagesFromLibrary" BeforeTargets="BeforeBuild;CoreCompile">
-    <ItemGroup>
-      <Page Remove="**\*.xaml" />
-    </ItemGroup>
-  </Target>
 
   <Target Name="BuildUnoEditMacInputBridge"
           AfterTargets="Build"

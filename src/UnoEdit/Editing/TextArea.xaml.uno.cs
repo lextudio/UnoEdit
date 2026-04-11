@@ -171,6 +171,8 @@ public sealed partial class TextArea : UserControl, IServiceProvider
                         CurrentOffset = doc.GetOffset(line, col);
                 }
             });
+        DefaultInputHandler = new TextAreaDefaultInputHandler(this);
+        ActiveInputHandler  = DefaultInputHandler;
         PART_TextView.Services.AddService(typeof(TextArea), this);
         PART_TextView.CaretOffsetChanged  += OnTextViewCaretOffsetChanged;
         PART_TextView.SelectionChanged    += OnTextViewSelectionChanged;
@@ -459,23 +461,45 @@ public sealed partial class TextArea : UserControl, IServiceProvider
     }
 
     // ----------------------------------------------------------------
-    // Input handler surface stubs
+    // Input handler surface
     // ----------------------------------------------------------------
-    public object DefaultInputHandler { get; } = null;
-    public object ActiveInputHandler { get; set; } = null;
-    public event EventHandler ActiveInputHandlerChanged;
-    public System.Collections.Immutable.ImmutableStack<object> StackedInputHandlers { get; private set; }
-        = System.Collections.Immutable.ImmutableStack<object>.Empty;
+    private ITextAreaInputHandler? _activeInputHandler;
 
-    public void PushStackedInputHandler(object handler)
+    public TextAreaDefaultInputHandler DefaultInputHandler { get; private set; }
+    public ITextAreaInputHandler ActiveInputHandler
     {
+        get => _activeInputHandler!;
+        set
+        {
+            if (ReferenceEquals(_activeInputHandler, value))
+            {
+                return;
+            }
+
+            _activeInputHandler?.Detach();
+            _activeInputHandler = value ?? throw new ArgumentNullException(nameof(value));
+            _activeInputHandler.Attach();
+            ActiveInputHandlerChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+    public event EventHandler ActiveInputHandlerChanged;
+    public System.Collections.Immutable.ImmutableStack<ITextAreaInputHandler> StackedInputHandlers { get; private set; }
+        = System.Collections.Immutable.ImmutableStack<ITextAreaInputHandler>.Empty;
+
+    public void PushStackedInputHandler(ITextAreaInputHandler handler)
+    {
+        if (handler == null) throw new ArgumentNullException(nameof(handler));
+        handler.Attach();
         StackedInputHandlers = StackedInputHandlers.Push(handler);
     }
 
-    public void PopStackedInputHandler(object handler)
+    public void PopStackedInputHandler(ITextAreaInputHandler handler)
     {
         if (!StackedInputHandlers.IsEmpty)
+        {
             StackedInputHandlers = StackedInputHandlers.Pop();
+            handler?.Detach();
+        }
     }
 
     public void PerformTextInput(string text)

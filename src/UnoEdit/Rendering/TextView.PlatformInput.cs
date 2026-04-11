@@ -7,8 +7,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Uno.UI.Xaml;
-using UnoEdit.Skia.Desktop.Controls.Platform.Linux;
-using UnoEdit.Skia.Desktop.Controls.Platform.Windows;
+using LinuxImeBridge = UnoEdit.Skia.Desktop.Controls.Platform.Linux.LinuxImeBridge;
 using Windows.Foundation;
 
 namespace UnoEdit.Skia.Desktop.Controls;

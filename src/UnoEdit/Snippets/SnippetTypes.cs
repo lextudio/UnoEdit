@@ -12,11 +12,25 @@ namespace ICSharpCode.AvalonEdit.Snippets
 	[Serializable]
 	public abstract class SnippetElement
 	{
+		public sealed class SnippetTextRun
+		{
+			public SnippetTextRun(string kind, string? text = null, IReadOnlyList<SnippetTextRun>? children = null)
+			{
+				Kind = kind;
+				Text = text ?? string.Empty;
+				Children = children ?? Array.Empty<SnippetTextRun>();
+			}
+
+			public string Kind { get; }
+			public string Text { get; }
+			public IReadOnlyList<SnippetTextRun> Children { get; }
+		}
+
 		/// <summary>Performs insertion of the snippet.</summary>
 		public abstract void Insert(InsertionContext context);
 
 		/// <summary>Converts the snippet to a text run placeholder.</summary>
-		public virtual object ToTextRun() => null;
+		public virtual object ToTextRun() => new SnippetTextRun("element");
 	}
 
 	/// <summary>Inserts plain text.</summary>
@@ -36,7 +50,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		}
 
 		/// <inheritdoc/>
-		public override object ToTextRun() => null;
+		public override object ToTextRun() => new SnippetTextRun(Text is { Length: > 0 } ? "text" : "empty-text", Text);
 	}
 
 	/// <summary>Marks a caret position.</summary>
@@ -86,7 +100,19 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		}
 
 		/// <inheritdoc/>
-		public override object ToTextRun() => null;
+		public override object ToTextRun()
+		{
+			var children = new List<SnippetTextRun>();
+			foreach (var element in Elements)
+			{
+				if (element?.ToTextRun() is SnippetTextRun run)
+				{
+					children.Add(run);
+				}
+			}
+
+			return new SnippetTextRun("container", children: children);
+		}
 	}
 
 	/// <summary>Marks an anchor point that can be referenced by bound elements.</summary>
@@ -135,7 +161,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		}
 
 		/// <inheritdoc/>
-		public override object ToTextRun() => null;
+		public override object ToTextRun() => new SnippetTextRun("bound", TargetElement?.Text);
 	}
 
 	/// <summary>Selects the current selection and indents it.</summary>
@@ -188,7 +214,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		}
 
 		/// <inheritdoc/>
-		public override object ToTextRun() => null;
+		public override object ToTextRun() => new SnippetTextRun("replaceable", Text);
 	}
 
 	/// <summary>A code snippet that can be inserted into the text editor.</summary>

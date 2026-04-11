@@ -1,5 +1,4 @@
-// Stub for ICSharpCode.AvalonEdit.Editing.Selection and RectangleSelection.
-// Avoids WPF dependencies by using object/int for complex parameters.
+// UnoEdit port of ICSharpCode.AvalonEdit.Editing.Selection and RectangleSelection.
 using System.Collections.Generic;
 using ICSharpCode.AvalonEdit.Document;
 
@@ -11,10 +10,19 @@ namespace ICSharpCode.AvalonEdit.Editing
 	public abstract class Selection
 	{
 		/// <summary>Creates a new selection from startOffset to endOffset.</summary>
-		public static Selection Create(object textArea, int startOffset, int endOffset) => null;
+		public static Selection Create(object textArea, int startOffset, int endOffset)
+		{
+			if (textArea == null) throw new System.ArgumentNullException(nameof(textArea));
+			if (startOffset == endOffset) return new SimpleSelection(textArea, startOffset, startOffset);
+			return new SimpleSelection(textArea, startOffset, endOffset);
+		}
 
 		/// <summary>Creates a new selection for the specified segment.</summary>
-		public static Selection Create(object textArea, ISegment segment) => null;
+		public static Selection Create(object textArea, ISegment segment)
+		{
+			if (segment == null) throw new System.ArgumentNullException(nameof(segment));
+			return Create(textArea, segment.Offset, segment.EndOffset);
+		}
 
 		/// <summary>Gets the start position of the selection.</summary>
 		public abstract TextViewPosition StartPosition { get; }
@@ -134,5 +142,97 @@ namespace ICSharpCode.AvalonEdit.Editing
 		public override int GetHashCode() => 0;
 		/// <inheritdoc/>
 		public override string ToString() => string.Empty;
+	}
+
+	/// <summary>
+	/// Simple (non-rectangular) selection backed by start/end offsets.
+	/// </summary>
+	public sealed class SimpleSelection : Selection
+	{
+		private readonly object _textArea;
+		private readonly int _startOffset;
+		private readonly int _endOffset;
+
+		/// <summary>Creates a new SimpleSelection.</summary>
+		public SimpleSelection(object textArea, int startOffset, int endOffset)
+		{
+			_textArea = textArea;
+			_startOffset = startOffset;
+			_endOffset   = endOffset;
+		}
+
+		/// <inheritdoc/>
+		public override TextViewPosition StartPosition => new TextViewPosition(1, 1);
+		/// <inheritdoc/>
+		public override TextViewPosition EndPosition   => new TextViewPosition(1, 1);
+
+		/// <inheritdoc/>
+		public override IEnumerable<SelectionSegment> Segments
+		{
+			get
+			{
+				if (_startOffset != _endOffset)
+					yield return new SelectionSegment(_startOffset, _endOffset);
+			}
+		}
+
+		/// <inheritdoc/>
+		public override ISegment SurroundingSegment
+			=> _startOffset == _endOffset ? null : new SimpleSegment(_startOffset, _endOffset - _startOffset);
+
+		/// <inheritdoc/>
+		public override int Length => System.Math.Abs(_endOffset - _startOffset);
+
+		/// <inheritdoc/>
+		public override bool IsEmpty => _startOffset == _endOffset;
+
+		/// <inheritdoc/>
+		public override void ReplaceSelectionWithText(string newText) { }
+
+		/// <inheritdoc/>
+		public override Selection UpdateOnDocumentChange(DocumentChangeEventArgs e) => this;
+
+		/// <inheritdoc/>
+		public override Selection SetEndpoint(TextViewPosition endPosition) => this;
+
+		/// <inheritdoc/>
+		public override Selection StartSelectionOrSetEndpoint(TextViewPosition startPosition, TextViewPosition endPosition) => this;
+
+		/// <inheritdoc/>
+		public override string GetText()
+		{
+			if (_textArea != null)
+			{
+				var doc = _textArea.GetType().GetProperty("Document")?.GetValue(_textArea) as TextDocument;
+				if (doc != null)
+				{
+					int start = System.Math.Max(0, System.Math.Min(_startOffset, doc.TextLength));
+					int end   = System.Math.Max(0, System.Math.Min(_endOffset,   doc.TextLength));
+					if (start > end) { int t = start; start = end; end = t; }
+					return doc.GetText(start, end - start);
+				}
+			}
+			return string.Empty;
+		}
+
+		/// <inheritdoc/>
+		public override bool Contains(int offset)
+		{
+			int lo = System.Math.Min(_startOffset, _endOffset);
+			int hi = System.Math.Max(_startOffset, _endOffset);
+			return offset >= lo && offset < hi;
+		}
+
+		/// <inheritdoc/>
+		public override bool Equals(object obj)
+		{
+			if (obj is SimpleSelection other)
+				return _startOffset == other._startOffset && _endOffset == other._endOffset && _textArea == other._textArea;
+			return false;
+		}
+
+		/// <inheritdoc/>
+		public override int GetHashCode()
+			=> System.HashCode.Combine(_startOffset, _endOffset);
 	}
 }

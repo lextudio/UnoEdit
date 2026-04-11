@@ -1,5 +1,7 @@
-// UnoEdit stub for DottedLineMargin.
-// The WPF Shapes.Line is not available; the visual is rendered via Uno XAML.
+// UnoEdit port of DottedLineMargin.
+// Uses Microsoft.UI.Xaml.Shapes.Line (WinUI/Uno) instead of WPF System.Windows.Shapes.Line.
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Shapes;
 
 namespace ICSharpCode.AvalonEdit.Editing
 {
@@ -9,16 +11,33 @@ namespace ICSharpCode.AvalonEdit.Editing
 	/// </summary>
 	public static class DottedLineMargin
 	{
+		static readonly object tag = new object();
+
 		/// <summary>
 		/// Creates a vertical dotted line to separate the line numbers from the text view.
-		/// Returns null in this Uno stub; the visual is rendered natively.
 		/// </summary>
-		public static UIElement Create() => null;
+		public static UIElement Create()
+		{
+			var line = new Line {
+				X1 = 0,
+				Y1 = 0,
+				X2 = 0,
+				Y2 = 1,
+				StrokeDashArray = new DoubleCollection { 0, 2 },
+				Stretch = Stretch.Fill,
+				StrokeThickness = 1,
+				Margin = new Microsoft.UI.Xaml.Thickness(2, 0, 2, 0),
+				Tag = tag
+			};
+			return line;
+		}
 
 		/// <summary>
 		/// Gets whether the specified UIElement is the result of a <see cref="Create"/> call.
-		/// Always returns false in this Uno stub.
 		/// </summary>
-		public static bool IsDottedLineMargin(UIElement element) => false;
+		public static bool IsDottedLineMargin(UIElement element)
+		{
+			return element is Line l && l.Tag == tag;
+		}
 	}
 }

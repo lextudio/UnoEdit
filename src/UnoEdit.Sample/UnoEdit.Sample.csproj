@@ -35,22 +35,6 @@
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
   </ItemGroup>
 
-  <!-- Windows IME bridge -->
-  <ItemGroup>
-    <Compile Include="../UnoEdit/Platforms/Windows/Win32ImeBridge.cs" />
-  </ItemGroup>
-
-  <!-- Linux IBus IME bridge -->
-  <ItemGroup>
-    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusConstants.cs" />
-    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusMessage.cs" />
-    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusReader.cs" />
-    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusWriter.cs" />
-    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusConnection.cs" />
-    <Compile Include="../UnoEdit/Platforms/Linux/IBus/IBusConnection.cs" />
-    <Compile Include="../UnoEdit/Platforms/Linux/LinuxImeBridge.cs" />
-  </ItemGroup>
-
   <!-- Import macOS IME support automatically -->
   <Import Project="../UnoEdit/UnoEdit.MacOS.IME.targets" />
 
@@ -62,31 +46,6 @@
   <ItemGroup>
     <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
     <PackageReference Include="MSTest.TestFramework" />
-    <PackageReference Include="Tmds.DBus.Protocol" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="../UnoEdit/Rendering/EditorTextMetrics.cs" />
-    <Compile Include="../UnoEdit/Themes/TextEditorTheme.cs" />
-    <Compile Include="../UnoEdit/Rendering/TextLineViewModel.cs" />
-    <Compile Include="../UnoEdit/Rendering/TextView.PlatformInput.cs" />
-    <Compile Include="../UnoEdit/Rendering/TextView.EditOperations.uno.cs" />
-    <Compile Include="../UnoEdit/Rendering/TextView.InputHandlers.uno.cs" />
-    <Compile Include="../UnoEdit/Editing/SelectionMouseHandler.uno.cs" />
-    <Compile Include="../UnoEdit/Editing/CaretNavigationCommandHandler.uno.cs" />
-    <Compile Include="../UnoEdit/Editing/EditingCommandHandler.uno.cs" />
-    <Compile Include="../UnoEdit/Search/SearchPanel.xaml.uno.cs" />
-    <Compile Include="../UnoEdit/Rendering/HighlightedTextBlock.xaml.uno.cs" />
-    <Compile Include="../UnoEdit/Editing/TextArea.xaml.uno.cs" />
-    <Compile Include="../UnoEdit/TextEditor.xaml.uno.cs" />
-    <Compile Include="../UnoEdit/Rendering/TextView.xaml.uno.cs" />
-
-    <Page Include="../UnoEdit/Rendering/HighlightedTextBlock.xaml" />
-    <Page Include="../UnoEdit/Themes/generic.xaml" Link="Themes/generic.xaml" />
-    <Page Include="../UnoEdit/Search/SearchPanel.xaml" />
-    <Page Include="../UnoEdit/Editing/TextArea.xaml" />
-    <Page Include="../UnoEdit/TextEditor.xaml" />
-    <Page Include="../UnoEdit/Rendering/TextView.xaml" />
   </ItemGroup>
 
 </Project>

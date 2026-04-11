@@ -11,6 +11,7 @@ Current scope:
 Repository layout:
 
 - `src/UnoEdit`: shared desktop-targeted library assembled from AvalonEdit's platform-neutral code plus Uno-specific forks
+- `src/UnoEdit.TextMate`: optional TextMate integration library built on top of `UnoEdit`
 - `src/UnoEdit.Tests`: desktop-targeted regression suite for the shared library
 - `src/UnoEdit.Sample`: Uno Skia Desktop host for the first editor shell
 
@@ -30,9 +31,11 @@ Current status:
 - `RichTextModelWriter.cs` is now linked as well, so the shared highlighting stack can write formatted text back into documents and preserve highlighting state during insertion
 - Shared search command definitions now exist again through a narrow `SearchCommands.cs` fork; the command-routing/input-handler half is still deferred until the shared editing surface is expanded
 - Shared AvalonEdit command definitions now exist again through a narrow `AvalonEditCommands.cs` fork; this restores the command identifiers and default gestures without pretending the shared `TextEditor` type is already in the library
+- Phase 10 is now started with a separate `src/UnoEdit.TextMate` library instead of baking TextMateSharp into the core `src/UnoEdit` assembly
+- The sample app now proves the TextMate path end-to-end by attaching a C# TextMate grammar/theme-backed highlighted-line source to the editor
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
-- Current regression total: `236` passing tests
+- Current regression total: `244` passing tests
 - The headless Uno runtime-test host is now green again after fixing the search-panel navigation regression
 
 Next steps:

@@ -1,4 +1,5 @@
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
@@ -100,6 +101,12 @@ public sealed partial class TextEditor : UserControl
     {
         get => PART_TextArea.FoldingManager;
         set => PART_TextArea.FoldingManager = value;
+    }
+
+    public IHighlightedLineSource? HighlightedLineSource
+    {
+        get => PART_TextArea.HighlightedLineSource;
+        set => PART_TextArea.HighlightedLineSource = value;
     }
 
     /// <summary>Raised when the user Ctrl+Clicks a reference segment.</summary>

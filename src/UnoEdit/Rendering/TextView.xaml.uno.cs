@@ -81,6 +81,7 @@ public sealed partial class TextView : UserControl
     private const int OverscanLineCount = 4;
     private TextDocument? _document;
     private DocumentHighlighter? _highlighter;
+    private IHighlightedLineSource? _highlightedLineSource;
     private int _firstVisibleLineNumber = 1;
     private int _lastVisibleLineNumber;
     private int _desiredColumn = 1;
@@ -163,6 +164,34 @@ public sealed partial class TextView : UserControl
         set => SetValue(FoldingManagerProperty, value);
     }
 
+    public IHighlightedLineSource? HighlightedLineSource
+    {
+        get => _highlightedLineSource;
+        set
+        {
+            if (ReferenceEquals(_highlightedLineSource, value))
+                return;
+
+            if (_highlightedLineSource is not null)
+            {
+                _highlightedLineSource.HighlightingInvalidated -= OnHighlightedLineSourceInvalidated;
+                _highlightedLineSource.SetDocument(null);
+            }
+
+            _highlightedLineSource = value;
+
+            if (_highlightedLineSource is not null)
+            {
+                _highlightedLineSource.SetDocument(_document);
+                _highlightedLineSource.HighlightingInvalidated += OnHighlightedLineSourceInvalidated;
+            }
+
+            _pendingFullRebuild = true;
+            LogFlash("full queued: HighlightedLineSource changed");
+            RefreshViewport();
+        }
+    }
+
     /// <summary>Raised when a reference segment is Ctrl+Clicked. The event arg carries the segment.</summary>
     public event EventHandler<ReferenceSegment>? NavigationRequested;
 
@@ -225,6 +254,7 @@ public sealed partial class TextView : UserControl
         _document = newDocument;
         _highlighter = null;
         _visibleDocLines.Clear();
+        _highlightedLineSource?.SetDocument(newDocument);
 
         if (newDocument is not null)
         {
@@ -254,6 +284,13 @@ public sealed partial class TextView : UserControl
         RebuildVisibleLineList();
         _pendingFullRebuild = true;
         LogFlash("full queued: document attached");
+        RefreshViewport();
+    }
+
+    private void OnHighlightedLineSourceInvalidated(object? sender, EventArgs e)
+    {
+        _pendingFullRebuild = true;
+        LogFlash("full queued: external highlighting invalidated");
         RefreshViewport();
     }
 
@@ -646,7 +683,12 @@ public sealed partial class TextView : UserControl
             }
 
             HighlightedLine? highlightedLine = null;
-            try { highlightedLine = _highlighter?.HighlightLine(lineNumber); } catch { /* ignore errors during highlighting */ }
+            try {
+                highlightedLine = _highlightedLineSource?.HighlightLine(lineNumber)
+                    ?? _highlighter?.HighlightLine(lineNumber);
+            } catch {
+                /* ignore errors during highlighting */
+            }
 
             // Collect reference segments for this line, converted to line-relative visual-column offsets
             // so HighlightedTextBlock can compare them against visual run positions directly.

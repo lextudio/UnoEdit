@@ -1,4 +1,5 @@
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -95,6 +96,12 @@ public sealed partial class TextArea : UserControl
     {
         get => PART_TextView.FoldingManager;
         set => PART_TextView.FoldingManager = value;
+    }
+
+    public IHighlightedLineSource? HighlightedLineSource
+    {
+        get => PART_TextView.HighlightedLineSource;
+        set => PART_TextView.HighlightedLineSource = value;
     }
 
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

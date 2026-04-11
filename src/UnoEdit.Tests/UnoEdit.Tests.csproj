@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UnoEdit\UnoEdit.csproj" />
+    <ProjectReference Include="..\UnoEdit.TextMate\UnoEdit.TextMate.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -43,6 +44,8 @@
     <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />
     <Compile Include="Rendering\VisibleLineMapperTests.cs" />
     <Compile Include="Search\SearchCommandsTests.cs" />
+    <Compile Include="TextMate\DocumentSnapshotTests.cs" />
+    <Compile Include="TextMate\TextMateLineHighlighterTests.cs" />
     <Compile Include="Highlighting\ColorConverterTests.cs" />
     <Compile Include="Highlighting\HtmlOptionsTests.cs" />
     <Compile Include="Highlighting\RichTextHtmlTests.cs" />

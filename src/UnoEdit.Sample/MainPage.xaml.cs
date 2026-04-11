@@ -1,5 +1,7 @@
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
+using ICSharpCode.AvalonEdit.TextMate;
+using TextMateSharp.Grammars;
 using UnoEdit.Skia.Desktop.Controls;
 
 namespace UnoEdit.Skia.Desktop;
@@ -9,6 +11,8 @@ public sealed partial class MainPage : Page
     private readonly TextDocument _document;
     private readonly FoldingManager _foldingManager;
     private readonly BraceFoldingStrategy _foldingStrategy = new();
+    private readonly TextMateLineHighlighter _textMateHighlighter;
+    private readonly RegistryOptions _textMateRegistryOptions;
     private bool _isDarkTheme = true;
 
     public MainPage()
@@ -17,8 +21,12 @@ public sealed partial class MainPage : Page
 
         _document = new TextDocument(BuildSampleText());
         _foldingManager = new FoldingManager(_document);
+        _textMateRegistryOptions = new RegistryOptions(ThemeName.DarkPlus);
+        _textMateHighlighter = new TextMateLineHighlighter(_textMateRegistryOptions);
+        _textMateHighlighter.SetGrammarByExtension(".cs");
         Editor.Document = _document;
         Editor.FoldingManager = _foldingManager;
+        Editor.HighlightedLineSource = _textMateHighlighter;
         _document.TextChanged += OnDocumentTextChanged;
         UpdateFoldings();
         StatsTextBlock.Text = BuildStats(_document);
@@ -39,6 +47,7 @@ public sealed partial class MainPage : Page
     {
         _isDarkTheme = !_isDarkTheme;
         Editor.Theme = _isDarkTheme ? TextEditorTheme.Dark : TextEditorTheme.Light;
+        _textMateHighlighter.SetTheme(_isDarkTheme ? ThemeName.DarkPlus : ThemeName.LightPlus);
         ThemeToggle.Content = _isDarkTheme ? "☀ Light" : "🌙 Dark";
     }
 

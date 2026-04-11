@@ -5,6 +5,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/UnoEdit/UnoEdit.csproj" />
+    <Project Path="src/UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
   </Folder>
   <Folder Name="/src/UnoEdit.Tests/">
     <Project Path="src/UnoEdit.Tests/UnoEdit.Tests.csproj" />

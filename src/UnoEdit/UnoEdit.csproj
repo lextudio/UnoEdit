@@ -162,6 +162,7 @@
     <Compile Include="Highlighting\RichText.cs" />
     <Compile Include="Highlighting\Xshd\V2Loader.cs" />
     <Compile Include="Highlighting\Resources\Resources.cs" />
+    <Compile Include="Highlighting\IHighlightedLineSource.cs" />
 
     <!-- Highlighting: Phase 2 — forks replaced with direct links (no WPF deps) -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionTypeConverter.cs"      Link="Highlighting\HighlightingDefinitionTypeConverter.cs" />

@@ -16,6 +16,44 @@ public partial class App : Application
     public App()
     {
         this.InitializeComponent();
+
+        // Load UnoEdit theme from library assembly
+        LoadUnoEditTheme();
+    }
+
+    private void LoadUnoEditTheme()
+    {
+        try
+        {
+            // Try different URI formats that work with Uno Platform library resources
+            Uri themeUri = null;
+
+            try
+            {
+                // First try: using fully qualified assembly name
+                themeUri = new Uri("ms-appx:///ICSharpCode.AvalonEdit/Themes/generic.xaml");
+                var themeDictionary = new ResourceDictionary { Source = themeUri };
+                this.Resources.MergedDictionaries.Add(themeDictionary);
+                return;
+            }
+            catch { }
+
+            try
+            {
+                // Fallback: try with UnoEdit assembly name
+                themeUri = new Uri("ms-appx:///UnoEdit/Themes/generic.xaml");
+                var themeDictionary = new ResourceDictionary { Source = themeUri };
+                this.Resources.MergedDictionaries.Add(themeDictionary);
+                return;
+            }
+            catch { }
+
+            Console.WriteLine($"Warning: Could not load UnoEdit theme from library. Tried: ms-appx:///ICSharpCode.AvalonEdit/Themes/generic.xaml and ms-appx:///UnoEdit/Themes/generic.xaml");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load UnoEdit theme: {ex.Message}");
+        }
     }
 
     protected Window? MainWindow { get; private set; }

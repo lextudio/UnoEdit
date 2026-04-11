@@ -1,0 +1,6 @@
+[
+  "VisualLineElement.CanSplit",
+  "VisualLineElement.Split",
+  "VisualLineElement.IsWhitespace",
+  "VisualLineElement.HandlesLineBorders"
+]

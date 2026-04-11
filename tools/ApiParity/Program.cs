@@ -21,8 +21,9 @@ internal static class Program
         string toolDirectory = AppContext.BaseDirectory;
         string repoRoot = FindRepoRoot(toolDirectory);
         string defaultJustifications = Path.Combine(repoRoot, "tools", "ApiParity", "api-parity.justifications.json");
+        string defaultStubSuppressions = Path.Combine(repoRoot, "tools", "ApiParity", "stub-detection.suppressions.json");
 
-        var options = ParseOptions(args, repoRoot, defaultJustifications);
+        var options = ParseOptions(args, repoRoot, defaultJustifications, defaultStubSuppressions);
 
         var avalonSymbols = CollectSymbols(options.AvalonRoots, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         var unoLinkedFiles = options.UnoProjectFiles
@@ -30,6 +31,15 @@ internal static class Program
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var unoSymbols = CollectSymbols(options.UnoRoots, unoLinkedFiles);
         var justifications = LoadJustifications(options.JustificationsPath);
+
+        var stubSuppressions = LoadStubSuppressions(options.StubSuppressionsPath);
+        var suspectedStubs = options.DetectStubs
+            ? DetectStubs(options.UnoRoots, options.DetectStubsIncludeLinked ? unoLinkedFiles : new HashSet<string>(StringComparer.OrdinalIgnoreCase))
+            : new HashSet<string>(StringComparer.Ordinal);
+        if (suspectedStubs.Count > 0 && stubSuppressions.Count > 0)
+        {
+            suspectedStubs.RemoveWhere(stubSuppressions.Contains);
+        }
 
         var rawMissingTypes = avalonSymbols.Types.Except(unoSymbols.Types, StringComparer.Ordinal).OrderBy(static x => x).ToList();
         var rawMissingMembers = avalonSymbols.Members.Except(unoSymbols.Members, StringComparer.Ordinal).OrderBy(static x => x).ToList();
@@ -54,6 +64,7 @@ internal static class Program
             rawMissingMembers.Take(options.ListLimit).ToList(),
             adjustedMissingTypes.Take(options.ListLimit).ToList(),
             adjustedMissingMembers.Take(options.ListLimit).ToList(),
+            suspectedStubs.Take(options.ListLimit).ToList(),
             justifications);
 
         PrintReport(report, options.JustificationsPath);
@@ -70,7 +81,7 @@ internal static class Program
         return 0;
     }
 
-    private static Options ParseOptions(string[] args, string repoRoot, string defaultJustifications)
+    private static Options ParseOptions(string[] args, string repoRoot, string defaultJustifications, string defaultStubSuppressions)
     {
         var avalonRoots = new List<string>
         {
@@ -87,8 +98,11 @@ internal static class Program
         };
 
         string justificationsPath = defaultJustifications;
+        string stubSuppressionsPath = defaultStubSuppressions;
         string? outputJsonPath = null;
         int listLimit = 25;
+        bool detectStubs = false;
+        bool detectStubsIncludeLinked = false;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -106,8 +120,17 @@ internal static class Program
                 case "--output-json":
                     outputJsonPath = RequireValue(args, ref i, "--output-json");
                     break;
+                case "--stub-suppressions":
+                    stubSuppressionsPath = RequireValue(args, ref i, "--stub-suppressions");
+                    break;
                 case "--list-limit":
                     listLimit = int.Parse(RequireValue(args, ref i, "--list-limit"));
+                    break;
+                case "--detect-stubs":
+                    detectStubs = true;
+                    break;
+                case "--detect-stubs-include-linked":
+                    detectStubsIncludeLinked = true;
                     break;
                 case "--replace-avalon-roots":
                     avalonRoots.Clear();
@@ -128,8 +151,61 @@ internal static class Program
             unoRoots.Select(Path.GetFullPath).ToArray(),
             unoProjectFiles.Where(File.Exists).Select(Path.GetFullPath).ToArray(),
             Path.GetFullPath(justificationsPath),
+            Path.GetFullPath(stubSuppressionsPath),
             outputJsonPath,
-            listLimit);
+            listLimit,
+            detectStubs,
+            detectStubsIncludeLinked);
+    }
+
+    private static HashSet<string> LoadStubSuppressions(string path)
+    {
+        if (!File.Exists(path))
+            return new HashSet<string>(StringComparer.Ordinal);
+
+        string[]? entries = JsonSerializer.Deserialize<string[]>(File.ReadAllText(path), JsonOptions);
+        return new HashSet<string>(entries ?? Array.Empty<string>(), StringComparer.Ordinal);
+    }
+
+    private static HashSet<string> DetectStubs(IEnumerable<string> roots, HashSet<string> additionalFiles)
+    {
+        var suspected = new HashSet<string>(StringComparer.Ordinal);
+        var processedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string root in roots.Where(Directory.Exists))
+        {
+            foreach (string file in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                if (file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                    || file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                processedFiles.Add(file);
+                InspectFileForStubs(file, suspected);
+            }
+        }
+
+        foreach (string file in additionalFiles)
+        {
+            if (!processedFiles.Contains(file) && File.Exists(file))
+            {
+                processedFiles.Add(file);
+                InspectFileForStubs(file, suspected);
+            }
+        }
+
+        return suspected;
+    }
+
+    private static void InspectFileForStubs(string file, HashSet<string> suspected)
+    {
+        string text = File.ReadAllText(file);
+        SyntaxTree tree = CSharpSyntaxTree.ParseText(text);
+        SyntaxNode rootNode = tree.GetRoot();
+        var walker = new StubDetectionWalker(suspected);
+        walker.Visit(rootNode);
     }
 
     private static string RequireValue(string[] args, ref int i, string optionName)
@@ -270,6 +346,7 @@ internal static class Program
         PrintList("Raw missing members", report.RawMissingMembersSample);
         PrintList("Adjusted missing types", report.AdjustedMissingTypesSample);
         PrintList("Adjusted missing members", report.AdjustedMissingMembersSample);
+        PrintList("Suspected stubs", report.SuspectedStubsSample);
     }
 
     private static void PrintCoverage(string label, CoverageSummary summary)
@@ -487,8 +564,11 @@ internal static class Program
         string[] UnoRoots,
         string[] UnoProjectFiles,
         string JustificationsPath,
+        string StubSuppressionsPath,
         string? OutputJsonPath,
-        int ListLimit);
+        int ListLimit,
+        bool DetectStubs,
+        bool DetectStubsIncludeLinked);
 
     private sealed record SourceSymbols(
         HashSet<string> Types,
@@ -507,7 +587,219 @@ internal static class Program
         IReadOnlyList<string> RawMissingMembersSample,
         IReadOnlyList<string> AdjustedMissingTypesSample,
         IReadOnlyList<string> AdjustedMissingMembersSample,
+        IReadOnlyList<string> SuspectedStubsSample,
         Justifications Justifications);
+
+    private sealed class StubDetectionWalker : CSharpSyntaxWalker
+    {
+        private readonly HashSet<string> suspected;
+        private readonly Stack<string> typeStack = new();
+
+        public StubDetectionWalker(HashSet<string> suspected)
+        {
+            this.suspected = suspected;
+        }
+
+        public override void VisitClassDeclaration(ClassDeclarationSyntax node)
+        {
+            VisitType(node, node.Identifier.ValueText, static (walker, current) => walker.VisitClassDeclarationCore(current));
+        }
+
+        public override void VisitStructDeclaration(StructDeclarationSyntax node)
+        {
+            VisitType(node, node.Identifier.ValueText, static (walker, current) => walker.VisitStructDeclarationCore(current));
+        }
+
+        public override void VisitInterfaceDeclaration(InterfaceDeclarationSyntax node)
+        {
+            VisitType(node, node.Identifier.ValueText, static (walker, current) => walker.VisitInterfaceDeclarationCore(current));
+        }
+
+        public override void VisitRecordDeclaration(RecordDeclarationSyntax node)
+        {
+            VisitType(node, node.Identifier.ValueText, static (walker, current) => walker.VisitRecordDeclarationCore(current));
+        }
+
+        public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
+        {
+            if ((IsPublic(node.GetModifiers()) || IsInterfaceMember(node.Parent, node.GetModifiers())) && TryGetCurrentType(out var typeName))
+            {
+                string memberName = node.Identifier.ValueText;
+                if (IsStubMethod(node))
+                    suspected.Add($"{typeName}.{memberName}");
+            }
+
+            base.VisitMethodDeclaration(node);
+        }
+
+        public override void VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+        {
+            if ((IsPublic(node.GetModifiers()) || IsInterfaceMember(node.Parent, node.GetModifiers())) && TryGetCurrentType(out var typeName))
+            {
+                string memberName = node.Identifier.ValueText;
+                if (IsStubProperty(node))
+                    suspected.Add($"{typeName}.{memberName}");
+            }
+
+            base.VisitPropertyDeclaration(node);
+        }
+
+        private void VisitType<TNode>(TNode node, string typeName, Action<StubDetectionWalker, TNode> baseVisit)
+            where TNode : MemberDeclarationSyntax
+        {
+            if (!IsPublic(node))
+                return;
+
+            typeStack.Push(typeName);
+            try
+            {
+                baseVisit(this, node);
+            }
+            finally
+            {
+                typeStack.Pop();
+            }
+        }
+
+        private void VisitClassDeclarationCore(ClassDeclarationSyntax node) => base.VisitClassDeclaration(node);
+        private void VisitStructDeclarationCore(StructDeclarationSyntax node) => base.VisitStructDeclaration(node);
+        private void VisitInterfaceDeclarationCore(InterfaceDeclarationSyntax node) => base.VisitInterfaceDeclaration(node);
+        private void VisitRecordDeclarationCore(RecordDeclarationSyntax node) => base.VisitRecordDeclaration(node);
+
+        private bool TryGetCurrentType(out string? typeName)
+        {
+            if (typeStack.Count > 0)
+            {
+                typeName = typeStack.Peek();
+                return true;
+            }
+
+            typeName = null;
+            return false;
+        }
+
+        private static bool IsInterfaceMember(SyntaxNode? parent, SyntaxTokenList modifiers)
+        {
+            if (parent is InterfaceDeclarationSyntax)
+            {
+                return !modifiers.Any(token =>
+                    token.IsKind(SyntaxKind.PrivateKeyword)
+                    || token.IsKind(SyntaxKind.InternalKeyword)
+                    || token.IsKind(SyntaxKind.ProtectedKeyword));
+            }
+
+            return false;
+        }
+
+        private static bool IsPublic(MemberDeclarationSyntax node)
+        {
+            return IsPublic(node.GetModifiers()) || node.Parent is InterfaceDeclarationSyntax;
+        }
+
+        private static bool IsPublic(SyntaxTokenList modifiers)
+        {
+            return modifiers.Any(static token => token.IsKind(SyntaxKind.PublicKeyword));
+        }
+
+        private static bool IsStubMethod(MethodDeclarationSyntax node)
+        {
+            // expression-bodied: => throw new NotImplementedException();
+            if (node.ExpressionBody != null)
+            {
+                var expr = node.ExpressionBody.Expression;
+                if (IsThrowingNotImplemented(expr))
+                    return true;
+            }
+
+            if (node.Body != null)
+            {
+                var stmts = node.Body.Statements;
+                if (stmts.Count == 1)
+                {
+                    var stmt = stmts[0];
+                    if (stmt is ThrowStatementSyntax throwStmt && IsThrowingNotImplemented(throwStmt.Expression))
+                        return true;
+
+                    if (stmt is ReturnStatementSyntax ret && IsDefaultOrNullOrFalse(ret.Expression))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsStubProperty(PropertyDeclarationSyntax node)
+        {
+            if (node.ExpressionBody != null)
+            {
+                if (IsThrowingNotImplemented(node.ExpressionBody.Expression))
+                    return true;
+            }
+
+            if (node.AccessorList != null)
+            {
+                foreach (var acc in node.AccessorList.Accessors)
+                {
+                    if (acc.Body != null && acc.Body.Statements.Count == 1)
+                    {
+                        var stmt = acc.Body.Statements[0];
+                        if (stmt is ThrowStatementSyntax throwStmt && IsThrowingNotImplemented(throwStmt.Expression))
+                            return true;
+
+                        if (stmt is ReturnStatementSyntax ret && IsDefaultOrNullOrFalse(ret.Expression))
+                            return true;
+                    }
+                    else if (acc.ExpressionBody != null && IsThrowingNotImplemented(acc.ExpressionBody.Expression))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsThrowingNotImplemented(ExpressionSyntax? expr)
+        {
+            if (expr == null)
+                return false;
+
+            // throw expressions
+            if (expr is ThrowExpressionSyntax)
+                return true;
+
+            // object creation: new NotImplementedException()
+            if (expr is ObjectCreationExpressionSyntax obj)
+            {
+                var typeName = obj.Type.ToString();
+                if (typeName.Contains("NotImplementedException") || typeName.Contains("NotSupportedException"))
+                    return true;
+            }
+
+            // invocation or member access that throws is hard to detect; skip
+            return false;
+        }
+
+        private static bool IsDefaultOrNullOrFalse(ExpressionSyntax? expr)
+        {
+            if (expr == null)
+                return false;
+
+            if (expr is LiteralExpressionSyntax lit)
+            {
+                if (lit.IsKind(SyntaxKind.NullLiteralExpression) || lit.IsKind(SyntaxKind.FalseLiteralExpression))
+                    return true;
+            }
+
+            if (expr is DefaultExpressionSyntax)
+                return true;
+
+            if (expr is LiteralExpressionSyntax les && les.Token.IsKind(SyntaxKind.DefaultKeyword))
+                return true;
+
+            return false;
+        }
+    }
 
     private sealed class Justifications
     {

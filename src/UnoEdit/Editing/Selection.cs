@@ -1,6 +1,10 @@
 // UnoEdit port of ICSharpCode.AvalonEdit.Editing.Selection and RectangleSelection.
+using System;
 using System.Collections.Generic;
+using System.Text;
+using System.Windows;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Highlighting;
 
 namespace ICSharpCode.AvalonEdit.Editing
 {
@@ -66,11 +70,35 @@ namespace ICSharpCode.AvalonEdit.Editing
 		/// <summary>Gets whether the selection contains the specified offset.</summary>
 		public virtual bool Contains(int offset) => false;
 
-		/// <summary>Creates a data object for clipboard operations (stub).</summary>
-		public virtual object CreateDataObject(object textArea) => null;
+		/// <summary>Creates a data object for clipboard operations.</summary>
+		public virtual object CreateDataObject(object textArea)
+		{
+			var data = new DataObject();
+			string text = GetText();
+			if (!string.IsNullOrEmpty(text))
+			{
+				data.SetData(DataFormats.Text, text);
+				data.SetData(DataFormats.UnicodeText, text);
+			}
+			return data;
+		}
 
 		/// <summary>Creates an HTML fragment for the selection (stub).</summary>
-		public virtual string CreateHtmlFragment(object options) => string.Empty;
+		public virtual string CreateHtmlFragment(object options)
+		{
+			string text = GetText();
+			if (string.IsNullOrEmpty(text))
+				return string.Empty;
+
+			string escaped = text
+				.Replace("&", "&amp;", StringComparison.Ordinal)
+				.Replace("<", "&lt;", StringComparison.Ordinal)
+				.Replace(">", "&gt;", StringComparison.Ordinal)
+				.Replace("\r\n", "\n", StringComparison.Ordinal)
+				.Replace("\r", "\n", StringComparison.Ordinal)
+				.Replace("\n", "<br>", StringComparison.Ordinal);
+			return "<!--StartFragment-->" + escaped + "<!--EndFragment-->";
+		}
 
 		/// <summary>Determines whether the specified object equals this selection.</summary>
 		public abstract override bool Equals(object obj);
@@ -87,19 +115,49 @@ namespace ICSharpCode.AvalonEdit.Editing
 		/// <summary>The clipboard data format for rectangular selections.</summary>
 		public static readonly string RectangularSelectionDataType = "Avalonedit.RectangularSelection";
 
+		private readonly object _textArea;
+		private readonly TextViewPosition _start;
+		private readonly TextViewPosition _end;
+
 		/// <summary>Creates a new RectangleSelection.</summary>
-		public RectangleSelection(object textArea, TextViewPosition start, TextViewPosition end) { }
+		public RectangleSelection(object textArea, TextViewPosition start, TextViewPosition end)
+		{
+			_textArea = textArea;
+			_start = start;
+			_end = end;
+		}
 
 		/// <inheritdoc/>
-		public override TextViewPosition StartPosition => default;
+		public override TextViewPosition StartPosition => _start.CompareTo(_end) <= 0 ? _start : _end;
 		/// <inheritdoc/>
-		public override TextViewPosition EndPosition => default;
+		public override TextViewPosition EndPosition => _start.CompareTo(_end) <= 0 ? _end : _start;
 		/// <inheritdoc/>
 		public override IEnumerable<SelectionSegment> Segments => System.Linq.Enumerable.Empty<SelectionSegment>();
 		/// <inheritdoc/>
-		public override ISegment SurroundingSegment => null;
+		public override ISegment SurroundingSegment
+		{
+			get
+			{
+				if (!TryGetDocument(_textArea, out var doc))
+					return null;
+
+				int startOffset = GetOffsetFromPosition(doc, StartPosition);
+				int endOffset = GetOffsetFromPosition(doc, EndPosition);
+				if (startOffset == endOffset)
+					return null;
+
+				return new SimpleSegment(Math.Min(startOffset, endOffset), Math.Abs(endOffset - startOffset));
+			}
+		}
 		/// <inheritdoc/>
-		public override int Length => 0;
+		public override int Length
+		{
+			get
+			{
+				var segment = SurroundingSegment;
+				return segment?.Length ?? 0;
+			}
+		}
 		/// <inheritdoc/>
 		public override void ReplaceSelectionWithText(string newText) { }
 		/// <inheritdoc/>
@@ -130,9 +188,27 @@ namespace ICSharpCode.AvalonEdit.Editing
 		public static void PerformRectangularPaste(object textArea, TextViewPosition startPosition, string text, bool selectInsertedText) { }
 
 		/// <inheritdoc/>
-		public override string GetText() => string.Empty;
+		public override string GetText()
+		{
+			if (!TryGetDocument(_textArea, out var doc))
+				return string.Empty;
+
+			var segment = SurroundingSegment;
+			if (segment == null || segment.Length <= 0)
+				return string.Empty;
+
+			return doc.GetText(segment.Offset, segment.Length);
+		}
 		/// <inheritdoc/>
-		public override object CreateDataObject(object textArea) => null;
+		public override object CreateDataObject(object textArea)
+		{
+			var data = new DataObject();
+			string text = NormalizeNewlines(GetText());
+			data.SetData(DataFormats.Text, text);
+			data.SetData(DataFormats.UnicodeText, text);
+			data.SetData(RectangularSelectionDataType, bool.TrueString);
+			return data;
+		}
 		/// <inheritdoc/>
 		public override bool EnableVirtualSpace => false;
 
@@ -141,7 +217,32 @@ namespace ICSharpCode.AvalonEdit.Editing
 		/// <inheritdoc/>
 		public override int GetHashCode() => 0;
 		/// <inheritdoc/>
-		public override string ToString() => string.Empty;
+		public override string ToString() => $"RectangleSelection {{ Start={StartPosition}, End={EndPosition} }}";
+
+		private static bool TryGetDocument(object textArea, out TextDocument document)
+		{
+			document = textArea?.GetType().GetProperty("Document")?.GetValue(textArea) as TextDocument;
+			return document != null;
+		}
+
+		private static int GetOffsetFromPosition(TextDocument doc, TextViewPosition position)
+		{
+			int line = Math.Clamp(position.Line, 1, doc.LineCount);
+			DocumentLine documentLine = doc.GetLineByNumber(line);
+			int column = Math.Clamp(position.Column, 1, documentLine.Length + 1);
+			return doc.GetOffset(line, column);
+		}
+
+		private static string NormalizeNewlines(string text)
+		{
+			if (string.IsNullOrEmpty(text))
+				return string.Empty;
+
+			return text
+				.Replace("\r\n", "\n", StringComparison.Ordinal)
+				.Replace("\r", "\n", StringComparison.Ordinal)
+				.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
+		}
 	}
 
 	/// <summary>
@@ -162,9 +263,35 @@ namespace ICSharpCode.AvalonEdit.Editing
 		}
 
 		/// <inheritdoc/>
-		public override TextViewPosition StartPosition => new TextViewPosition(1, 1);
+		public override TextViewPosition EndPosition
+		{
+			get
+			{
+				if (TryGetDocument(_textArea, out var doc))
+				{
+					int start = Math.Clamp(Math.Min(_startOffset, _endOffset), 0, doc.TextLength);
+					int end = Math.Clamp(Math.Max(_startOffset, _endOffset), 0, doc.TextLength);
+					return new TextViewPosition(doc.GetLocation(end));
+				}
+
+				return new TextViewPosition(1, 1);
+			}
+		}
+
 		/// <inheritdoc/>
-		public override TextViewPosition EndPosition   => new TextViewPosition(1, 1);
+		public override TextViewPosition StartPosition
+		{
+			get
+			{
+				if (TryGetDocument(_textArea, out var doc))
+				{
+					int start = Math.Clamp(Math.Min(_startOffset, _endOffset), 0, doc.TextLength);
+					return new TextViewPosition(doc.GetLocation(start));
+				}
+
+				return new TextViewPosition(1, 1);
+			}
+		}
 
 		/// <inheritdoc/>
 		public override IEnumerable<SelectionSegment> Segments
@@ -187,16 +314,84 @@ namespace ICSharpCode.AvalonEdit.Editing
 		public override bool IsEmpty => _startOffset == _endOffset;
 
 		/// <inheritdoc/>
-		public override void ReplaceSelectionWithText(string newText) { }
+		public override void ReplaceSelectionWithText(string newText)
+		{
+			if (!TryGetDocument(_textArea, out var doc))
+				return;
+
+			int start = Math.Clamp(Math.Min(_startOffset, _endOffset), 0, doc.TextLength);
+			int end = Math.Clamp(Math.Max(_startOffset, _endOffset), 0, doc.TextLength);
+			using (doc.RunUpdate())
+			{
+				doc.Replace(start, end - start, newText ?? string.Empty);
+			}
+		}
 
 		/// <inheritdoc/>
-		public override Selection UpdateOnDocumentChange(DocumentChangeEventArgs e) => this;
+		public override Selection UpdateOnDocumentChange(DocumentChangeEventArgs e)
+		{
+			if (e == null)
+				return this;
+
+			int newStart = e.GetNewOffset(_startOffset);
+			int newEnd = e.GetNewOffset(_endOffset);
+			return new SimpleSelection(_textArea, newStart, newEnd);
+		}
 
 		/// <inheritdoc/>
-		public override Selection SetEndpoint(TextViewPosition endPosition) => this;
+		public override Selection SetEndpoint(TextViewPosition endPosition)
+		{
+			if (!TryGetDocument(_textArea, out var doc))
+				return this;
+
+			int fixedStart = Math.Clamp(_startOffset, 0, doc.TextLength);
+			int newEnd = GetOffsetFromPosition(doc, endPosition);
+			return new SimpleSelection(_textArea, fixedStart, newEnd);
+		}
 
 		/// <inheritdoc/>
-		public override Selection StartSelectionOrSetEndpoint(TextViewPosition startPosition, TextViewPosition endPosition) => this;
+		public override Selection StartSelectionOrSetEndpoint(TextViewPosition startPosition, TextViewPosition endPosition)
+		{
+			if (!TryGetDocument(_textArea, out var doc))
+				return this;
+
+			int startOffset = GetOffsetFromPosition(doc, startPosition);
+			int endOffset = GetOffsetFromPosition(doc, endPosition);
+			return new SimpleSelection(_textArea, startOffset, endOffset);
+		}
+
+		/// <inheritdoc/>
+		public override object CreateDataObject(object textArea)
+		{
+			var data = new DataObject();
+			string text = NormalizeNewlines(GetText());
+			data.SetData(DataFormats.Text, text);
+			data.SetData(DataFormats.UnicodeText, text);
+			data.SetData(typeof(string).FullName, text);
+
+			string html = CreateHtmlFragment(null);
+			if (!string.IsNullOrEmpty(html))
+			{
+				data.SetData(DataFormats.Html, html);
+			}
+
+			return data;
+		}
+
+		/// <inheritdoc/>
+		public override string CreateHtmlFragment(object options)
+		{
+			if (!TryGetDocument(_textArea, out var doc))
+				return base.CreateHtmlFragment(options);
+
+			int start = Math.Clamp(Math.Min(_startOffset, _endOffset), 0, doc.TextLength);
+			int end = Math.Clamp(Math.Max(_startOffset, _endOffset), 0, doc.TextLength);
+			if (end <= start)
+				return string.Empty;
+
+			HtmlOptions htmlOptions = options as HtmlOptions ?? new HtmlOptions();
+			return HtmlClipboard.CreateHtmlFragment(doc, null, new SimpleSegment(start, end - start), htmlOptions);
+		}
 
 		/// <inheritdoc/>
 		public override string GetText()
@@ -234,5 +429,30 @@ namespace ICSharpCode.AvalonEdit.Editing
 		/// <inheritdoc/>
 		public override int GetHashCode()
 			=> System.HashCode.Combine(_startOffset, _endOffset);
+
+		private static bool TryGetDocument(object textArea, out TextDocument document)
+		{
+			document = textArea?.GetType().GetProperty("Document")?.GetValue(textArea) as TextDocument;
+			return document != null;
+		}
+
+		private static int GetOffsetFromPosition(TextDocument doc, TextViewPosition position)
+		{
+			int line = Math.Clamp(position.Line, 1, doc.LineCount);
+			DocumentLine documentLine = doc.GetLineByNumber(line);
+			int column = Math.Clamp(position.Column, 1, documentLine.Length + 1);
+			return doc.GetOffset(line, column);
+		}
+
+		private static string NormalizeNewlines(string text)
+		{
+			if (string.IsNullOrEmpty(text))
+				return string.Empty;
+
+			return text
+				.Replace("\r\n", "\n", StringComparison.Ordinal)
+				.Replace("\r", "\n", StringComparison.Ordinal)
+				.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
+		}
 	}
 }

@@ -235,7 +235,15 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public int HighlightedLine { get; set; }
 
 		/// <summary>Ensures visual lines are up to date; no-op in this stub.</summary>
-		public void EnsureVisualLines() { }
+		public void EnsureVisualLines()
+		{
+			if (VisualLinesValid)
+				return;
+
+			VisualLinesValid = true;
+			OnVisualLinesChanged(EventArgs.Empty);
+			Redraw();
+		}
 
 		/// <summary>Returns the visual line for the given document line number, or null.</summary>
 		public VisualLine GetVisualLine(int documentLineNumber)
@@ -245,8 +253,19 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			return null;
 		}
 
-		/// <summary>Returns or constructs the visual line for the given document line; stub returns null.</summary>
-		public VisualLine GetOrConstructVisualLine(DocumentLine documentLine) => GetVisualLine(documentLine?.LineNumber ?? 0);
+		/// <summary>Returns or constructs the visual line for the given document line.</summary>
+		public VisualLine GetOrConstructVisualLine(DocumentLine documentLine)
+		{
+			if (documentLine == null)
+				return null;
+
+			VisualLine line = GetVisualLine(documentLine.LineNumber);
+			if (line != null)
+				return line;
+
+			EnsureVisualLines();
+			return GetVisualLine(documentLine.LineNumber);
+		}
 
 		/// <summary>Returns the document line at the given visual top position; stub.</summary>
 		public DocumentLine GetDocumentLineByVisualTop(double visualTop)
@@ -329,8 +348,48 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		// ----------------------------------------------------------------
 		public IList<UIElement> Layers { get; } = new List<UIElement>();
 
-		/// <summary>Inserts a layer at the given position; no-op in this stub.</summary>
-		public void InsertLayer(UIElement layer, KnownLayer referencedLayer, LayerInsertionPosition position) { }
+		/// <summary>Inserts a layer at the given position.</summary>
+		public void InsertLayer(UIElement layer, KnownLayer referencedLayer, LayerInsertionPosition position)
+		{
+			if (layer == null)
+				throw new ArgumentNullException(nameof(layer));
+			if (!Enum.IsDefined(typeof(KnownLayer), referencedLayer))
+				throw new InvalidEnumArgumentException(nameof(referencedLayer), (int)referencedLayer, typeof(KnownLayer));
+			if (!Enum.IsDefined(typeof(LayerInsertionPosition), position))
+				throw new InvalidEnumArgumentException(nameof(position), (int)position, typeof(LayerInsertionPosition));
+			if (referencedLayer == KnownLayer.Background && position != LayerInsertionPosition.Above)
+				throw new InvalidOperationException("Cannot replace or insert below the background layer.");
+
+			LayerPosition.SetLayerPosition(layer, new LayerPosition(referencedLayer, position));
+
+			for (int i = 0; i < Layers.Count; i++) {
+				LayerPosition p = LayerPosition.GetLayerPosition(Layers[i]);
+				if (p == null)
+					continue;
+
+				if (p.KnownLayer == referencedLayer && p.Position == LayerInsertionPosition.Replace) {
+					switch (position) {
+						case LayerInsertionPosition.Below:
+							Layers.Insert(i, layer);
+							return;
+						case LayerInsertionPosition.Above:
+							Layers.Insert(i + 1, layer);
+							return;
+						case LayerInsertionPosition.Replace:
+							Layers[i] = layer;
+							return;
+					}
+				}
+
+				if ((p.KnownLayer == referencedLayer && p.Position == LayerInsertionPosition.Above)
+					|| p.KnownLayer > referencedLayer) {
+					Layers.Insert(i, layer);
+					return;
+				}
+			}
+
+			Layers.Add(layer);
+		}
 
 		/// <summary>Collapses lines between the start and end document lines; stub.</summary>
 		public CollapsedLineSection CollapseLines(DocumentLine start, DocumentLine end) => null;
@@ -338,8 +397,26 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Invalidates the cursor; no-op in this stub.</summary>
 		public static void InvalidateCursor() { }
 
-		/// <summary>Makes the given rectangle visible; no-op in this stub.</summary>
-		public virtual void MakeVisible(Rect rectangle) { }
+		/// <summary>Makes the given rectangle visible by adjusting the stored scroll offsets.</summary>
+		public virtual void MakeVisible(Rect rectangle)
+		{
+			double newHorizontal = HorizontalOffset;
+			double newVertical = VerticalOffset;
+
+			if (rectangle.Left < newHorizontal)
+				newHorizontal = rectangle.Left;
+			if (rectangle.Top < newVertical)
+				newVertical = rectangle.Top;
+
+			newHorizontal = Math.Max(0, newHorizontal);
+			newVertical = Math.Max(0, newVertical);
+
+			if (!newHorizontal.Equals(HorizontalOffset) || !newVertical.Equals(VerticalOffset)) {
+				HorizontalOffset = newHorizontal;
+				VerticalOffset = newVertical;
+				OnScrollOffsetChanged(EventArgs.Empty);
+			}
+		}
 
 		// ----------------------------------------------------------------
 		// Mouse hover events

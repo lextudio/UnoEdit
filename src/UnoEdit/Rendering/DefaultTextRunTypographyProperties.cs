@@ -8,10 +8,17 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// </summary>
 	public class DefaultTextRunTypographyProperties
 	{
+		public enum TypographyKind
+		{
+			Default,
+			Normal,
+			Proportional
+		}
+
 		/// <summary>Gets annotation alternates count.</summary>
 		public int AnnotationAlternates => 0;
 		/// <summary>Gets font capitals setting.</summary>
-		public object Capitals => null;
+		public object Capitals => TypographyKind.Default;
 		/// <summary>Gets whether capital spacing is enabled.</summary>
 		public bool CapitalSpacing => false;
 		/// <summary>Gets whether case-sensitive forms are enabled.</summary>
@@ -27,11 +34,11 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Gets whether East Asian expert forms are enabled.</summary>
 		public bool EastAsianExpertForms => false;
 		/// <summary>Gets East Asian language setting.</summary>
-		public object EastAsianLanguage => null;
+		public object EastAsianLanguage => TypographyKind.Default;
 		/// <summary>Gets East Asian widths setting.</summary>
-		public object EastAsianWidths => null;
+		public object EastAsianWidths => TypographyKind.Normal;
 		/// <summary>Gets font fraction setting.</summary>
-		public object Fraction => null;
+		public object Fraction => TypographyKind.Default;
 		/// <summary>Gets whether historical forms are enabled.</summary>
 		public bool HistoricalForms => false;
 		/// <summary>Gets whether historical ligatures are enabled.</summary>
@@ -41,9 +48,9 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Gets whether mathematical Greek is enabled.</summary>
 		public bool MathematicalGreek => false;
 		/// <summary>Gets numeral alignment setting.</summary>
-		public object NumeralAlignment => null;
+		public object NumeralAlignment => TypographyKind.Proportional;
 		/// <summary>Gets numeral style setting.</summary>
-		public object NumeralStyle => null;
+		public object NumeralStyle => TypographyKind.Normal;
 		/// <summary>Gets whether slashed zero is enabled.</summary>
 		public bool SlashedZero => false;
 		/// <summary>Gets whether standard ligatures are enabled.</summary>
@@ -53,7 +60,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Gets stylistic alternates count.</summary>
 		public int StylisticAlternates => 0;
 		/// <summary>Gets font variant setting.</summary>
-		public object Variants => null;
+		public object Variants => TypographyKind.Normal;
 		/// <summary>Gets stylistic set 1.</summary>
 		public bool StylisticSet1 => false;
 		/// <summary>Gets stylistic set 2.</summary>

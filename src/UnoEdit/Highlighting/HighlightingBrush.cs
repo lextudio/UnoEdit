@@ -16,6 +16,15 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 	{
 		/// <summary>Gets the color represented by this brush.  May return null.</summary>
 		public abstract Color? GetColor();
+
+		/// <summary>Returns a WinUI/Uno Brush for this highlighting brush, or null if not applicable.</summary>
+		public virtual Brush GetBrush(object context)
+		{
+			Color? c = GetColor();
+			if (c == null) return null;
+			return new Microsoft.UI.Xaml.Media.SolidColorBrush(
+				Windows.UI.Color.FromArgb(c.Value.A, c.Value.R, c.Value.G, c.Value.B));
+		}
 	}
 
 	/// <summary>
@@ -31,6 +40,13 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 
 		/// <inheritdoc/>
 		public override Color? GetColor() => _color;
+
+		/// <inheritdoc/>
+		public override Brush GetBrush(object context)
+		{
+			return new Microsoft.UI.Xaml.Media.SolidColorBrush(
+				Windows.UI.Color.FromArgb(_color.A, _color.R, _color.G, _color.B));
+		}
 
 		/// <inheritdoc/>
 		public override string ToString() => _color.ToString();

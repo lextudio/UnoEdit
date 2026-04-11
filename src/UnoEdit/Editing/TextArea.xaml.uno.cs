@@ -457,4 +457,46 @@ public sealed partial class TextArea : UserControl, IServiceProvider
 
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    // ----------------------------------------------------------------
+    // Input handler surface stubs
+    // ----------------------------------------------------------------
+    public object DefaultInputHandler { get; } = null;
+    public object ActiveInputHandler { get; set; } = null;
+    public event EventHandler ActiveInputHandlerChanged;
+    public System.Collections.Immutable.ImmutableStack<object> StackedInputHandlers { get; private set; }
+        = System.Collections.Immutable.ImmutableStack<object>.Empty;
+
+    public void PushStackedInputHandler(object handler)
+    {
+        StackedInputHandlers = StackedInputHandlers.Push(handler);
+    }
+
+    public void PopStackedInputHandler(object handler)
+    {
+        if (!StackedInputHandlers.IsEmpty)
+            StackedInputHandlers = StackedInputHandlers.Pop();
+    }
+
+    public void PerformTextInput(string text)
+    {
+        // Forward text insertion to the document editor
+        if (Document != null && !IsReadOnly)
+        {
+            int offset = CurrentOffset;
+            Document.Insert(offset, text);
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // Selection surface property (returns selection state as object until
+    // a full Selection class is implemented)
+    // ----------------------------------------------------------------
+    public object Selection { get; internal set; } = null;
+
+    // ----------------------------------------------------------------
+    // Left margins collection
+    // ----------------------------------------------------------------
+    public System.Collections.ObjectModel.ObservableCollection<UIElement> LeftMargins { get; }
+        = new System.Collections.ObjectModel.ObservableCollection<UIElement>();
 }

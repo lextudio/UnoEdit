@@ -283,4 +283,67 @@ public sealed partial class SearchPanel : UserControl
             .GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
     }
+
+    // ----------------------------------------------------------------
+    // AvalonEdit API surface stubs
+    // ----------------------------------------------------------------
+    public bool IsClosed => !IsOpen;
+    public void Reactivate() { Open(); }
+    public void Uninstall() { Close(); }
+    public static SearchPanel Install(object textArea) => null;
+    public static void RegisterCommands(Microsoft.UI.Xaml.Input.KeyboardAccelerator accelerators) { }
+
+    public static readonly DependencyProperty SearchPatternProperty =
+        DependencyProperty.Register(nameof(SearchPattern), typeof(string), typeof(SearchPanel), new PropertyMetadata(""));
+
+    public static readonly DependencyProperty MatchCaseProperty =
+        DependencyProperty.Register(nameof(MatchCase), typeof(bool), typeof(SearchPanel), new PropertyMetadata(false));
+    public bool MatchCase {
+        get => (bool)GetValue(MatchCaseProperty);
+        set => SetValue(MatchCaseProperty, value);
+    }
+
+    public static readonly DependencyProperty UseRegexProperty =
+        DependencyProperty.Register(nameof(UseRegex), typeof(bool), typeof(SearchPanel), new PropertyMetadata(false));
+    public bool UseRegex {
+        get => (bool)GetValue(UseRegexProperty);
+        set => SetValue(UseRegexProperty, value);
+    }
+
+    public static readonly DependencyProperty WholeWordsProperty =
+        DependencyProperty.Register(nameof(WholeWords), typeof(bool), typeof(SearchPanel), new PropertyMetadata(false));
+    public bool WholeWords {
+        get => (bool)GetValue(WholeWordsProperty);
+        set => SetValue(WholeWordsProperty, value);
+    }
+
+    public static readonly DependencyProperty LocalizationProperty =
+        DependencyProperty.Register(nameof(Localization), typeof(Localization), typeof(SearchPanel), new PropertyMetadata(null));
+    public Localization Localization {
+        get => (Localization)GetValue(LocalizationProperty);
+        set => SetValue(LocalizationProperty, value);
+    }
+
+    public static readonly DependencyProperty MarkerBrushProperty =
+        DependencyProperty.Register(nameof(MarkerBrush), typeof(Microsoft.UI.Xaml.Media.Brush), typeof(SearchPanel), new PropertyMetadata(null));
+    public Microsoft.UI.Xaml.Media.Brush MarkerBrush {
+        get => (Microsoft.UI.Xaml.Media.Brush)GetValue(MarkerBrushProperty);
+        set => SetValue(MarkerBrushProperty, value);
+    }
+
+    public static readonly DependencyProperty MarkerPenProperty =
+        DependencyProperty.Register(nameof(MarkerPen), typeof(System.Windows.Media.Pen), typeof(SearchPanel), new PropertyMetadata(null));
+    public System.Windows.Media.Pen MarkerPen {
+        get => (System.Windows.Media.Pen)GetValue(MarkerPenProperty);
+        set => SetValue(MarkerPenProperty, value);
+    }
+
+    public static readonly DependencyProperty MarkerCornerRadiusProperty =
+        DependencyProperty.Register(nameof(MarkerCornerRadius), typeof(double), typeof(SearchPanel), new PropertyMetadata(3.0));
+    public double MarkerCornerRadius {
+        get => (double)GetValue(MarkerCornerRadiusProperty);
+        set => SetValue(MarkerCornerRadiusProperty, value);
+    }
+
+    public event EventHandler<ICSharpCode.AvalonEdit.Search.SearchOptionsChangedEventArgs> SearchOptionsChanged;
 }

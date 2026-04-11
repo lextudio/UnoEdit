@@ -113,5 +113,36 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		partial void DisposeCore()
 		{
 		}
+
+		// Stubs for WPF TextLine-based members missing from VisualLine.cs
+		// These relate to WPF TextFormatter text lines; we expose stub versions.
+
+		/// <summary>Gets the text lines for this visual line (stub).</summary>
+		public System.Collections.ObjectModel.ReadOnlyCollection<object> TextLines { get; } =
+			new System.Collections.ObjectModel.ReadOnlyCollection<object>(new System.Collections.Generic.List<object>());
+
+		/// <summary>Gets the text line at the specified visual Y position (stub).</summary>
+		public object GetTextLineByVisualYPosition(double visualTop) => null;
+
+		/// <summary>Gets the visual Y position of the specified text line (stub).</summary>
+		public double GetTextLineVisualYPosition(object textLine, object yPositionMode) => 0.0;
+
+		/// <summary>Gets the visual start column of the specified text line (stub).</summary>
+		public int GetTextLineVisualStartColumn(object textLine) => 0;
+
+		/// <summary>Gets the text line for the specified visual column (stub).</summary>
+		public object GetTextLine(int visualColumn, bool isAtEndOfLine = false) => null;
+
+		/// <summary>Gets the visual X position of the specified column in the text line (stub).</summary>
+		public double GetTextLineVisualXPosition(object textLine, int visualColumn) => 0.0;
+
+		/// <summary>Gets the visual position of the specified visual column (stub).</summary>
+		public Windows.Foundation.Point GetVisualPosition(int visualColumn, object yPositionMode) => default;
+
+		/// <summary>Gets the visual column at the specified X position, flooring to previous (stub).</summary>
+		public int GetVisualColumnFloor(Windows.Foundation.Point visualPosition, bool allowVirtualSpace = false) => 0;
+
+		/// <summary>Gets the TextViewPosition at the visual column, flooring to previous (stub).</summary>
+		public TextViewPosition GetTextViewPositionFloor(Windows.Foundation.Point visualPosition, bool allowVirtualSpace = false) => default;
 	}
 }

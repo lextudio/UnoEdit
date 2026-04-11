@@ -18,6 +18,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.ComponentModel.Design;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Utils;
@@ -183,5 +185,133 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			if (obj is ITextViewConnect connectable)
 				connectable.RemoveFromTextView(this);
 		}
+
+		// ----------------------------------------------------------------
+		// Brush / Pen dependency properties (surface stubs)
+		// ----------------------------------------------------------------
+		public static readonly object NonPrintableCharacterBrushProperty = null;
+		public Brush NonPrintableCharacterBrush { get; set; }
+
+		public static readonly object LinkTextForegroundBrushProperty = null;
+		public Brush LinkTextForegroundBrush { get; set; }
+
+		public static readonly object LinkTextBackgroundBrushProperty = null;
+		public Brush LinkTextBackgroundBrush { get; set; }
+
+		public static readonly object LinkTextUnderlineProperty = null;
+		public bool LinkTextUnderline { get; set; } = true;
+
+		public static readonly object ColumnRulerPenProperty = null;
+		public System.Windows.Media.Pen ColumnRulerPen { get; set; }
+
+		public static readonly object CurrentLineBackgroundProperty = null;
+		public Brush CurrentLineBackground { get; set; }
+
+		public static readonly object CurrentLineBorderProperty = null;
+		public System.Windows.Media.Pen CurrentLineBorder { get; set; }
+
+		// ----------------------------------------------------------------
+		// Layout metrics (read-only stubs; actual values come from the Uno XAML control)
+		// ----------------------------------------------------------------
+		public double DocumentHeight { get; internal set; }
+		public double DefaultLineHeight { get; internal set; }
+		public double DefaultBaseline { get; internal set; }
+		public double WideSpaceWidth { get; internal set; }
+		public double EmptyLineSelectionWidth { get; set; } = 1.0;
+
+		// ----------------------------------------------------------------
+		// Scroll state
+		// ----------------------------------------------------------------
+		public double HorizontalOffset { get; internal set; }
+		public double VerticalOffset { get; internal set; }
+		/// <summary>Gets the horizontal and vertical scroll offset (combined).</summary>
+		public Point ScrollOffset => new Point(HorizontalOffset, VerticalOffset);
+
+		// ----------------------------------------------------------------
+		// Visual lines
+		// ----------------------------------------------------------------
+		public ReadOnlyCollection<VisualLine> VisualLines { get; internal set; } = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
+		public bool VisualLinesValid { get; internal set; }
+		public int HighlightedLine { get; set; }
+
+		/// <summary>Ensures visual lines are up to date; no-op in this stub.</summary>
+		public void EnsureVisualLines() { }
+
+		/// <summary>Returns the visual line for the given document line number, or null.</summary>
+		public VisualLine GetVisualLine(int documentLineNumber)
+		{
+			foreach (var vl in VisualLines)
+				if (vl.FirstDocumentLine?.LineNumber == documentLineNumber) return vl;
+			return null;
+		}
+
+		/// <summary>Returns or constructs the visual line for the given document line; stub returns null.</summary>
+		public VisualLine GetOrConstructVisualLine(DocumentLine documentLine) => GetVisualLine(documentLine?.LineNumber ?? 0);
+
+		/// <summary>Returns the document line at the given visual top position; stub.</summary>
+		public DocumentLine GetDocumentLineByVisualTop(double visualTop) => null;
+
+		/// <summary>Returns the visual line at the given visual top position; stub.</summary>
+		public VisualLine GetVisualLineFromVisualTop(double visualTop) => null;
+
+		/// <summary>Returns the visual top position for the given document line number; stub.</summary>
+		public double GetVisualTopByDocumentLine(int line) => 0.0;
+
+		/// <summary>Gets the text view position from a visual position; stub.</summary>
+		public TextViewPosition? GetPosition(Point visualPosition) => null;
+
+		/// <summary>Gets the text view position (floor) from a visual position; stub.</summary>
+		public TextViewPosition? GetPositionFloor(Point visualPosition) => null;
+
+		/// <summary>Gets the visual position from a text view position; stub.</summary>
+		public Point GetVisualPosition(TextViewPosition position, VisualYPosition yPositionMode) => default;
+
+		// ----------------------------------------------------------------
+		// Layer management
+		// ----------------------------------------------------------------
+		public IList<UIElement> Layers { get; } = new List<UIElement>();
+
+		/// <summary>Inserts a layer at the given position; no-op in this stub.</summary>
+		public void InsertLayer(UIElement layer, KnownLayer referencedLayer, LayerInsertionPosition position) { }
+
+		/// <summary>Collapses lines between the start and end document lines; stub.</summary>
+		public CollapsedLineSection CollapseLines(DocumentLine start, DocumentLine end) => null;
+
+		/// <summary>Invalidates the cursor; no-op in this stub.</summary>
+		public static void InvalidateCursor() { }
+
+		/// <summary>Makes the given rectangle visible; no-op in this stub.</summary>
+		public virtual void MakeVisible(Rect rectangle) { }
+
+		// ----------------------------------------------------------------
+		// Mouse hover events
+		// ----------------------------------------------------------------
+		public static readonly object MouseHoverEvent = null;
+		public event EventHandler MouseHover;
+		public static readonly object MouseHoverStoppedEvent = null;
+		public event EventHandler MouseHoverStopped;
+		public static readonly object PreviewMouseHoverEvent = null;
+		public event EventHandler PreviewMouseHover;
+		public static readonly object PreviewMouseHoverStoppedEvent = null;
+		public event EventHandler PreviewMouseHoverStopped;
+
+		// ----------------------------------------------------------------
+		// Option changed / visual line construction events
+		// ----------------------------------------------------------------
+		public event PropertyChangedEventHandler OptionChanged;
+		public event EventHandler<VisualLineConstructionStartEventArgs> VisualLineConstructionStarting;
+
+		/// <summary>Raises <see cref="OptionChanged"/> for the given property.</summary>
+		protected virtual void OnOptionChanged(PropertyChangedEventArgs e)
+		{
+			OptionChanged?.Invoke(this, e);
+		}
+
+		// Helpers to suppress unused-event warnings
+		void RaiseMouseHover(EventArgs e) { MouseHover?.Invoke(this, e); }
+		void RaiseMouseHoverStopped(EventArgs e) { MouseHoverStopped?.Invoke(this, e); }
+		void RaisePreviewMouseHover(EventArgs e) { PreviewMouseHover?.Invoke(this, e); }
+		void RaisePreviewMouseHoverStopped(EventArgs e) { PreviewMouseHoverStopped?.Invoke(this, e); }
+		void RaiseVisualLineConstructionStarting(VisualLineConstructionStartEventArgs e) { VisualLineConstructionStarting?.Invoke(this, e); }
 	}
 }

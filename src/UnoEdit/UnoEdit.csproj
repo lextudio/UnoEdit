@@ -155,7 +155,26 @@
 
     <!-- Phase 2: CodeCompletion — IOverloadProvider has no WPF deps -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\CodeCompletion\IOverloadProvider.cs" Link="CodeCompletion\IOverloadProvider.cs" />
-    <!-- ICompletionData deferred to Phase 4: Complete(TextArea, ...) needs ICSharpCode.AvalonEdit.Editing.TextArea -->
+    <!-- Phase 11: ICompletionData — uses object for TextArea to avoid cross-project dep -->
+    <Compile Include="CodeCompletion\ICompletionData.cs" />
+
+    <!-- Phase 11: FileReader — pure IO, no WPF deps -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\FileReader.cs"                 Link="Utils\FileReader.cs" />
+
+    <!-- Phase 11: HighlightingColorizer stub (VisualLineElementTextRunProperties WPF methods not available) -->
+    <Compile Include="Highlighting\HighlightingColorizer.cs" />
+
+    <!-- Phase 11: DottedLineMargin stub (WPF Shapes not available) -->
+    <Compile Include="Editing\DottedLineMargin.cs" />
+
+    <!-- Phase 11: CodeCompletion interface stub -->
+    <Compile Include="CodeCompletion\ICompletionData.cs" />
+
+    <!-- Phase 11 Slice 7: new type stubs -->
+    <Compile Include="Rendering\DefaultTextRunTypographyProperties.cs" />
+    <Compile Include="Editing\Selection.cs" />
+    <Compile Include="Editing\InputHandlers.cs" />
+    <Compile Include="Folding\FoldingMargin.cs" />
 
     <!-- Highlighting: forked files (API changes or missing deps — keep as forks) -->
     <Compile Include="Highlighting\HighlightingBrush.cs" />

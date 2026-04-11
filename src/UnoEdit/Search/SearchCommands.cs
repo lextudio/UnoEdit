@@ -34,4 +34,22 @@ namespace ICSharpCode.AvalonEdit.Search
 			new InputGestureCollection { new KeyGesture(Key.Escape) }
 		);
 	}
+
+	/// <summary>Event args for SearchOptionsChanged event on SearchPanel.</summary>
+	public class SearchOptionsChangedEventArgs : System.EventArgs
+	{
+		public SearchOptionsChangedEventArgs(string searchPattern, bool matchCase, bool useRegex, bool wholeWords)
+		{
+			SearchPattern = searchPattern;
+			MatchCase = matchCase;
+			UseRegex = useRegex;
+			WholeWords = wholeWords;
+		}
+
+		public string SearchPattern { get; }
+		public bool MatchCase { get; }
+		public bool UseRegex { get; }
+		public bool WholeWords { get; }
+	}
 }
+

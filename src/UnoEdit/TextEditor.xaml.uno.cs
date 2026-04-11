@@ -726,4 +726,79 @@ public sealed partial class TextEditor : UserControl
             SetValue(IsModifiedProperty, isModified);
         }
     }
+
+    // ----------------------------------------------------------------
+    // Clipboard operations
+    // ----------------------------------------------------------------
+    public void Copy() { }
+    public void Cut() { }
+    public void Delete() { }
+    public void Paste() { }
+    public void SelectAll() { Select(0, Document?.TextLength ?? 0); }
+
+    // ----------------------------------------------------------------
+    // Scroll methods
+    // ----------------------------------------------------------------
+    public void LineUp() { }
+    public void LineDown() { }
+    public void LineLeft() { }
+    public void LineRight() { }
+    public void PageUp() { }
+    public void PageDown() { }
+    public void PageLeft() { }
+    public void PageRight() { }
+    public void ScrollTo(int line, int column) { ScrollToLine(line); }
+    public void ScrollToEnd() { }
+    public void ScrollToHome() { }
+    public void ScrollToHorizontalOffset(double offset) { }
+    public void ScrollToVerticalOffset(double offset) { }
+
+    // ----------------------------------------------------------------
+    // Scroll position / size properties
+    // ----------------------------------------------------------------
+    public double HorizontalOffset => 0;
+    public double VerticalOffset => 0;
+    public double ExtentHeight => 0;
+    public double ExtentWidth => 0;
+    public double ViewportHeight => ActualHeight;
+    public double ViewportWidth => ActualWidth;
+
+    public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
+        DependencyProperty.Register(nameof(HorizontalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
+            new PropertyMetadata(ScrollBarVisibility.Auto));
+    public ScrollBarVisibility HorizontalScrollBarVisibility {
+        get => (ScrollBarVisibility)GetValue(HorizontalScrollBarVisibilityProperty);
+        set => SetValue(HorizontalScrollBarVisibilityProperty, value);
+    }
+
+    public static readonly DependencyProperty VerticalScrollBarVisibilityProperty =
+        DependencyProperty.Register(nameof(VerticalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
+            new PropertyMetadata(ScrollBarVisibility.Auto));
+    public ScrollBarVisibility VerticalScrollBarVisibility {
+        get => (ScrollBarVisibility)GetValue(VerticalScrollBarVisibilityProperty);
+        set => SetValue(VerticalScrollBarVisibilityProperty, value);
+    }
+
+    // ----------------------------------------------------------------
+    // Position lookup
+    // ----------------------------------------------------------------
+    public TextViewPosition? GetPositionFromPoint(Windows.Foundation.Point point) => null;
+
+    // ----------------------------------------------------------------
+    // Mouse hover events
+    // ----------------------------------------------------------------
+    public static readonly object MouseHoverEvent = null;
+    public event EventHandler MouseHover;
+    public static readonly object MouseHoverStoppedEvent = null;
+    public event EventHandler MouseHoverStopped;
+    public static readonly object PreviewMouseHoverEvent = null;
+    public event EventHandler PreviewMouseHover;
+    public static readonly object PreviewMouseHoverStoppedEvent = null;
+    public event EventHandler PreviewMouseHoverStopped;
+
+    // raise helpers to avoid unused warning
+    void RaiseMouseHover(EventArgs e) { MouseHover?.Invoke(this, e); }
+    void RaiseMouseHoverStopped(EventArgs e) { MouseHoverStopped?.Invoke(this, e); }
+    void RaisePreviewMouseHover(EventArgs e) { PreviewMouseHover?.Invoke(this, e); }
+    void RaisePreviewMouseHoverStopped(EventArgs e) { PreviewMouseHoverStopped?.Invoke(this, e); }
 }

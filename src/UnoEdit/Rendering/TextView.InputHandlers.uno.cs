@@ -33,7 +33,7 @@ public sealed partial class TextView
         {
             return;
         }
-
+        
         bool extendSelection = IsShiftPressed();
         bool controlPressed = IsControlPressed();
 

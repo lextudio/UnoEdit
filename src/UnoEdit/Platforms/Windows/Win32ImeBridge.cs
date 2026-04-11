@@ -44,29 +44,33 @@ internal sealed class Win32ImeBridge : IDisposable
     {
         if (hwnd == nint.Zero)
         {
+            Log("TryCreate: hwnd is zero, aborting.");
             return null;
         }
 
+        Log($"TryCreate: hwnd=0x{hwnd:X}");
         var bridge = new Win32ImeBridge(hwnd);
         try
         {
             bridge._wndProcDelegate = bridge.WndProc;
             nint newProc = Marshal.GetFunctionPointerForDelegate(bridge._wndProcDelegate);
+            Log($"TryCreate: installing WndProc 0x{newProc:X}");
             bridge._originalWndProc = NativeMethods.SetWindowLongPtrW(hwnd, GWLP_WNDPROC, newProc);
 
             if (bridge._originalWndProc == nint.Zero)
             {
-                Log("SetWindowLongPtrW returned zero; cannot subclass window.");
+                int err = Marshal.GetLastWin32Error();
+                Log($"SetWindowLongPtrW returned zero (LastError={err}); cannot subclass window.");
                 bridge.Dispose();
                 return null;
             }
 
-            Log($"WndProc subclassed. hwnd=0x{hwnd:X}");
+            Log($"WndProc subclassed. hwnd=0x{hwnd:X} originalProc=0x{bridge._originalWndProc:X}");
             return bridge;
         }
         catch (Exception ex)
         {
-            Log($"TryCreate failed: {ex.Message}");
+            Log($"TryCreate failed: {ex}");
             bridge.Dispose();
             return null;
         }
@@ -90,13 +94,17 @@ internal sealed class Win32ImeBridge : IDisposable
         {
             double dpi = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
 
-            // Convert DIP screen coordinates to physical client-area pixels.
+            // CaretRect is in Uno DIP coordinates, which correspond directly to
+            // WPF window client-area DIPs (TransformToVisual(null) gives client-area
+            // coords, not screen coords). Multiply by DPI to get physical client-area
+            // pixels — that is exactly what ImmSetCompositionWindow/ImmSetCandidateWindow
+            // require. Do NOT call ScreenToClient here: that would subtract the window's
+            // screen position and shift the IME window above the actual caret.
             var screenPt = new NativeMethods.POINT
             {
                 x = (int)(rect.X * dpi),
                 y = (int)(rect.Y * dpi),
             };
-            NativeMethods.ScreenToClient(_hwnd, ref screenPt);
 
             var compForm = new NativeMethods.COMPOSITIONFORM
             {
@@ -155,16 +163,17 @@ internal sealed class Win32ImeBridge : IDisposable
         switch (msg)
         {
             case WM_IME_STARTCOMPOSITION:
-                Log("WM_IME_STARTCOMPOSITION");
+                Log($"WM_IME_STARTCOMPOSITION hwnd=0x{hwnd:X} subscribers={CompositionStarted?.GetInvocationList().Length ?? 0}");
                 CompositionStarted?.Invoke();
                 return 0; // prevent default IME window
 
             case WM_IME_COMPOSITION:
+                Log($"WM_IME_COMPOSITION hwnd=0x{hwnd:X} lParam=0x{lParam:X}");
                 HandleImeComposition(lParam);
                 return 0;
 
             case WM_IME_ENDCOMPOSITION:
-                Log("WM_IME_ENDCOMPOSITION");
+                Log($"WM_IME_ENDCOMPOSITION hwnd=0x{hwnd:X} subscribers={CompositionEnded?.GetInvocationList().Length ?? 0}");
                 CompositionEnded?.Invoke();
                 break; // allow DefWindowProc to clean up IME state
         }
@@ -235,12 +244,22 @@ internal sealed class Win32ImeBridge : IDisposable
         }
     }
 
+    private static readonly string s_logPath =
+        @"C:\Users\lextudio\source\repos\UnoEdit\ime_debug.log";
+
     private static void Log(string message)
     {
-        if (s_debugEnabled)
+        if (!s_debugEnabled)
         {
-            Console.Error.WriteLine($"[UnoEdit Win32 IME] {message}");
+            return;
         }
+
+        try
+        {
+            System.IO.File.AppendAllText(s_logPath,
+                $"{DateTime.Now:HH:mm:ss.fff} [Bridge] {message}{Environment.NewLine}");
+        }
+        catch { }
     }
 
     // -----------------------------------------------------------------------
@@ -291,10 +310,6 @@ internal sealed class Win32ImeBridge : IDisposable
 
         [DllImport("user32.dll", EntryPoint = "CallWindowProcW")]
         public static extern nint CallWindowProcW(nint lpPrevWndFunc, nint hWnd, int Msg, nint wParam, nint lParam);
-
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool ScreenToClient(nint hWnd, ref POINT lpPoint);
 
         [DllImport("user32.dll")]
         public static extern uint GetDpiForWindow(nint hwnd);

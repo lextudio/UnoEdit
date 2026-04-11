@@ -1,3 +1,4 @@
+using System.Reflection;
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -7,6 +8,14 @@ namespace UnoEdit.Skia.Desktop.Controls;
 
 public sealed partial class TextView
 {
+    /// <summary>
+    /// Cached reflection accessor for KeyRoutedEventArgs.UnicodeKey (internal).
+    /// Uno stores the printable character from XLookupString here, even when
+    /// <see cref="Windows.System.VirtualKey"/> is <c>None</c> (OEM punctuation keys on Skia/Linux).
+    /// </summary>
+    private static readonly PropertyInfo? s_unicodeKeyProperty =
+        typeof(KeyRoutedEventArgs).GetProperty("UnicodeKey", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private void OnRootPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         e.Handled = SelectionMouseHandler.HandlePointerPressed(this, e);
@@ -33,7 +42,7 @@ public sealed partial class TextView
         {
             return;
         }
-        
+
         bool extendSelection = IsShiftPressed();
         bool controlPressed = IsControlPressed();
 
@@ -45,10 +54,26 @@ public sealed partial class TextView
             return;
         }
 
+        // Uno on Skia/Linux fires VirtualKey.None for OEM punctuation keys (; / [ ] \ ' ` etc.)
+        // but stores the real character from XLookupString in the internal UnicodeKey property.
+        // Recover it here so the character can be forwarded to IBus and/or inserted.
+        char? unicodeKey = s_unicodeKeyProperty?.GetValue(e) as char?;
+
         // Linux: forward the key to IBus synchronously before UnoEdit processes it.
         // If IBus handles the key (e.g. for IME composition), suppress normal processing.
-        if (TryHandleWithLinuxIme(e.Key, controlPressed, extendSelection))
+        if (TryHandleWithLinuxIme(e.Key, controlPressed, extendSelection, unicodeKey))
         {
+            e.Handled = true;
+            return;
+        }
+
+        // For VirtualKey.None with a printable UnicodeKey, insert the character directly.
+        if (e.Key == Windows.System.VirtualKey.None && unicodeKey.HasValue && !char.IsControl(unicodeKey.Value) && !controlPressed)
+        {
+            if (!_isComposing)
+            {
+                InsertText(unicodeKey.Value.ToString());
+            }
             e.Handled = true;
             return;
         }

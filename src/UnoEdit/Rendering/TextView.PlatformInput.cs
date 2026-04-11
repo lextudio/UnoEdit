@@ -193,7 +193,7 @@ public sealed partial class TextView
     /// Returns true if IBus consumed the key (caller should suppress normal handling).
     /// Only active on Linux; always returns false on other platforms.
     /// </summary>
-    internal bool TryHandleWithLinuxIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed)
+    internal bool TryHandleWithLinuxIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed, char? unicodeKey = null)
     {
         if (_linuxImeBridge is not { IsAvailable: true } bridge)
         {
@@ -207,6 +207,14 @@ public sealed partial class TextView
         }
 
         uint keyval = ConvertToX11Keysym(key, shiftPressed);
+
+        // For OEM keys (VirtualKey.None on Skia/Linux), the keysym equals the
+        // Unicode codepoint for printable ASCII characters.
+        if (keyval == 0 && unicodeKey.HasValue && unicodeKey.Value >= 0x20 && unicodeKey.Value < 0x7F)
+        {
+            keyval = (uint)unicodeKey.Value;
+        }
+
         if (keyval == 0)
         {
             return false; // unknown key — let UnoEdit handle it

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Utils;
 using System.Windows.Documents;
 
 namespace ICSharpCode.AvalonEdit.Rendering
@@ -13,6 +14,13 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	public class VisualLineText : VisualLineElement
 	{
 		readonly VisualLine parentVisualLine;
+
+		string GetSegmentText(StringSegment segment)
+		{
+			if (segment.Text == null || segment.Count <= 0)
+				return string.Empty;
+			return segment.Text.Substring(segment.Offset, segment.Count);
+		}
 
 		public VisualLine ParentVisualLine {
 			get { return parentVisualLine; }
@@ -74,8 +82,27 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			return VisualColumn + position - textOffset;
 		}
 
-		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context) => null;
+		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+		{
+			if (context == null)
+				throw new ArgumentNullException(nameof(context));
 
-		public override object GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context) => null;
+			int relativeOffset = Math.Max(0, startVisualColumn - VisualColumn);
+			if (relativeOffset > DocumentLength)
+				relativeOffset = DocumentLength;
+
+			StringSegment text = context.GetText(context.VisualLine.FirstDocumentLine.Offset + RelativeTextOffset + relativeOffset, DocumentLength - relativeOffset);
+			return new TextRunDescriptor("text", GetSegmentText(text), startVisualColumn, text.Count, TextRunProperties);
+		}
+
+		public override object GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context)
+		{
+			if (context == null)
+				throw new ArgumentNullException(nameof(context));
+
+			int relativeOffset = Math.Max(0, Math.Min(visualColumnLimit - VisualColumn, DocumentLength));
+			StringSegment text = context.GetText(context.VisualLine.FirstDocumentLine.Offset + RelativeTextOffset, relativeOffset);
+			return new PrecedingTextDescriptor(GetSegmentText(text), TextRunProperties?.CultureInfo);
+		}
 	}
 }

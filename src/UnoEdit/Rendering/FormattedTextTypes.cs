@@ -16,6 +16,20 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// </summary>
 	public class FormattedTextElement : VisualLineElement
 	{
+		public sealed class PreparedTextDescriptor
+		{
+			public PreparedTextDescriptor(object formatter, string text, object properties)
+			{
+				Formatter = formatter;
+				Text = text ?? string.Empty;
+				Properties = properties;
+			}
+
+			public object Formatter { get; }
+			public string Text { get; }
+			public object Properties { get; }
+		}
+
 		/// <summary>Creates a FormattedTextElement from text/document content.</summary>
 		public FormattedTextElement(int documentLength) : base(1, documentLength) { }
 
@@ -26,10 +40,16 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public LineBreakCondition BreakAfter { get; set; }
 
 		/// <inheritdoc/>
-		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context) => null;
+		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+		{
+			return new FormattedTextRun(this, context?.GlobalTextRunProperties ?? TextRunProperties);
+		}
 
 		/// <summary>Prepares a text line (stub).</summary>
-		public static object PrepareText(object formatter, string text, object properties) => null;
+		public static object PrepareText(object formatter, string text, object properties)
+		{
+			return new PreparedTextDescriptor(formatter, text, properties);
+		}
 	}
 
 	/// <summary>
@@ -41,6 +61,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public FormattedTextRun(FormattedTextElement element, object properties)
 		{
 			Element = element;
+			Properties = properties;
 		}
 
 		/// <summary>Gets the element that created this run.</summary>
@@ -56,7 +77,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public bool HasFixedSize => true;
 
 		/// <summary>Gets the character buffer reference (stub).</summary>
-		public object CharacterBufferReference => null;
+		public object CharacterBufferReference => Element;
 
 		/// <summary>Gets the length.</summary>
 		public int Length => 1;
@@ -65,7 +86,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public object Properties { get; }
 
 		/// <summary>Formats the run (stub).</summary>
-		public object Format(double remainingParagraphWidth) => null;
+		public object Format(double remainingParagraphWidth)
+		{
+			return new VisualLineElement.TextRunDescriptor("formatted", string.Empty, 0, Length, Element.TextRunProperties, new { RemainingParagraphWidth = remainingParagraphWidth, Element });
+		}
 
 		/// <summary>Computes the bounding box (stub).</summary>
 		public Rect ComputeBoundingBox(bool rightToLeft, bool sideways) => Rect.Empty;
@@ -89,7 +113,12 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <inheritdoc/>
-		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context) => null;
+		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+		{
+			return new InlineObjectRun(VisualLength, context?.GlobalTextRunProperties ?? TextRunProperties, Element) {
+				VisualLine = context?.VisualLine
+			};
+		}
 	}
 
 	/// <summary>
@@ -102,6 +131,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		{
 			Length = length;
 			Element = element;
+			Properties = properties;
 		}
 
 		/// <summary>Gets the inline element.</summary>
@@ -120,7 +150,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public bool HasFixedSize => true;
 
 		/// <summary>Gets the character buffer reference (stub).</summary>
-		public object CharacterBufferReference => null;
+		public object CharacterBufferReference => Element;
 
 		/// <summary>Gets the length.</summary>
 		public int Length { get; }
@@ -129,7 +159,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public object Properties { get; }
 
 		/// <summary>Formats the run (stub).</summary>
-		public object Format(double remainingParagraphWidth) => null;
+		public object Format(double remainingParagraphWidth)
+		{
+			return new VisualLineElement.TextRunDescriptor("inline-object", string.Empty, 0, Length, Properties as VisualLineElementTextRunProperties, new { RemainingParagraphWidth = remainingParagraphWidth, Element, VisualLine });
+		}
 
 		/// <summary>Computes the bounding box (stub).</summary>
 		public Rect ComputeBoundingBox(bool rightToLeft, bool sideways) => Rect.Empty;

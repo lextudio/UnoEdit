@@ -31,6 +31,46 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	public abstract class VisualLineElement
 	{
 		/// <summary>
+		/// Uno-side replacement for WPF TextRun payloads.
+		/// Carries the text slice, properties and optional metadata needed by higher layers.
+		/// </summary>
+		public sealed class TextRunDescriptor
+		{
+			public TextRunDescriptor(string kind, string text, int startVisualColumn, int length, VisualLineElementTextRunProperties properties, object metadata = null)
+			{
+				Kind = kind ?? string.Empty;
+				Text = text ?? string.Empty;
+				StartVisualColumn = startVisualColumn;
+				Length = length;
+				Properties = properties;
+				Metadata = metadata;
+			}
+
+			public string Kind { get; }
+			public string Text { get; }
+			public int StartVisualColumn { get; }
+			public int Length { get; }
+			public VisualLineElementTextRunProperties Properties { get; }
+			public object Metadata { get; }
+		}
+
+		/// <summary>
+		/// Uno-side replacement for WPF preceding-text objects.
+		/// </summary>
+		public sealed class PrecedingTextDescriptor
+		{
+			public PrecedingTextDescriptor(string text, System.Globalization.CultureInfo culture)
+			{
+				Text = text ?? string.Empty;
+				Culture = culture ?? System.Globalization.CultureInfo.CurrentCulture;
+			}
+
+			public string Text { get; }
+			public int Length => Text.Length;
+			public System.Globalization.CultureInfo Culture { get; }
+		}
+
+		/// <summary>
 		/// Creates a new VisualLineElement.
 		/// </summary>
 		/// <param name="visualLength">The length of the element in VisualLine coordinates. Must be positive.</param>
@@ -199,9 +239,15 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>Creates the text run for this element.</summary>
-		public virtual object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context) => null;
+		public virtual object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+		{
+			return new TextRunDescriptor("element", string.Empty, startVisualColumn, 0, TextRunProperties);
+		}
 
 		/// <summary>Gets the preceding text.</summary>
-		public virtual object GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context) => null;
+		public virtual object GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context)
+		{
+			return new PrecedingTextDescriptor(string.Empty, TextRunProperties?.CultureInfo);
+		}
 	}
 }

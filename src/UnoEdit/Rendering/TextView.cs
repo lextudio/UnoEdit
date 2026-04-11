@@ -249,22 +249,80 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public VisualLine GetOrConstructVisualLine(DocumentLine documentLine) => GetVisualLine(documentLine?.LineNumber ?? 0);
 
 		/// <summary>Returns the document line at the given visual top position; stub.</summary>
-		public DocumentLine GetDocumentLineByVisualTop(double visualTop) => null;
+		public DocumentLine GetDocumentLineByVisualTop(double visualTop)
+		{
+			var visualLine = GetVisualLineFromVisualTop(visualTop);
+			if (visualLine != null)
+				return visualLine.FirstDocumentLine;
+
+			if (Document == null || Document.LineCount == 0)
+				return null;
+
+			if (DefaultLineHeight > 0) {
+				int lineNumber = Math.Max(1, Math.Min(Document.LineCount, (int)(visualTop / DefaultLineHeight) + 1));
+				return Document.GetLineByNumber(lineNumber);
+			}
+
+			return Document.GetLineByNumber(1);
+		}
 
 		/// <summary>Returns the visual line at the given visual top position; stub.</summary>
-		public VisualLine GetVisualLineFromVisualTop(double visualTop) => null;
+		public VisualLine GetVisualLineFromVisualTop(double visualTop)
+		{
+			VisualLine lastLine = null;
+			foreach (var visualLine in VisualLines) {
+				lastLine = visualLine;
+				double top = visualLine.VisualTop;
+				double bottom = top + Math.Max(visualLine.Height, DefaultLineHeight);
+				if (visualTop >= top && visualTop < bottom)
+					return visualLine;
+			}
+
+			if (lastLine != null && visualTop >= lastLine.VisualTop)
+				return lastLine;
+
+			return null;
+		}
 
 		/// <summary>Returns the visual top position for the given document line number; stub.</summary>
-		public double GetVisualTopByDocumentLine(int line) => 0.0;
+		public double GetVisualTopByDocumentLine(int line)
+		{
+			var visualLine = GetVisualLine(line);
+			if (visualLine != null)
+				return visualLine.VisualTop;
+
+			return line > 1 && DefaultLineHeight > 0 ? (line - 1) * DefaultLineHeight : 0.0;
+		}
 
 		/// <summary>Gets the text view position from a visual position; stub.</summary>
-		public TextViewPosition? GetPosition(Point visualPosition) => null;
+		public TextViewPosition? GetPosition(Point visualPosition)
+		{
+			return GetPositionFloor(visualPosition);
+		}
 
 		/// <summary>Gets the text view position (floor) from a visual position; stub.</summary>
-		public TextViewPosition? GetPositionFloor(Point visualPosition) => null;
+		public TextViewPosition? GetPositionFloor(Point visualPosition)
+		{
+			if (Document == null)
+				return null;
+
+			var visualLine = GetVisualLineFromVisualTop(visualPosition.Y);
+			if (visualLine == null)
+				return null;
+
+			return visualLine.GetTextViewPositionFloor(visualPosition, Options.EnableVirtualSpace);
+		}
 
 		/// <summary>Gets the visual position from a text view position; stub.</summary>
-		public Point GetVisualPosition(TextViewPosition position, VisualYPosition yPositionMode) => default;
+		public Point GetVisualPosition(TextViewPosition position, VisualYPosition yPositionMode)
+		{
+			var visualLine = GetVisualLine(position.Line);
+			if (visualLine == null)
+				return new Point(0, GetVisualTopByDocumentLine(position.Line));
+
+			int visualColumn = position.VisualColumn >= 0 ? position.VisualColumn : Math.Max(0, position.Column - 1);
+			return visualLine.GetVisualPosition(visualColumn, yPositionMode);
+		}
 
 		// ----------------------------------------------------------------
 		// Layer management

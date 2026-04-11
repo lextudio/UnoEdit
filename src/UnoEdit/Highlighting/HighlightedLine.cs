@@ -251,5 +251,9 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		{
 			return "[" + GetType().Name + " " + ToHtml() + "]";
 		}
-	}
+
+				/// <summary>Creates a HighlightedInlineBuilder from this line.</summary>
+				public HighlightedInlineBuilder ToInlineBuilder()
+					=> new HighlightedInlineBuilder(new RichText(Document.GetText(DocumentLine)));
+			}
 }

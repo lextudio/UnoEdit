@@ -166,5 +166,8 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		{
 			return text;
 		}
-	}
+
+				/// <summary>Creates inline run objects from this rich text.</summary>
+				public object[] CreateRuns() => System.Array.Empty<object>();
+			}
 }

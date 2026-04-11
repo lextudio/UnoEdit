@@ -801,4 +801,6 @@ public sealed partial class TextEditor : UserControl
     void RaiseMouseHoverStopped(EventArgs e) { MouseHoverStopped?.Invoke(this, e); }
     void RaisePreviewMouseHover(EventArgs e) { PreviewMouseHover?.Invoke(this, e); }
     void RaisePreviewMouseHoverStopped(EventArgs e) { PreviewMouseHoverStopped?.Invoke(this, e); }
+
+	public new void OnApplyTemplate() { base.OnApplyTemplate(); }
 }

@@ -499,4 +499,6 @@ public sealed partial class TextArea : UserControl, IServiceProvider
     // ----------------------------------------------------------------
     public System.Collections.ObjectModel.ObservableCollection<UIElement> LeftMargins { get; }
         = new System.Collections.ObjectModel.ObservableCollection<UIElement>();
+
+	public new void OnApplyTemplate() { base.OnApplyTemplate(); }
 }

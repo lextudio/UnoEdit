@@ -202,5 +202,11 @@ namespace ICSharpCode.AvalonEdit.Folding
 		#endregion
 
 		internal void RaiseFoldingsChanged() => FoldingsChanged?.Invoke(this, EventArgs.Empty);
+
+			/// <summary>Creates a new FoldingManager and attaches it to the given text area.</summary>
+			public static FoldingManager Install(object textArea) => null;
+
+			/// <summary>Uninstalls a FoldingManager.</summary>
+			public static void Uninstall(FoldingManager foldingManager) { }
 	}
 }

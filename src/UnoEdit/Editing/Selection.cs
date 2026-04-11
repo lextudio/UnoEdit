@@ -63,6 +63,12 @@ namespace ICSharpCode.AvalonEdit.Editing
 
 		/// <summary>Creates an HTML fragment for the selection (stub).</summary>
 		public virtual string CreateHtmlFragment(object options) => string.Empty;
+
+		/// <summary>Determines whether the specified object equals this selection.</summary>
+		public abstract override bool Equals(object obj);
+
+		/// <summary>Gets the hash code for this selection.</summary>
+		public abstract override int GetHashCode();
 	}
 
 	/// <summary>

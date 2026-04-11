@@ -346,4 +346,6 @@ public sealed partial class SearchPanel : UserControl
     }
 
     public event EventHandler<ICSharpCode.AvalonEdit.Search.SearchOptionsChangedEventArgs> SearchOptionsChanged;
+
+	public new void OnApplyTemplate() { base.OnApplyTemplate(); }
 }

@@ -73,5 +73,9 @@ namespace ICSharpCode.AvalonEdit.Rendering
 				return -1;
 			return VisualColumn + position - textOffset;
 		}
+
+		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context) => null;
+
+		public override object GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context) => null;
 	}
 }

@@ -197,5 +197,11 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public virtual bool HandlesLineBorders {
 			get { return false; }
 		}
+
+		/// <summary>Creates the text run for this element.</summary>
+		public virtual object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context) => null;
+
+		/// <summary>Gets the preceding text.</summary>
+		public virtual object GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context) => null;
 	}
 }

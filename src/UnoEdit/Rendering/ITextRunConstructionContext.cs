@@ -46,5 +46,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// Gets a piece of text from the document.
 		/// </summary>
 		StringSegment GetText(int offset, int length);
+
+		/// <summary>
+		/// Gets the global text run properties. Stub for parity with WPF AvalonEdit.
+		/// </summary>
+		object GlobalTextRunProperties { get; }
 	}
 }

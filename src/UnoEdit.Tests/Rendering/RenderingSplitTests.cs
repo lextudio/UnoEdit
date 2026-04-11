@@ -91,6 +91,8 @@ namespace UnoEdit.Tests.Rendering
             {
                 return new StringSegment(Document.GetText(offset, length));
             }
+
+            public object GlobalTextRunProperties => null;
         }
 
         sealed class TrackingGenerator : VisualLineElementGenerator, ITextViewConnect

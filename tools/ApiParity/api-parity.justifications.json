@@ -18,6 +18,18 @@
     {
       "name": "TextEditor.WordWrap",
       "reason": "Planned parity item; current viewport renderer is still line-oriented and does not implement wrapped layout."
+    },
+    {
+      "name": "CompletionList.OnApplyTemplate",
+      "reason": "WPF FrameworkElement.OnApplyTemplate() is public virtual; WinUI/Uno's is protected virtual. UnoEdit uses protected override which is correct for Uno but not detectable as public by the parity tool."
+    },
+    {
+      "name": "CompletionListBox.OnApplyTemplate",
+      "reason": "WPF FrameworkElement.OnApplyTemplate() is public virtual; WinUI/Uno's is protected virtual. UnoEdit uses protected override which is correct for Uno but not detectable as public by the parity tool."
+    },
+    {
+      "name": "OverloadViewer.OnApplyTemplate",
+      "reason": "WPF FrameworkElement.OnApplyTemplate() is public virtual; WinUI/Uno's is protected virtual. UnoEdit uses protected override which is correct for Uno but not detectable as public by the parity tool."
     }
   ],
   "mappedMembers": [

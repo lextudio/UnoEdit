@@ -153,10 +153,11 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
 
-    <!-- Phase 2: CodeCompletion — IOverloadProvider has no WPF deps -->
-    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\CodeCompletion\IOverloadProvider.cs" Link="CodeCompletion\IOverloadProvider.cs" />
     <!-- Phase 11: ICompletionData — uses object for TextArea to avoid cross-project dep -->
     <Compile Include="CodeCompletion\ICompletionData.cs" />
+
+    <!-- Phase 11: IOverloadProvider — pure interface, no WPF deps (replaces AvalonEdit link) -->
+    <Compile Include="CodeCompletion\IOverloadProvider.cs" />
 
     <!-- Phase 11: FileReader — pure IO, no WPF deps -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\FileReader.cs"                 Link="Utils\FileReader.cs" />
@@ -167,14 +168,37 @@
     <!-- Phase 11: DottedLineMargin stub (WPF Shapes not available) -->
     <Compile Include="Editing\DottedLineMargin.cs" />
 
-    <!-- Phase 11: CodeCompletion interface stub -->
-    <Compile Include="CodeCompletion\ICompletionData.cs" />
-
     <!-- Phase 11 Slice 7: new type stubs -->
     <Compile Include="Rendering\DefaultTextRunTypographyProperties.cs" />
     <Compile Include="Editing\Selection.cs" />
     <Compile Include="Editing\InputHandlers.cs" />
     <Compile Include="Folding\FoldingMargin.cs" />
+
+    <!-- Phase 11 parity push: snippet + rendering + misc stubs -->
+    <Compile Include="Snippets\SnippetTypes.cs" />
+    <Compile Include="Snippets\InsertionContext.cs" />
+    <Compile Include="Rendering\BackgroundGeometryBuilder.cs" />
+    <Compile Include="Rendering\FormattedTextTypes.cs" />
+    <Compile Include="Rendering\VisualLineLinkText.cs" />
+    <Compile Include="Rendering\LinkElementGenerator.cs" />
+    <Compile Include="Rendering\MouseHoverLogic.cs" />
+    <Compile Include="Folding\FoldingElementGenerator.cs" />
+    <Compile Include="Highlighting\HighlightedInlineBuilder.cs" />
+    <Compile Include="Highlighting\RichTextColorizer.cs" />
+    <Compile Include="Highlighting\HtmlClipboard.cs" />
+    <Compile Include="Utils\DocumentPrinter.cs" />
+    <Compile Include="Highlighting\Xshd\SaveXshdVisitor.cs" />
+    <Compile Include="Editing\LineNumberMargin.cs" />
+    <Compile Include="Search\SearchInputHandler.cs" />
+    <Compile Include="TextEditorAutomationPeer.cs" />
+
+    <!-- Completion: full Uno-native implementation -->
+    <Compile Include="CodeCompletion\CompletionListBox.cs" />
+    <Compile Include="CodeCompletion\CompletionList.cs" />
+    <Compile Include="CodeCompletion\CompletionWindowBase.cs" />
+    <Compile Include="CodeCompletion\CompletionWindow.cs" />
+    <Compile Include="CodeCompletion\InsightWindow.cs" />
+    <Compile Include="CodeCompletion\OverloadViewer.cs" />
 
     <!-- Highlighting: forked files (API changes or missing deps — keep as forks) -->
     <Compile Include="Highlighting\HighlightingBrush.cs" />

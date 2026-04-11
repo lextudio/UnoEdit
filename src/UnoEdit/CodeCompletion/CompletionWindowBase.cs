@@ -5,6 +5,7 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Windows.Foundation;
 
 namespace ICSharpCode.AvalonEdit.CodeCompletion
 {
@@ -19,6 +20,9 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 
 		/// <summary>Gets the parent text area (a FrameworkElement).</summary>
 		public FrameworkElement TextArea { get; }
+
+		/// <summary>Gets the caret anchor provider when the text area exposes one.</summary>
+		protected ICaretAnchorProvider? CaretAnchorProvider { get; }
 
 		/// <summary>
 		/// Gets/Sets the start of the text range in which the completion window stays open.
@@ -42,6 +46,7 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 		public CompletionWindowBase(FrameworkElement textArea)
 		{
 			TextArea = textArea ?? throw new ArgumentNullException(nameof(textArea));
+			CaretAnchorProvider = textArea as ICaretAnchorProvider;
 			popup = new Popup();
 			// Ensure the popup closes when it loses focus.
 			popup.IsLightDismissEnabled = true;
@@ -66,10 +71,33 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 		/// <summary>Positions the popup relative to the text area.</summary>
 		protected virtual void PositionPopup()
 		{
-			// Default: place the popup below the text area.
-			// Subclasses or users can override this with caret-accurate coordinates.
+			if (TryGetPopupPlacement(out Point position))
+			{
+				popup.HorizontalOffset = position.X;
+				popup.VerticalOffset = position.Y;
+				return;
+			}
+
 			popup.HorizontalOffset = 0;
 			popup.VerticalOffset = TextArea?.ActualHeight ?? 100;
+		}
+
+		protected virtual bool TryGetPopupPlacement(out Point position)
+		{
+			position = default;
+			if (CaretAnchorProvider is null || popup.Child is not FrameworkElement child)
+			{
+				return false;
+			}
+
+			if (!CaretAnchorProvider.TryGetCaretAnchorRect(out Rect caretRect) || caretRect.IsEmpty)
+			{
+				return false;
+			}
+
+			child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+			position = CompletionWindowPlacement.Place(caretRect, child.DesiredSize, popup.XamlRoot ?? TextArea.XamlRoot);
+			return true;
 		}
 
 		/// <summary>Closes the popup.</summary>

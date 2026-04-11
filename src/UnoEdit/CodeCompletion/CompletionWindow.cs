@@ -1,14 +1,10 @@
-// Uno-native implementation of the code completion popup window.
-// Uses CompletionWindowBase (Popup) + CompletionList (ListView) to display
-// completion items and insert the selected entry on confirmation.
-using System;
 using Microsoft.UI.Xaml;
 
 namespace ICSharpCode.AvalonEdit.CodeCompletion
 {
 	/// <summary>
 	/// The code completion window. Shows a <see cref="CompletionList"/> inside a popup
-	/// positioned near the text caret.
+	/// positioned from the same caret-rectangle path used by the platform IME bridge.
 	/// </summary>
 	public class CompletionWindow : CompletionWindowBase
 	{
@@ -37,7 +33,6 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 			completionList = new CompletionList();
 			completionList.InsertionRequested += (_, e) => Close();
 
-			// Size the popup content.
 			completionList.Width = 175;
 			completionList.MaxHeight = 300;
 			completionList.MinHeight = 15;
@@ -47,13 +42,6 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 		}
 
 		/// <summary>Shows the completion window.</summary>
-		public void Show() => base.Show();
-
-		/// <inheritdoc/>
-		public override void Close()
-		{
-			if (popup.IsOpen)
-				base.Close();
-		}
+		public new void Show() => base.Show();
 	}
 }

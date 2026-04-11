@@ -1,4 +1,5 @@
 using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Highlighting;
@@ -7,11 +8,12 @@ using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Xaml.Media;
 using System.ComponentModel;
 using System.ComponentModel.Design;
+using Windows.Foundation;
 using System.Windows.Input;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
-public sealed partial class TextArea : UserControl, IServiceProvider
+public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnchorProvider
 {
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(
@@ -402,6 +404,11 @@ public sealed partial class TextArea : UserControl, IServiceProvider
     public object? GetService(Type serviceType)
     {
         return PART_TextView.GetService(serviceType);
+    }
+
+    public bool TryGetCaretAnchorRect(out Rect rect)
+    {
+        return PART_TextView.TryGetCaretAnchorRect(out rect);
     }
 
     private static void OnCurrentOffsetChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

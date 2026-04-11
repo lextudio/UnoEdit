@@ -34,9 +34,15 @@
             <ComboBoxItem Content="XSHD" />
             <ComboBoxItem Content="None" />
           </ComboBox>
+          <Button x:Name="FindButton"
+            Content="Find"
+            Click="OnFindClick" />
+          <Button x:Name="CompleteButton"
+            Content="Complete"
+            Click="OnCompleteClick" />
           <ToggleButton x:Name="ThemeToggle"
-                        Content="☀ Light"
-                        Click="OnThemeToggleClick" />
+            Content="☀ Light"
+            Click="OnThemeToggleClick" />
         </StackPanel>
       </Grid>
     </StackPanel>

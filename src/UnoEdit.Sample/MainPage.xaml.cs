@@ -4,6 +4,8 @@ using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.TextMate;
 using TextMateSharp.Grammars;
 using UnoEdit.Skia.Desktop.Controls;
+using ICSharpCode.AvalonEdit.CodeCompletion;
+using System.Windows.Input;
 
 namespace UnoEdit.Skia.Desktop;
 
@@ -15,6 +17,7 @@ public sealed partial class MainPage : Page
     private readonly TextMateLineHighlighter _textMateHighlighter;
     private readonly RegistryOptions _textMateRegistryOptions;
     private bool _isDarkTheme = true;
+    private CompletionWindow? _completionWindow;
 
     public MainPage()
     {
@@ -28,6 +31,9 @@ public sealed partial class MainPage : Page
         Editor.Document = _document;
         Editor.FoldingManager = _foldingManager;
         Editor.HighlightedLineSource = _textMateHighlighter;
+        // Wire search and simple completion hooks for the sample host.
+        Editor.TextArea.TextEntered += OnTextAreaTextEntered;
+        Editor.TextArea.TextEntering += OnTextAreaTextEntering;
         _document.TextChanged += OnDocumentTextChanged;
         UpdateFoldings();
         StatsTextBlock.Text = BuildStats(_document);
@@ -88,5 +94,77 @@ public static class Bootstrap
                $"Lines: {document.LineCount}\n" +
                $"First line length: {firstLine.Length}\n" +
                $"Last line starts at offset: {lastLine.Offset}";
+    }
+
+    private void OnFindClick(object sender, RoutedEventArgs e)
+    {
+        Editor.OpenSearchPanel();
+    }
+
+    private void OnCompleteClick(object sender, RoutedEventArgs e)
+    {
+        ShowCompletion();
+    }
+
+    private void OnTextAreaTextEntered(object? sender, TextCompositionEventArgs e)
+    {
+        if (e?.Text == ".")
+        {
+            ShowCompletion();
+        }
+    }
+
+    private void OnTextAreaTextEntering(object? sender, TextCompositionEventArgs e)
+    {
+        if (_completionWindow != null && e is not null && !string.IsNullOrEmpty(e.Text) && !char.IsLetterOrDigit(e.Text[0]))
+        {
+            _completionWindow.CompletionList.RequestInsertion(e);
+        }
+    }
+
+    private void ShowCompletion()
+    {
+        try
+        {
+            var textArea = Editor.TextArea;
+            var doc = Editor.Document;
+            if (textArea == null || doc == null)
+                return;
+
+            int caret = Editor.CurrentOffset;
+            int start = caret;
+            var text = doc.Text ?? string.Empty;
+            while (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] == '_')) start--;
+
+            var window = new CompletionWindow(textArea);
+            window.StartOffset = start;
+            window.EndOffset = caret;
+
+            var list = window.CompletionList.CompletionData;
+            list.Add(new SampleCompletionData("Describe()", "Return a description string"));
+            list.Add(new SampleCompletionData("Bootstrap", "Sample class name"));
+            list.Add(new SampleCompletionData("DescribeAsync()", "Async variant"));
+
+            // Wire insertion handler: insert selected item's Text into document.
+            window.CompletionList.InsertionRequested += (s, e) =>
+            {
+                var selected = window.CompletionList.SelectedItem;
+                if (selected is not null)
+                {
+                    int length = Math.Clamp(window.EndOffset - window.StartOffset, 0, doc.TextLength - window.StartOffset);
+                    doc.Replace(window.StartOffset, length, selected.Text);
+                    // Move caret after inserted text
+                    Editor.SetSelection(window.StartOffset, window.StartOffset + selected.Text.Length);
+                }
+            };
+
+            window.Closed += (s, e) => { _completionWindow = null; };
+            _completionWindow = window;
+            window.Show();
+        }
+        catch
+        {
+            // best-effort sample completion; swallow exceptions to avoid breaking sample host
+        }
     }
 }

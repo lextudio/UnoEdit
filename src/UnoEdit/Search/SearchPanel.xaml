@@ -4,13 +4,13 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Border x:Name="RootBorder"
-          Margin="{StaticResource UnoSearchPanelMargin}"
-          Padding="{StaticResource UnoSearchPanelPadding}"
-          CornerRadius="{StaticResource UnoSearchPanelCornerRadius}"
+          Margin="6,6,6,0"
+          Padding="6"
+          CornerRadius="6"
           BorderThickness="{StaticResource UnoTextEditorBorderThickness}"
           Background="{StaticResource UnoSearchPanelBackgroundBrush}"
           BorderBrush="{StaticResource UnoSearchPanelBorderBrush}">
-    <Grid ColumnSpacing="8" RowSpacing="8">
+    <Grid ColumnSpacing="6" RowSpacing="4">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="2*" />
         <ColumnDefinition Width="Auto" />
@@ -24,57 +24,67 @@
       </Grid.RowDefinitions>
 
       <TextBox x:Name="SearchTextBox"
-               Grid.Column="0"
-               Header="Find"
-               PlaceholderText="Search in document"
-               TextChanged="OnSearchTextChanged"
-               KeyDown="OnSearchTextBoxKeyDown" />
+           Grid.Column="0"
+           PlaceholderText="Search"
+           Height="28"
+           FontSize="13"
+           Padding="6,2"
+           VerticalAlignment="Center"
+           TextChanged="OnSearchTextChanged"
+           KeyDown="OnSearchTextBoxKeyDown" />
 
-      <Button x:Name="PreviousButton"
+            <Button x:Name="PreviousButton"
               Grid.Column="1"
-              Style="{StaticResource UnoSearchActionButtonStyle}"
+              MinWidth="30" MinHeight="26"
               Click="OnPreviousClick"
               Content="↑" />
-      <Button x:Name="NextButton"
+            <Button x:Name="NextButton"
               Grid.Column="2"
-              Style="{StaticResource UnoSearchActionButtonStyle}"
+              MinWidth="30" MinHeight="26"
               Click="OnNextClick"
               Content="↓" />
-      <Button x:Name="CloseButton"
+            <Button x:Name="CloseButton"
               Grid.Column="4"
-              Style="{StaticResource UnoSearchActionButtonStyle}"
+              MinWidth="30" MinHeight="26"
               Click="OnCloseClick"
               Content="✕" />
 
       <CheckBox x:Name="MatchCaseCheckBox"
-                Grid.Row="1"
-                Grid.Column="0"
-                Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
-                Content="Match case"
-                Checked="OnOptionChanged"
-                Unchecked="OnOptionChanged" />
+            Grid.Row="1"
+            Grid.Column="0"
+            VerticalAlignment="Center"
+            Margin="0"
+            FontSize="12"
+            Content="Match case"
+            Checked="OnOptionChanged"
+            Unchecked="OnOptionChanged" />
       <CheckBox x:Name="WholeWordsCheckBox"
-                Grid.Row="1"
-                Grid.Column="1"
-                Grid.ColumnSpan="2"
-                Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
-                Content="Whole words"
-                Checked="OnOptionChanged"
-                Unchecked="OnOptionChanged" />
+            Grid.Row="1"
+            Grid.Column="1"
+            Grid.ColumnSpan="2"
+            VerticalAlignment="Center"
+            Margin="0"
+            FontSize="12"
+            Content="Whole words"
+            Checked="OnOptionChanged"
+            Unchecked="OnOptionChanged" />
       <CheckBox x:Name="UseRegexCheckBox"
-                Grid.Row="1"
-                Grid.Column="3"
-                Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
-                Content="Regex"
-                Checked="OnOptionChanged"
-                Unchecked="OnOptionChanged" />
+            Grid.Row="1"
+            Grid.Column="3"
+            VerticalAlignment="Center"
+            Margin="0"
+            FontSize="12"
+            Content="Regex"
+            Checked="OnOptionChanged"
+            Unchecked="OnOptionChanged" />
       <TextBlock x:Name="ResultsTextBlock"
-                 Grid.Row="1"
-                 Grid.Column="4"
-                 Foreground="{StaticResource UnoSearchPanelResultsBrush}"
-                 VerticalAlignment="Center"
-                 HorizontalAlignment="Right"
-                 Text="No results" />
+             Grid.Row="1"
+             Grid.Column="4"
+             Foreground="{StaticResource UnoSearchPanelResultsBrush}"
+             VerticalAlignment="Center"
+             HorizontalAlignment="Right"
+             FontSize="12"
+             Text="No results" />
     </Grid>
   </Border>
 </UserControl>

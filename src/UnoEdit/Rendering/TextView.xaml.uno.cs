@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Highlighting;
@@ -17,7 +18,7 @@ using Windows.Foundation;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
-public sealed partial class TextView : UserControl
+public sealed partial class TextView : UserControl, ICaretAnchorProvider
 {
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(
@@ -383,6 +384,12 @@ public sealed partial class TextView : UserControl
         }
 
         return _document?.ServiceProvider.GetService(serviceType);
+    }
+
+    public bool TryGetCaretAnchorRect(out Rect rect)
+    {
+        rect = CalculatePlatformInputCaretRect();
+        return !rect.IsEmpty;
     }
 
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

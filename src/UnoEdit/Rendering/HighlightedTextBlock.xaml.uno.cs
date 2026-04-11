@@ -45,10 +45,13 @@ public sealed partial class HighlightedTextBlock : UserControl
     {
         if (e.PropertyName is nameof(TextLineViewModel.Runs) or nameof(TextLineViewModel.ReferenceSegments))
             RefreshInlines(ViewModel);
+        else if (e.PropertyName is nameof(TextLineViewModel.WrapText))
+            ApplyWrapping(ViewModel);
     }
 
     private void RefreshInlines(TextLineViewModel? vm)
     {
+        ApplyWrapping(vm);
         var newRuns    = vm?.Runs;
         var newRefSegs = vm?.ReferenceSegments;
 
@@ -131,6 +134,13 @@ public sealed partial class HighlightedTextBlock : UserControl
         // 3. Remove excess runs from the tail if old count > new.
         while (inlines.Count > newRuns.Count)
             inlines.RemoveAt(inlines.Count - 1);
+    }
+
+    private void ApplyWrapping(TextLineViewModel? vm)
+    {
+        PART_Text.TextWrapping = vm?.WrapText == true
+            ? TextWrapping.WrapWholeWords
+            : TextWrapping.NoWrap;
     }
 
     /// <summary>

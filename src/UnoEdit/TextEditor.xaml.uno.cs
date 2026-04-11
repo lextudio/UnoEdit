@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Input;
 using System.ComponentModel;
 using System.IO;
 using System.Text;
+using Microsoft.UI.Xaml.Media;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -74,6 +75,20 @@ public sealed partial class TextEditor : UserControl
             typeof(bool),
             typeof(TextEditor),
             new PropertyMetadata(true, OnShowLineNumbersChanged));
+
+    public static readonly DependencyProperty WordWrapProperty =
+        DependencyProperty.Register(
+            nameof(WordWrap),
+            typeof(bool),
+            typeof(TextEditor),
+            new PropertyMetadata(false, OnWordWrapChanged));
+
+    public static readonly DependencyProperty LineNumbersForegroundProperty =
+        DependencyProperty.Register(
+            nameof(LineNumbersForeground),
+            typeof(Brush),
+            typeof(TextEditor),
+            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
 
     public static readonly DependencyProperty SyntaxHighlightingProperty =
         DependencyProperty.Register(
@@ -154,6 +169,18 @@ public sealed partial class TextEditor : UserControl
     {
         get => (bool)GetValue(ShowLineNumbersProperty);
         set => SetValue(ShowLineNumbersProperty, value);
+    }
+
+    public bool WordWrap
+    {
+        get => (bool)GetValue(WordWrapProperty);
+        set => SetValue(WordWrapProperty, value);
+    }
+
+    public Brush? LineNumbersForeground
+    {
+        get => (Brush?)GetValue(LineNumbersForegroundProperty);
+        set => SetValue(LineNumbersForegroundProperty, value);
     }
 
     public IHighlightingDefinition? SyntaxHighlighting
@@ -449,6 +476,26 @@ public sealed partial class TextEditor : UserControl
         editor.PART_TextArea.ShowLineNumbers = (bool)args.NewValue;
     }
 
+    private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.WordWrap = (bool)args.NewValue;
+    }
+
+    private static void OnLineNumbersForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.LineNumbersForeground = args.NewValue as Brush;
+        if (args.NewValue is Brush brush)
+        {
+            editor.SummaryTextBlock.Foreground = brush;
+        }
+        else
+        {
+            editor.ApplyThemeToChrome();
+        }
+    }
+
     private static void OnSyntaxHighlightingChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var editor = (TextEditor)dependencyObject;
@@ -462,7 +509,7 @@ public sealed partial class TextEditor : UserControl
         EditorBorder.BorderBrush        = new SolidColorBrush(t.BorderColor);
         TitleBarGrid.Background         = new SolidColorBrush(t.TitleBarBackground);
         TitleTextBlock.Foreground       = new SolidColorBrush(t.TitleBarForeground);
-        SummaryTextBlock.Foreground     = new SolidColorBrush(t.GutterForeground);
+        SummaryTextBlock.Foreground     = LineNumbersForeground ?? new SolidColorBrush(t.GutterForeground);
     }
 
     private static void OnCurrentOffsetChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

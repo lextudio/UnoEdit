@@ -7,6 +7,8 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using ICSharpCode.AvalonEdit.Editing;
 using System.Windows.Documents;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
@@ -70,6 +72,48 @@ public sealed partial class TextView : UserControl
             typeof(bool),
             typeof(TextView),
             new PropertyMetadata(true, OnShowLineNumbersChanged));
+
+    public static readonly DependencyProperty WordWrapProperty =
+        DependencyProperty.Register(
+            nameof(WordWrap),
+            typeof(bool),
+            typeof(TextView),
+            new PropertyMetadata(false, OnWordWrapChanged));
+
+    public static readonly DependencyProperty LineNumbersForegroundProperty =
+        DependencyProperty.Register(
+            nameof(LineNumbersForeground),
+            typeof(Brush),
+            typeof(TextView),
+            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
+
+    public static readonly DependencyProperty SelectionBrushProperty =
+        DependencyProperty.Register(
+            nameof(SelectionBrush),
+            typeof(Brush),
+            typeof(TextView),
+            new PropertyMetadata(null, OnSelectionStyleChanged));
+
+    public static readonly DependencyProperty SelectionForegroundProperty =
+        DependencyProperty.Register(
+            nameof(SelectionForeground),
+            typeof(Brush),
+            typeof(TextView),
+            new PropertyMetadata(null, OnSelectionStyleChanged));
+
+    public static readonly DependencyProperty SelectionBorderProperty =
+        DependencyProperty.Register(
+            nameof(SelectionBorder),
+            typeof(Brush),
+            typeof(TextView),
+            new PropertyMetadata(null, OnSelectionStyleChanged));
+
+    public static readonly DependencyProperty SelectionCornerRadiusProperty =
+        DependencyProperty.Register(
+            nameof(SelectionCornerRadius),
+            typeof(double),
+            typeof(TextView),
+            new PropertyMetadata(0d, OnSelectionStyleChanged));
 
     public static readonly DependencyProperty SyntaxHighlightingProperty =
         DependencyProperty.Register(
@@ -206,6 +250,44 @@ public sealed partial class TextView : UserControl
         set => SetValue(ShowLineNumbersProperty, value);
     }
 
+    public bool WordWrap
+    {
+        get => (bool)GetValue(WordWrapProperty);
+        set => SetValue(WordWrapProperty, value);
+    }
+
+    public Brush? LineNumbersForeground
+    {
+        get => (Brush?)GetValue(LineNumbersForegroundProperty);
+        set => SetValue(LineNumbersForegroundProperty, value);
+    }
+
+    public Brush? SelectionBrush
+    {
+        get => (Brush?)GetValue(SelectionBrushProperty);
+        set => SetValue(SelectionBrushProperty, value);
+    }
+
+    public Brush? SelectionForeground
+    {
+        get => (Brush?)GetValue(SelectionForegroundProperty);
+        set => SetValue(SelectionForegroundProperty, value);
+    }
+
+    public Brush? SelectionBorder
+    {
+        get => (Brush?)GetValue(SelectionBorderProperty);
+        set => SetValue(SelectionBorderProperty, value);
+    }
+
+    public double SelectionCornerRadius
+    {
+        get => (double)GetValue(SelectionCornerRadiusProperty);
+        set => SetValue(SelectionCornerRadiusProperty, value);
+    }
+
+    internal event EventHandler<TextEventArgs>? TextCopied;
+
     public IHighlightingDefinition? SyntaxHighlighting
     {
         get => (IHighlightingDefinition?)GetValue(SyntaxHighlightingProperty);
@@ -297,6 +379,31 @@ public sealed partial class TextView : UserControl
         var textView = (TextView)dependencyObject;
         textView._pendingFullRebuild = true;
         LogFlash("full queued: show line numbers changed");
+        textView.RefreshViewport();
+    }
+
+    private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView.ApplyWordWrap();
+        textView._pendingFullRebuild = true;
+        LogFlash("full queued: word wrap changed");
+        textView.RefreshViewport();
+    }
+
+    private static void OnLineNumbersForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView._pendingFullRebuild = true;
+        LogFlash("full queued: line numbers foreground changed");
+        textView.RefreshViewport();
+    }
+
+    private static void OnSelectionStyleChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView._pendingFullRebuild = true;
+        LogFlash("full queued: selection style changed");
         textView.RefreshViewport();
     }
 
@@ -403,6 +510,13 @@ public sealed partial class TextView : UserControl
         RootBorder.Background = new SolidColorBrush(t.EditorBackground);
     }
 
+    private void ApplyWordWrap()
+    {
+        TextScrollViewer.HorizontalScrollBarVisibility = WordWrap
+            ? ScrollBarVisibility.Disabled
+            : ScrollBarVisibility.Auto;
+    }
+
     private void HandleDocumentTextChanged(object? sender, EventArgs e)
     {
         if (_document is not null && CurrentOffset > _document.TextLength)
@@ -425,6 +539,7 @@ public sealed partial class TextView : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         UpdateTextMetrics();
+        ApplyWordWrap();
         _pendingFullRebuild = true;
         LogFlash("full queued: OnLoaded");
         RefreshViewport();
@@ -859,6 +974,11 @@ public sealed partial class TextView : UserControl
                 selectionOpacity,
                 Theme,
                 ShowLineNumbers,
+                WordWrap,
+                (LineNumbersForeground as SolidColorBrush)?.Color,
+                (SelectionBrush as SolidColorBrush)?.Color,
+                (SelectionBorder as SolidColorBrush)?.Color,
+                SelectionCornerRadius,
                 foldMarker,
                 highlightedLine,
                 lineRefs);

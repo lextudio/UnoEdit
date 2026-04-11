@@ -1,5 +1,6 @@
 using System.Windows.Documents;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Editing;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -335,6 +336,7 @@ public sealed partial class TextView
         var package = new DataPackage();
         package.SetText(selectedText);
         Clipboard.SetContent(package);
+        TextCopied?.Invoke(this, new TextEventArgs(selectedText));
         return true;
     }
 

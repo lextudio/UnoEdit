@@ -90,6 +90,9 @@
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
                         Background="{Binding SelectionBrush}"
+                        BorderBrush="{Binding SelectionBorderBrush}"
+                        BorderThickness="{Binding SelectionBorderThickness}"
+                        CornerRadius="{Binding SelectionCornerRadius}"
                         Margin="{Binding SelectionMargin}"
                         Width="{Binding SelectionWidth}"
                         Opacity="{Binding SelectionOpacity}" />

@@ -1,7 +1,10 @@
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
+using Microsoft.UI.Xaml.Media;
+using System.ComponentModel;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -63,9 +66,54 @@ public sealed partial class TextArea : UserControl
             typeof(TextArea),
             new PropertyMetadata(true, OnShowLineNumbersChanged));
 
+    public static readonly DependencyProperty WordWrapProperty =
+        DependencyProperty.Register(
+            nameof(WordWrap),
+            typeof(bool),
+            typeof(TextArea),
+            new PropertyMetadata(false, OnWordWrapChanged));
+
+    public static readonly DependencyProperty LineNumbersForegroundProperty =
+        DependencyProperty.Register(
+            nameof(LineNumbersForeground),
+            typeof(Brush),
+            typeof(TextArea),
+            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
+
+    public static readonly DependencyProperty SelectionBrushProperty =
+        DependencyProperty.Register(
+            nameof(SelectionBrush),
+            typeof(Brush),
+            typeof(TextArea),
+            new PropertyMetadata(null, OnSelectionBrushChanged));
+
+    public static readonly DependencyProperty SelectionForegroundProperty =
+        DependencyProperty.Register(
+            nameof(SelectionForeground),
+            typeof(Brush),
+            typeof(TextArea),
+            new PropertyMetadata(null, OnSelectionForegroundChanged));
+
+    public static readonly DependencyProperty SelectionBorderProperty =
+        DependencyProperty.Register(
+            nameof(SelectionBorder),
+            typeof(Brush),
+            typeof(TextArea),
+            new PropertyMetadata(null, OnSelectionBorderChanged));
+
+    public static readonly DependencyProperty SelectionCornerRadiusProperty =
+        DependencyProperty.Register(
+            nameof(SelectionCornerRadius),
+            typeof(double),
+            typeof(TextArea),
+            new PropertyMetadata(0d, OnSelectionCornerRadiusChanged));
+
+    public event EventHandler? DocumentChanged;
+    public event PropertyChangedEventHandler? OptionChanged;
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
     public event EventHandler<ReferenceSegment>? NavigationRequested;
+    public event EventHandler<TextEventArgs>? TextCopied;
 
     public TextArea()
     {
@@ -73,6 +121,7 @@ public sealed partial class TextArea : UserControl
         PART_TextView.CaretOffsetChanged  += OnTextViewCaretOffsetChanged;
         PART_TextView.SelectionChanged    += OnTextViewSelectionChanged;
         PART_TextView.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
+        PART_TextView.TextCopied          += (s, e) => TextCopied?.Invoke(this, e);
     }
 
     public TextDocument? Document
@@ -123,6 +172,42 @@ public sealed partial class TextArea : UserControl
         set => SetValue(ShowLineNumbersProperty, value);
     }
 
+    public bool WordWrap
+    {
+        get => (bool)GetValue(WordWrapProperty);
+        set => SetValue(WordWrapProperty, value);
+    }
+
+    public Brush? LineNumbersForeground
+    {
+        get => (Brush?)GetValue(LineNumbersForegroundProperty);
+        set => SetValue(LineNumbersForegroundProperty, value);
+    }
+
+    public Brush? SelectionBrush
+    {
+        get => (Brush?)GetValue(SelectionBrushProperty);
+        set => SetValue(SelectionBrushProperty, value);
+    }
+
+    public Brush? SelectionForeground
+    {
+        get => (Brush?)GetValue(SelectionForegroundProperty);
+        set => SetValue(SelectionForegroundProperty, value);
+    }
+
+    public Brush? SelectionBorder
+    {
+        get => (Brush?)GetValue(SelectionBorderProperty);
+        set => SetValue(SelectionBorderProperty, value);
+    }
+
+    public double SelectionCornerRadius
+    {
+        get => (double)GetValue(SelectionCornerRadiusProperty);
+        set => SetValue(SelectionCornerRadiusProperty, value);
+    }
+
     /// <summary>Provides access to the inner TextView for testing and advanced scenarios.</summary>
     public TextView TextView => PART_TextView;
 
@@ -154,6 +239,7 @@ public sealed partial class TextArea : UserControl
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.Document = args.NewValue as TextDocument;
+        textArea.DocumentChanged?.Invoke(textArea, EventArgs.Empty);
     }
 
     private static void OnThemeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -166,6 +252,7 @@ public sealed partial class TextArea : UserControl
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.Options = (args.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+        textArea.OptionChanged?.Invoke(textArea, new PropertyChangedEventArgs(null));
     }
 
     private static void OnIsReadOnlyChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -178,6 +265,42 @@ public sealed partial class TextArea : UserControl
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.ShowLineNumbers = (bool)args.NewValue;
+    }
+
+    private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.WordWrap = (bool)args.NewValue;
+    }
+
+    private static void OnLineNumbersForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.LineNumbersForeground = args.NewValue as Brush;
+    }
+
+    private static void OnSelectionBrushChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.SelectionBrush = args.NewValue as Brush;
+    }
+
+    private static void OnSelectionForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.SelectionForeground = args.NewValue as Brush;
+    }
+
+    private static void OnSelectionBorderChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.SelectionBorder = args.NewValue as Brush;
+    }
+
+    private static void OnSelectionCornerRadiusChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.SelectionCornerRadius = (double)args.NewValue;
     }
 
     public void ScrollToLine(int lineNumber)

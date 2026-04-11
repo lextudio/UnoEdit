@@ -62,12 +62,19 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         double selectionOpacity,
         TextEditorTheme theme,
         bool showLineNumbers = true,
+        bool wrapText = false,
+        Windows.UI.Color? gutterForegroundOverride = null,
+        Windows.UI.Color? selectionBrushOverride = null,
+        Windows.UI.Color? selectionBorderOverride = null,
+        double selectionCornerRadius = 0d,
         FoldMarkerKind foldMarker = FoldMarkerKind.None,
         HighlightedLine? highlightedLine = null,
         IReadOnlyList<ReferenceSegment>? referenceSegments = null)
     {
         FoldMarker = foldMarker;
         ShowLineNumbers = showLineNumbers;
+        WrapText = wrapText;
+        SelectionCornerRadius = selectionCornerRadius;
         LineNumber = number.ToString();
         Text = text;
         _caretOpacity = caretOpacity;
@@ -77,9 +84,10 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         _selectionWidth = selectionWidth;
         _selectionOpacity = selectionOpacity;
         LineHighlightBrush   = new SolidColorBrush(theme.LineHighlight);
-        SelectionBrush       = new SolidColorBrush(theme.SelectionColor);
+        SelectionBrush       = new SolidColorBrush(selectionBrushOverride ?? theme.SelectionColor);
+        SelectionBorderBrush = selectionBorderOverride.HasValue ? new SolidColorBrush(selectionBorderOverride.Value) : null;
         CaretBrush           = new SolidColorBrush(theme.CaretColor);
-        GutterForegroundBrush = new SolidColorBrush(theme.GutterForeground);
+        GutterForegroundBrush = new SolidColorBrush(gutterForegroundOverride ?? theme.GutterForeground);
         _defaultForeground   = theme.DefaultForeground;
         ReferenceSegments    = referenceSegments ?? System.Array.Empty<ReferenceSegment>();
         Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground);
@@ -97,6 +105,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
     {
         FoldMarker            = source.FoldMarker;
         ShowLineNumbers       = source.ShowLineNumbers;
+        WrapText              = source.WrapText;
+        SelectionCornerRadius = source.SelectionCornerRadius;
         LineNumber            = source.LineNumber;
         Text                  = source.Text;
         _caretOpacity         = caretOpacity;
@@ -107,6 +117,7 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         _selectionOpacity     = selectionOpacity;
         LineHighlightBrush    = source.LineHighlightBrush;
         SelectionBrush        = source.SelectionBrush;
+        SelectionBorderBrush  = source.SelectionBorderBrush;
         CaretBrush            = source.CaretBrush;
         GutterForegroundBrush = source.GutterForegroundBrush;
         _defaultForeground    = source._defaultForeground;
@@ -164,10 +175,26 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             Notify(nameof(ShowLineNumbers));
             Notify(nameof(Number));
         }
+        if (WrapText != source.WrapText)
+        {
+            WrapText = source.WrapText;
+            Notify(nameof(WrapText));
+        }
+        if (Math.Abs(SelectionCornerRadius - source.SelectionCornerRadius) > 0.001)
+        {
+            SelectionCornerRadius = source.SelectionCornerRadius;
+            Notify(nameof(SelectionCornerRadius));
+        }
         if (!ReferenceEquals(Runs, source.Runs))
         {
             Runs = source.Runs;
             Notify(nameof(Runs));
+        }
+        if (!ReferenceEquals(SelectionBorderBrush, source.SelectionBorderBrush))
+        {
+            SelectionBorderBrush = source.SelectionBorderBrush;
+            Notify(nameof(SelectionBorderBrush));
+            Notify(nameof(SelectionBorderThickness));
         }
         if (!ReferenceEquals(ReferenceSegments, source.ReferenceSegments))
         {
@@ -181,12 +208,21 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             Notify(nameof(FoldMarkerGlyph));
             Notify(nameof(FoldMarkerAutomationName));
         }
-        // Brushes and LineNumber don't change within a theme / line-number.
+        if (!ReferenceEquals(GutterForegroundBrush, source.GutterForegroundBrush))
+        {
+            GutterForegroundBrush = source.GutterForegroundBrush;
+            Notify(nameof(GutterForegroundBrush));
+        }
+        // Other brushes and LineNumber don't change within a theme / line-number.
     }
 
     public string LineNumber { get; private set; }
 
     public bool ShowLineNumbers { get; private set; }
+
+    public bool WrapText { get; private set; }
+
+    public double SelectionCornerRadius { get; private set; }
 
     public string Number => ShowLineNumbers ? LineNumber : string.Empty;
 
@@ -228,6 +264,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
 
     public SolidColorBrush LineHighlightBrush   { get; private set; }
     public SolidColorBrush SelectionBrush       { get; private set; }
+    public SolidColorBrush? SelectionBorderBrush { get; private set; }
+    public Thickness SelectionBorderThickness => SelectionBorderBrush is null ? new Thickness(0) : new Thickness(1);
     public SolidColorBrush CaretBrush           { get; private set; }
     public SolidColorBrush GutterForegroundBrush { get; private set; }
 

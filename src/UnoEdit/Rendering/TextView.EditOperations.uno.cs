@@ -203,12 +203,15 @@ public sealed partial class TextView
             return false;
         }
 
-        using (_document.RunUpdate())
+        BatchRefresh(() =>
         {
-            _document.Remove(startOffset, length);
-        }
+            using (_document.RunUpdate())
+            {
+                _document.Remove(startOffset, length);
+            }
 
-        CollapseSelection(startOffset);
+            CollapseSelection(startOffset);
+        });
         return true;
     }
 
@@ -230,12 +233,16 @@ public sealed partial class TextView
             return false;
         }
 
-        using (_document.RunUpdate())
+        int newOffset = CurrentOffset - 1;
+        BatchRefresh(() =>
         {
-            _document.Remove(CurrentOffset - 1, 1);
-        }
+            using (_document.RunUpdate())
+            {
+                _document.Remove(newOffset, 1);
+            }
 
-        CollapseSelection(CurrentOffset - 1);
+            CollapseSelection(newOffset);
+        });
         return true;
     }
 
@@ -257,12 +264,16 @@ public sealed partial class TextView
             return false;
         }
 
-        using (_document.RunUpdate())
+        int offset = CurrentOffset;
+        BatchRefresh(() =>
         {
-            _document.Remove(CurrentOffset, 1);
-        }
+            using (_document.RunUpdate())
+            {
+                _document.Remove(offset, 1);
+            }
 
-        CollapseSelection(CurrentOffset);
+            CollapseSelection(offset);
+        });
         return true;
     }
 
@@ -274,17 +285,20 @@ public sealed partial class TextView
         }
 
         int insertionOffset = CurrentOffset;
-        using (_document.RunUpdate())
+        BatchRefresh(() =>
         {
-            if (HasSelection())
+            using (_document.RunUpdate())
             {
-                insertionOffset = DeleteSelectedTextInternal();
+                if (HasSelection())
+                {
+                    insertionOffset = DeleteSelectedTextInternal();
+                }
+
+                _document.Insert(insertionOffset, text);
             }
 
-            _document.Insert(insertionOffset, text);
-        }
-
-        CollapseSelection(insertionOffset + text.Length);
+            CollapseSelection(insertionOffset + text.Length);
+        });
         return true;
     }
 
@@ -295,10 +309,13 @@ public sealed partial class TextView
             return false;
         }
 
-        _selectionAnchorOffset = 0;
-        CurrentOffset = _document.TextLength;
-        SelectionStartOffset = 0;
-        SelectionEndOffset = _document.TextLength;
+        BatchRefresh(() =>
+        {
+            _selectionAnchorOffset = 0;
+            CurrentOffset = _document.TextLength;
+            SelectionStartOffset = 0;
+            SelectionEndOffset = _document.TextLength;
+        });
         return true;
     }
 
@@ -328,8 +345,11 @@ public sealed partial class TextView
             return false;
         }
 
-        _document.UndoStack.Undo();
-        CollapseSelection(Math.Min(CurrentOffset, _document.TextLength));
+        BatchRefresh(() =>
+        {
+            _document.UndoStack.Undo();
+            CollapseSelection(Math.Min(CurrentOffset, _document.TextLength));
+        });
         return true;
     }
 
@@ -340,8 +360,11 @@ public sealed partial class TextView
             return false;
         }
 
-        _document.UndoStack.Redo();
-        CollapseSelection(Math.Min(CurrentOffset, _document.TextLength));
+        BatchRefresh(() =>
+        {
+            _document.UndoStack.Redo();
+            CollapseSelection(Math.Min(CurrentOffset, _document.TextLength));
+        });
         return true;
     }
 
@@ -380,21 +403,24 @@ public sealed partial class TextView
 
     internal void UpdateCaretAndSelection(int targetOffset, bool extendSelection)
     {
-        CurrentOffset = targetOffset;
-
-        if (extendSelection)
+        BatchRefresh(() =>
         {
-            SelectionStartOffset = Math.Min(_selectionAnchorOffset, targetOffset);
-            SelectionEndOffset = Math.Max(_selectionAnchorOffset, targetOffset);
-        }
-        else
-        {
-            _selectionAnchorOffset = targetOffset;
-            SelectionStartOffset = targetOffset;
-            SelectionEndOffset = targetOffset;
-        }
+            CurrentOffset = targetOffset;
 
-        _desiredColumn = _document?.GetLocation(CurrentOffset).Column ?? 1;
+            if (extendSelection)
+            {
+                SelectionStartOffset = Math.Min(_selectionAnchorOffset, targetOffset);
+                SelectionEndOffset = Math.Max(_selectionAnchorOffset, targetOffset);
+            }
+            else
+            {
+                _selectionAnchorOffset = targetOffset;
+                SelectionStartOffset = targetOffset;
+                SelectionEndOffset = targetOffset;
+            }
+
+            _desiredColumn = _document?.GetLocation(CurrentOffset).Column ?? 1;
+        });
     }
 
     internal bool HasSelection()
@@ -422,12 +448,15 @@ public sealed partial class TextView
         }
 
         int startOffset;
-        using (_document.RunUpdate())
+        BatchRefresh(() =>
         {
-            startOffset = DeleteSelectedTextInternal();
-        }
+            using (_document.RunUpdate())
+            {
+                startOffset = DeleteSelectedTextInternal();
+            }
 
-        CollapseSelection(startOffset);
+            CollapseSelection(startOffset);
+        });
     }
 
     internal int DeleteSelectedTextInternal()
@@ -449,9 +478,12 @@ public sealed partial class TextView
 
     internal void CollapseSelection(int offset)
     {
-        _selectionAnchorOffset = offset;
-        CurrentOffset = offset;
-        SelectionStartOffset = offset;
-        SelectionEndOffset = offset;
+        BatchRefresh(() =>
+        {
+            _selectionAnchorOffset = offset;
+            CurrentOffset = offset;
+            SelectionStartOffset = offset;
+            SelectionEndOffset = offset;
+        });
     }
 }

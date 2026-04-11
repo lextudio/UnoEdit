@@ -80,6 +80,8 @@ public sealed partial class TextView : UserControl
     private int _desiredColumn = 1;
     private int _selectionAnchorOffset;
     private bool _isPointerSelecting;
+    // When > 0, RefreshViewport() is suppressed and a deferred refresh is pending.
+    private int _suppressRefreshDepth;
     private double _characterWidth = DefaultCharacterWidth;
     private List<int> _visibleDocLines = new();
 
@@ -417,8 +419,35 @@ public sealed partial class TextView : UserControl
         }
     }
 
+    /// <summary>
+    /// Suppresses <see cref="RefreshViewport"/> calls within the <paramref name="action"/> body
+    /// and runs exactly one refresh afterward. Use when performing multiple document/selection
+    /// changes that would otherwise each trigger a separate repaint (causing visible flash).
+    /// </summary>
+    internal void BatchRefresh(Action action)
+    {
+        _suppressRefreshDepth++;
+        try
+        {
+            action();
+        }
+        finally
+        {
+            _suppressRefreshDepth--;
+            if (_suppressRefreshDepth == 0)
+            {
+                RefreshViewport();
+            }
+        }
+    }
+
     private void RefreshViewport()
     {
+        if (_suppressRefreshDepth > 0)
+        {
+            return;
+        }
+
         if (_document is null)
         {
             _lines.Clear();

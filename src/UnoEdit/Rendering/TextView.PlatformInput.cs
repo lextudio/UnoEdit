@@ -547,22 +547,25 @@ public sealed partial class TextView
             HandleCompositionStart();
         }
 
-        using (_document.RunUpdate())
+        BatchRefresh(() =>
         {
-            if (_compositionLength > 0)
+            using (_document.RunUpdate())
             {
-                _document.Remove(_compositionStartOffset, _compositionLength);
+                if (_compositionLength > 0)
+                {
+                    _document.Remove(_compositionStartOffset, _compositionLength);
+                }
+
+                if (text.Length > 0)
+                {
+                    _document.Insert(_compositionStartOffset, text);
+                }
+
+                _compositionLength = text.Length;
             }
 
-            if (text.Length > 0)
-            {
-                _document.Insert(_compositionStartOffset, text);
-            }
-
-            _compositionLength = text.Length;
-        }
-
-        CollapseSelection(_compositionStartOffset + text.Length);
+            CollapseSelection(_compositionStartOffset + text.Length);
+        });
         UpdatePlatformInputBridge();
     }
 
@@ -576,18 +579,21 @@ public sealed partial class TextView
             return;
         }
 
-        if (_compositionLength > 0)
+        BatchRefresh(() =>
         {
-            using (_document.RunUpdate())
+            if (_compositionLength > 0)
             {
-                _document.Remove(_compositionStartOffset, _compositionLength);
+                using (_document.RunUpdate())
+                {
+                    _document.Remove(_compositionStartOffset, _compositionLength);
+                }
+
+                _compositionLength = 0;
+                CollapseSelection(_compositionStartOffset);
             }
 
-            _compositionLength = 0;
-            CollapseSelection(_compositionStartOffset);
-        }
-
-        _isComposing = false;
+            _isComposing = false;
+        });
         UpdatePlatformInputBridge();
     }
 
@@ -603,19 +609,22 @@ public sealed partial class TextView
         int insertAt = _isComposing ? _compositionStartOffset : CurrentOffset;
         int removeLen = _isComposing ? _compositionLength : 0;
 
-        using (_document.RunUpdate())
+        BatchRefresh(() =>
         {
-            if (removeLen > 0)
+            using (_document.RunUpdate())
             {
-                _document.Remove(insertAt, removeLen);
+                if (removeLen > 0)
+                {
+                    _document.Remove(insertAt, removeLen);
+                }
+
+                _document.Insert(insertAt, text);
             }
 
-            _document.Insert(insertAt, text);
-        }
-
-        _isComposing = false;
-        _compositionLength = 0;
-        CollapseSelection(insertAt + text.Length);
+            _isComposing = false;
+            _compositionLength = 0;
+            CollapseSelection(insertAt + text.Length);
+        });
         UpdatePlatformInputBridge();
     }
 

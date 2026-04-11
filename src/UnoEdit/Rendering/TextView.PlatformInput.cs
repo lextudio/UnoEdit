@@ -38,6 +38,17 @@ public sealed partial class TextView
     private static readonly bool s_debugWin32Ime =
         string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_WIN32_IME"), "1", StringComparison.Ordinal);
 
+    private static readonly bool s_debugLinuxIme =
+        string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_LINUX_IME"), "1", StringComparison.Ordinal);
+
+    private static void LogLinuxIme(string message)
+    {
+        if (s_debugLinuxIme)
+        {
+            Console.WriteLine($"[UnoEdit Linux IME TextView] {message}");
+        }
+    }
+
     private static readonly string s_win32ImeLogPath =
         System.IO.Path.Combine(System.IO.Path.GetTempPath(), "unoedit_win32_ime.log");
 
@@ -49,6 +60,102 @@ public sealed partial class TextView
     // Platform-specific bridges (at most one is non-null at runtime).
     private Win32ImeBridge? _win32ImeBridge;
     private LinuxImeBridge? _linuxImeBridge;
+
+    // -----------------------------------------------------------------------
+    // Linux X11: coordinate translation for IBus candidate window placement
+    // -----------------------------------------------------------------------
+
+    [DllImport("libX11.so.6")]
+    private static extern bool XTranslateCoordinates(
+        nint display, nint src_w, nint dest_w,
+        int src_x, int src_y,
+        out int dest_x_return, out int dest_y_return,
+        out nint child_return);
+
+    [DllImport("libX11.so.6")]
+    private static extern nint XDefaultRootWindow(nint display);
+
+    /// <summary>
+    /// Cached reflection accessor for <c>X11XamlRootHost.GetHostFromWindow(Window)</c>,
+    /// which returns the internal X11 host that holds the X11 Display and Window handles.
+    /// </summary>
+    private static readonly MethodInfo? s_getHostFromWindow = GetX11HostFromWindowMethod();
+    private static readonly PropertyInfo? s_rootX11WindowProp = GetRootX11WindowProperty();
+    private static readonly PropertyInfo? s_x11DisplayProp = GetX11WindowProperty("Display");
+    private static readonly PropertyInfo? s_x11WindowProp = GetX11WindowProperty("Window");
+
+    private static MethodInfo? GetX11HostFromWindowMethod()
+    {
+        var hostType = Type.GetType("Uno.WinUI.Runtime.Skia.X11.X11XamlRootHost, Uno.UI.Runtime.Skia.X11");
+        return hostType?.GetMethod("GetHostFromWindow", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+    }
+
+    private static PropertyInfo? GetRootX11WindowProperty()
+    {
+        var hostType = Type.GetType("Uno.WinUI.Runtime.Skia.X11.X11XamlRootHost, Uno.UI.Runtime.Skia.X11");
+        return hostType?.GetProperty("RootX11Window", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    }
+
+    private static PropertyInfo? GetX11WindowProperty(string propName)
+    {
+        var windowType = Type.GetType("Uno.WinUI.Runtime.Skia.X11.X11Window, Uno.UI.Runtime.Skia.X11");
+        return windowType?.GetProperty(propName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+    }
+
+    /// <summary>
+    /// Converts content-area-relative coordinates to X11 screen-absolute coordinates
+    /// by resolving the X11 window handle from Uno internals via reflection and calling
+    /// <c>XTranslateCoordinates</c>.
+    /// </summary>
+    private Rect ConvertToScreenCoordinates(Rect contentRelativeRect)
+    {
+        if (!s_isLinux || s_getHostFromWindow is null || s_rootX11WindowProp is null
+            || s_x11DisplayProp is null || s_x11WindowProp is null)
+        {
+            LogLinuxIme($"ConvertToScreenCoords: reflection unavailable (linux={s_isLinux} getHost={s_getHostFromWindow is not null} rootX11={s_rootX11WindowProp is not null} dispProp={s_x11DisplayProp is not null} winProp={s_x11WindowProp is not null}) — falling back.");
+            return contentRelativeRect;
+        }
+
+        try
+        {
+            var window = Window.Current;
+            if (window is null) { LogLinuxIme("ConvertToScreenCoords: Window.Current is null — falling back."); return contentRelativeRect; }
+
+            var host = s_getHostFromWindow.Invoke(null, [window]);
+            if (host is null) { LogLinuxIme("ConvertToScreenCoords: GetHostFromWindow returned null — falling back."); return contentRelativeRect; }
+
+            object? x11Window = s_rootX11WindowProp.GetValue(host);
+            if (x11Window is null) { LogLinuxIme("ConvertToScreenCoords: RootX11Window is null — falling back."); return contentRelativeRect; }
+
+            nint display = (nint)(s_x11DisplayProp.GetValue(x11Window) ?? nint.Zero);
+            nint windowId = (nint)(s_x11WindowProp.GetValue(x11Window) ?? nint.Zero);
+            if (display == nint.Zero || windowId == nint.Zero) { LogLinuxIme($"ConvertToScreenCoords: handles are zero (display=0x{display:X} window=0x{windowId:X}) — falling back."); return contentRelativeRect; }
+
+            double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
+            int srcX = (int)(contentRelativeRect.X * scale);
+            int srcY = (int)(contentRelativeRect.Y * scale);
+
+            LogLinuxIme($"ConvertToScreenCoords: contentRect=({contentRelativeRect.X:F1},{contentRelativeRect.Y:F1}) scale={scale:F2} srcPx=({srcX},{srcY}) display=0x{display:X} window=0x{windowId:X}");
+
+            nint root = XDefaultRootWindow(display);
+            if (XTranslateCoordinates(display, windowId, root, srcX, srcY,
+                    out int screenX, out int screenY, out _))
+            {
+                LogLinuxIme($"ConvertToScreenCoords: XTranslateCoordinates -> screen=({screenX},{screenY})");
+                return new Rect(screenX, screenY,
+                    contentRelativeRect.Width * scale,
+                    contentRelativeRect.Height * scale);
+            }
+
+            LogLinuxIme("ConvertToScreenCoords: XTranslateCoordinates returned false — falling back.");
+        }
+        catch (Exception ex)
+        {
+            LogLinuxIme($"ConvertToScreenCoords: exception={ex.Message} — falling back.");
+        }
+
+        return contentRelativeRect;
+    }
 
     // -----------------------------------------------------------------------
     // Logging helpers
@@ -145,7 +252,7 @@ public sealed partial class TextView
             }
             else if (_linuxImeBridge is { IsAvailable: true } linux)
             {
-                linux.UpdateCursorLocation(rect);
+                linux.UpdateCursorLocation(ConvertToScreenCoordinates(rect));
             }
         }
     }

@@ -6,7 +6,10 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
 using System.ComponentModel;
 using System.IO;
+using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
 using Microsoft.UI.Xaml.Media;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -730,38 +733,117 @@ public sealed partial class TextEditor : UserControl
     // ----------------------------------------------------------------
     // Clipboard operations
     // ----------------------------------------------------------------
-    public void Copy() { }
-    public void Cut() { }
-    public void Delete() { }
-    public void Paste() { }
+    public void Copy()
+    {
+        if (SelectionLength == 0)
+        {
+            return;
+        }
+
+        var package = new DataPackage();
+        package.SetText(SelectedText);
+        Clipboard.SetContent(package);
+        Clipboard.Flush();
+    }
+
+    public void Cut()
+    {
+        if (IsReadOnly || SelectionLength == 0)
+        {
+            return;
+        }
+
+        Copy();
+        DeleteSelection();
+    }
+
+    public void Delete()
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        if (SelectionLength > 0)
+        {
+            DeleteSelection();
+            return;
+        }
+
+        var document = Document;
+        if (document is null)
+        {
+            return;
+        }
+
+        int offset = Math.Clamp(CurrentOffset, 0, document.TextLength);
+        if (offset < document.TextLength)
+        {
+            document.Remove(offset, 1);
+            Select(offset, 0);
+        }
+    }
+
+    public void Paste()
+    {
+        if (IsReadOnly)
+        {
+            return;
+        }
+
+        _ = PasteAsync();
+    }
+
     public void SelectAll() { Select(0, Document?.TextLength ?? 0); }
 
     // ----------------------------------------------------------------
     // Scroll methods
     // ----------------------------------------------------------------
-    public void LineUp() { }
-    public void LineDown() { }
-    public void LineLeft() { }
-    public void LineRight() { }
-    public void PageUp() { }
-    public void PageDown() { }
-    public void PageLeft() { }
-    public void PageRight() { }
+    public void LineUp() { ScrollCaretByLines(-1, false); }
+    public void LineDown() { ScrollCaretByLines(1, false); }
+    public void LineLeft() { ScrollHorizontalBy(-32); }
+    public void LineRight() { ScrollHorizontalBy(32); }
+    public void PageUp() { ScrollCaretByLines(-GetApproxPageLineCount(), true); }
+    public void PageDown() { ScrollCaretByLines(GetApproxPageLineCount(), true); }
+    public void PageLeft() { ScrollHorizontalBy(-(ViewportWidth > 0 ? ViewportWidth : 240)); }
+    public void PageRight() { ScrollHorizontalBy(ViewportWidth > 0 ? ViewportWidth : 240); }
     public void ScrollTo(int line, int column) { ScrollToLine(line); }
-    public void ScrollToEnd() { }
-    public void ScrollToHome() { }
-    public void ScrollToHorizontalOffset(double offset) { }
-    public void ScrollToVerticalOffset(double offset) { }
+    public void ScrollToEnd()
+    {
+        if (Document is null)
+        {
+            return;
+        }
+
+        CurrentOffset = Document.TextLength;
+        ScrollToOffset(CurrentOffset);
+    }
+
+    public void ScrollToHome()
+    {
+        CurrentOffset = 0;
+        ScrollToOffset(0);
+    }
+
+    public void ScrollToHorizontalOffset(double offset)
+    {
+        TryChangeView(offset, null, true);
+    }
+
+    public void ScrollToVerticalOffset(double offset)
+    {
+        TryChangeView(null, offset, true);
+    }
 
     // ----------------------------------------------------------------
     // Scroll position / size properties
     // ----------------------------------------------------------------
-    public double HorizontalOffset => 0;
-    public double VerticalOffset => 0;
-    public double ExtentHeight => 0;
-    public double ExtentWidth => 0;
-    public double ViewportHeight => ActualHeight;
-    public double ViewportWidth => ActualWidth;
+    public double HorizontalOffset => GetScrollViewerMetric("HorizontalOffset");
+    public double VerticalOffset => GetScrollViewerMetric("VerticalOffset");
+    public double ExtentHeight => GetScrollViewerMetric("ExtentHeight");
+    public double ExtentWidth => GetScrollViewerMetric("ExtentWidth");
+    public double ViewportHeight => GetScrollViewerMetric("ViewportHeight", ActualHeight);
+    public double ViewportWidth => GetScrollViewerMetric("ViewportWidth", ActualWidth);
 
     public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
         DependencyProperty.Register(nameof(HorizontalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
@@ -782,7 +864,36 @@ public sealed partial class TextEditor : UserControl
     // ----------------------------------------------------------------
     // Position lookup
     // ----------------------------------------------------------------
-    public TextViewPosition? GetPositionFromPoint(Windows.Foundation.Point point) => null;
+    public TextViewPosition? GetPositionFromPoint(Windows.Foundation.Point point)
+    {
+        var document = Document;
+        if (document is null)
+        {
+            return null;
+        }
+
+        var textView = GetInnerTextView();
+        if (textView == null)
+        {
+            return null;
+        }
+
+        var method = textView.GetType().GetMethod("GetOffsetFromViewPoint", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (method == null)
+        {
+            return null;
+        }
+
+        var offsetObj = method.Invoke(textView, new object[] { point.X, point.Y });
+        if (offsetObj is not int offset)
+        {
+            return null;
+        }
+
+        offset = Math.Clamp(offset, 0, document.TextLength);
+        var location = document.GetLocation(offset);
+        return new TextViewPosition(location.Line, location.Column);
+    }
 
     // ----------------------------------------------------------------
     // Mouse hover events
@@ -803,4 +914,101 @@ public sealed partial class TextEditor : UserControl
     void RaisePreviewMouseHoverStopped(EventArgs e) { PreviewMouseHoverStopped?.Invoke(this, e); }
 
 	public new void OnApplyTemplate() { base.OnApplyTemplate(); }
+
+    private async Task PasteAsync()
+    {
+        var view = Clipboard.GetContent();
+        if (view == null || !view.Contains(StandardDataFormats.Text))
+        {
+            return;
+        }
+
+        var text = await view.GetTextAsync();
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        SelectedText = text;
+        CurrentOffset = SelectionStart + text.Length;
+        Select(CurrentOffset, 0);
+    }
+
+    private void DeleteSelection()
+    {
+        if (SelectionLength == 0 || Document is null)
+        {
+            return;
+        }
+
+        int start = SelectionStart;
+        Document.Remove(start, SelectionLength);
+        Select(start, 0);
+    }
+
+    private int GetApproxPageLineCount()
+    {
+        double lineHeight = FontSize > 0 ? FontSize * 1.4 : 20.0;
+        return Math.Max(1, (int)Math.Round((ViewportHeight > 0 ? ViewportHeight : ActualHeight) / lineHeight));
+    }
+
+    private void ScrollCaretByLines(int lineDelta, bool moveCaret)
+    {
+        if (Document is null)
+        {
+            return;
+        }
+
+        var current = Document.GetLocation(Math.Clamp(CurrentOffset, 0, Document.TextLength));
+        int targetLine = Math.Clamp(current.Line + lineDelta, 1, Document.LineCount);
+        if (moveCaret)
+        {
+            int targetOffset = Document.GetOffset(targetLine, current.Column);
+            CurrentOffset = targetOffset;
+        }
+        ScrollToLine(targetLine);
+    }
+
+    private void ScrollHorizontalBy(double delta)
+    {
+        double current = HorizontalOffset;
+        ScrollToHorizontalOffset(Math.Max(0, current + delta));
+    }
+
+    private object? GetInnerTextView()
+    {
+        var property = PART_TextArea.GetType().GetProperty("PART_TextView", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        return property?.GetValue(PART_TextArea);
+    }
+
+    private object? GetInnerScrollViewer()
+    {
+        var textView = GetInnerTextView();
+        if (textView == null)
+        {
+            return null;
+        }
+
+        var property = textView.GetType().GetProperty("TextScrollViewer", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        return property?.GetValue(textView);
+    }
+
+    private double GetScrollViewerMetric(string name, double fallback = 0)
+    {
+        var scrollViewer = GetInnerScrollViewer();
+        var value = scrollViewer?.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public)?.GetValue(scrollViewer);
+        return value is double d ? d : fallback;
+    }
+
+    private void TryChangeView(double? horizontalOffset, double? verticalOffset, bool disableAnimation)
+    {
+        var scrollViewer = GetInnerScrollViewer();
+        var method = scrollViewer?.GetType().GetMethod("ChangeView", BindingFlags.Instance | BindingFlags.Public);
+        if (method == null)
+        {
+            return;
+        }
+
+        method.Invoke(scrollViewer, new object[] { horizontalOffset, verticalOffset, null, disableAnimation });
+    }
 }

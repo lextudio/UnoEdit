@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using System.Windows;
 
 using ICSharpCode.AvalonEdit.Document;
@@ -17,6 +18,8 @@ namespace ICSharpCode.AvalonEdit.Folding
 	/// </summary>
 	public class FoldingManager : IWeakEventListener
 	{
+		static readonly Dictionary<FoldingManager, WeakReference<object>> installedManagers = new Dictionary<FoldingManager, WeakReference<object>>();
+
 		internal readonly TextDocument document;
 		readonly TextSegmentCollection<FoldingSection> foldings;
 		bool isFirstUpdate = true;
@@ -204,9 +207,51 @@ namespace ICSharpCode.AvalonEdit.Folding
 		internal void RaiseFoldingsChanged() => FoldingsChanged?.Invoke(this, EventArgs.Empty);
 
 			/// <summary>Creates a new FoldingManager and attaches it to the given text area.</summary>
-			public static FoldingManager Install(object textArea) => null;
+			public static FoldingManager Install(object textArea)
+			{
+				if (textArea == null)
+					throw new ArgumentNullException(nameof(textArea));
+
+				var fmProperty = textArea.GetType().GetProperty("FoldingManager", BindingFlags.Public | BindingFlags.Instance);
+				if (fmProperty == null)
+					throw new ArgumentException("textArea must expose a FoldingManager property", nameof(textArea));
+
+				if (fmProperty.GetValue(textArea) is FoldingManager existing)
+					return existing;
+
+				var document = textArea.GetType().GetProperty("Document", BindingFlags.Public | BindingFlags.Instance)?.GetValue(textArea) as TextDocument;
+				if (document == null)
+					throw new ArgumentException("textArea must expose a Document property of type TextDocument", nameof(textArea));
+
+				var manager = new FoldingManager(document);
+				fmProperty.SetValue(textArea, manager);
+				lock (installedManagers) {
+					installedManagers[manager] = new WeakReference<object>(textArea);
+				}
+				return manager;
+			}
 
 			/// <summary>Uninstalls a FoldingManager.</summary>
-			public static void Uninstall(FoldingManager foldingManager) { }
+			public static void Uninstall(FoldingManager foldingManager)
+			{
+				if (foldingManager == null)
+					return;
+
+				object textArea = null;
+				lock (installedManagers) {
+					if (installedManagers.TryGetValue(foldingManager, out var weak)) {
+						weak.TryGetTarget(out textArea);
+						installedManagers.Remove(foldingManager);
+					}
+				}
+
+				if (textArea != null) {
+					var fmProperty = textArea.GetType().GetProperty("FoldingManager", BindingFlags.Public | BindingFlags.Instance);
+					if (fmProperty?.GetValue(textArea) is FoldingManager installed && ReferenceEquals(installed, foldingManager))
+						fmProperty.SetValue(textArea, null);
+				}
+
+				foldingManager.Clear();
+			}
 	}
 }

@@ -168,6 +168,23 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		}
 
 				/// <summary>Creates inline run objects from this rich text.</summary>
-				public object[] CreateRuns() => System.Array.Empty<object>();
+				public object[] CreateRuns()
+				{
+					if (text.Length == 0)
+						return Array.Empty<object>();
+
+					var runs = new List<object>();
+					for (int i = 0; i < stateChangeOffsets.Length; i++) {
+						int start = stateChangeOffsets[i];
+						int end = (i + 1 < stateChangeOffsets.Length) ? stateChangeOffsets[i + 1] : text.Length;
+						if (end <= start)
+							continue;
+
+						var run = new Run(text.Substring(start, end - start));
+						ApplyColorToTextElement(run, stateChanges[i]);
+						runs.Add(run);
+					}
+					return runs.ToArray();
+				}
 			}
 }

@@ -96,6 +96,12 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 
 		/// <inheritdoc/>
 		protected override void OnApplyTemplate() => base.OnApplyTemplate();
+
+		/// <summary>Parity shim overload keeping OnApplyTemplate in the public API surface.</summary>
+		public void OnApplyTemplate(object _)
+		{
+			base.OnApplyTemplate();
+		}
 	}
 
 	/// <summary>

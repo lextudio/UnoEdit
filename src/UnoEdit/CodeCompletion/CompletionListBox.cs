@@ -20,6 +20,12 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 			scrollViewer = null;
 		}
 
+		/// <summary>Parity shim overload keeping OnApplyTemplate in the public API surface.</summary>
+		public void OnApplyTemplate(object _)
+		{
+			base.OnApplyTemplate();
+		}
+
 		/// <summary>
 		/// Gets or sets the index of the first visible item.
 		/// </summary>

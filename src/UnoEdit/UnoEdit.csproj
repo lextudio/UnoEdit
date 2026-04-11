@@ -152,6 +152,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeTextReader.cs" Link="Utils\RopeTextReader.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
+    <Compile Include="Utils\PropertyChangedWeakEventManager.cs" />
 
     <!-- Phase 11: ICompletionData — uses object for TextArea to avoid cross-project dep -->
     <Compile Include="CodeCompletion\ICompletionData.cs" />
@@ -171,6 +172,7 @@
     <!-- Phase 11 Slice 7: new type stubs -->
     <Compile Include="Rendering\DefaultTextRunTypographyProperties.cs" />
     <Compile Include="Editing\Selection.cs" />
+    <Compile Include="Editing\CaretWeakEventHandler.cs" />
     <Compile Include="Editing\InputHandlers.cs" />
     <Compile Include="Folding\FoldingMargin.cs" />
 

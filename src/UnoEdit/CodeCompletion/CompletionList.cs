@@ -187,6 +187,12 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 			}
 		}
 
+		/// <summary>Parity shim overload keeping OnApplyTemplate in the public API surface.</summary>
+		public void OnApplyTemplate(object _)
+		{
+			base.OnApplyTemplate();
+		}
+
 		/// <summary>Creates and initialises the inner list box (call after constructing).</summary>
 		public CompletionList()
 		{

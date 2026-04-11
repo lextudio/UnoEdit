@@ -15,6 +15,15 @@ namespace ICSharpCode.AvalonEdit
 		public TextEditorAutomationPeer(Microsoft.UI.Xaml.FrameworkElement owner) : base(owner) { }
 
 		/// <summary>Gets a pattern object for the specified pattern interface.</summary>
-		public new object GetPattern(PatternInterface patternInterface) => null;
+		public new object GetPattern(PatternInterface patternInterface)
+		{
+			return base.GetPattern(patternInterface);
+		}
+
+		/// <inheritdoc/>
+		protected override string GetClassNameCore() => "TextEditor";
+
+		/// <inheritdoc/>
+		protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Edit;
 	}
 }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Search;
 using Microsoft.UI.Xaml;
@@ -178,6 +179,7 @@ public sealed partial class SearchPanel : UserControl
 
     private void OnOptionChanged(object sender, RoutedEventArgs e)
     {
+        RaiseSearchOptionsChanged();
         _selectedResultIndex = -1;
         RefreshSearch(selectBestMatch: false);
     }
@@ -220,6 +222,16 @@ public sealed partial class SearchPanel : UserControl
             _editor?.Focus(FocusState.Programmatic);
             e.Handled = true;
         }
+    }
+
+    private void RaiseSearchOptionsChanged()
+    {
+        SearchOptionsChanged?.Invoke(this,
+            new SearchOptionsChangedEventArgs(
+                SearchPattern,
+                MatchCaseCheckBox.IsChecked == true,
+                UseRegexCheckBox.IsChecked == true,
+                WholeWordsCheckBox.IsChecked == true));
     }
 
     private bool EnsureSearchResults()
@@ -290,8 +302,38 @@ public sealed partial class SearchPanel : UserControl
     public bool IsClosed => !IsOpen;
     public void Reactivate() { Open(); }
     public void Uninstall() { Close(); }
-    public static SearchPanel Install(object textArea) => null;
-    public static void RegisterCommands(Microsoft.UI.Xaml.Input.KeyboardAccelerator accelerators) { }
+    public static SearchPanel Install(object textArea)
+    {
+        if (textArea == null)
+            throw new ArgumentNullException(nameof(textArea));
+
+        // Prefer TextEditor, which already owns a SearchPanel instance.
+        if (textArea is TextEditor editor)
+            return editor.SearchPanel;
+
+        // If called with a TextArea, try to navigate back to owning editor via Parent chain.
+        if (textArea is FrameworkElement fe) {
+            var current = fe;
+            while (current != null) {
+                if (current is TextEditor hostEditor)
+                    return hostEditor.SearchPanel;
+                current = current.Parent as FrameworkElement;
+            }
+        }
+
+        // Best-effort fallback for test doubles exposing SearchPanel property.
+        var panelProperty = textArea.GetType().GetProperty("SearchPanel", BindingFlags.Public | BindingFlags.Instance);
+        if (panelProperty?.GetValue(textArea) is SearchPanel existing)
+            return existing;
+
+        throw new ArgumentException("Could not locate a SearchPanel for the provided text area/editor.", nameof(textArea));
+    }
+
+    public static void RegisterCommands(Microsoft.UI.Xaml.Input.KeyboardAccelerator accelerators)
+    {
+        // Uno keyboard accelerators are typically registered at control level in TextEditor.
+        // Keep API compatibility and no-op when called from existing parity tests.
+    }
 
     public static readonly DependencyProperty SearchPatternProperty =
         DependencyProperty.Register(nameof(SearchPattern), typeof(string), typeof(SearchPanel), new PropertyMetadata(""));

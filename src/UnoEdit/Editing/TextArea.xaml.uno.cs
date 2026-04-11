@@ -1,3 +1,4 @@
+using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
@@ -41,6 +42,13 @@ public sealed partial class TextArea : UserControl
             typeof(TextArea),
             new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
 
+    public static readonly DependencyProperty OptionsProperty =
+        DependencyProperty.Register(
+            nameof(Options),
+            typeof(TextEditorOptions),
+            typeof(TextArea),
+            new PropertyMetadata(new TextEditorOptions(), OnOptionsChanged));
+
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
     public event EventHandler<ReferenceSegment>? NavigationRequested;
@@ -83,6 +91,12 @@ public sealed partial class TextArea : UserControl
         set => SetValue(ThemeProperty, value);
     }
 
+    public TextEditorOptions Options
+    {
+        get => (TextEditorOptions)GetValue(OptionsProperty);
+        set => SetValue(OptionsProperty, value);
+    }
+
     /// <summary>Provides access to the inner TextView for testing and advanced scenarios.</summary>
     public TextView TextView => PART_TextView;
 
@@ -104,6 +118,12 @@ public sealed partial class TextArea : UserControl
         set => PART_TextView.HighlightedLineSource = value;
     }
 
+    public IHighlightingDefinition? SyntaxHighlighting
+    {
+        get => PART_TextView.SyntaxHighlighting;
+        set => PART_TextView.SyntaxHighlighting = value;
+    }
+
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textArea = (TextArea)dependencyObject;
@@ -114,6 +134,12 @@ public sealed partial class TextArea : UserControl
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.Theme = (args.NewValue as TextEditorTheme) ?? TextEditorTheme.Dark;
+    }
+
+    private static void OnOptionsChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.Options = (args.NewValue as TextEditorOptions) ?? new TextEditorOptions();
     }
 
     public void ScrollToLine(int lineNumber)

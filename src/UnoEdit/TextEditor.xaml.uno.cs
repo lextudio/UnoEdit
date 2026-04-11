@@ -1,8 +1,12 @@
+using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
+using System.ComponentModel;
+using System.IO;
+using System.Text;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -42,6 +46,27 @@ public sealed partial class TextEditor : UserControl
             typeof(TextEditorTheme),
             typeof(TextEditor),
             new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
+
+    public static readonly DependencyProperty OptionsProperty =
+        DependencyProperty.Register(
+            nameof(Options),
+            typeof(TextEditorOptions),
+            typeof(TextEditor),
+            new PropertyMetadata(new TextEditorOptions(), OnOptionsChanged));
+
+    public static readonly DependencyProperty SyntaxHighlightingProperty =
+        DependencyProperty.Register(
+            nameof(SyntaxHighlighting),
+            typeof(IHighlightingDefinition),
+            typeof(TextEditor),
+            new PropertyMetadata(null, OnSyntaxHighlightingChanged));
+
+    public static readonly DependencyProperty EncodingProperty =
+        DependencyProperty.Register(
+            nameof(Encoding),
+            typeof(Encoding),
+            typeof(TextEditor),
+            new PropertyMetadata(Encoding.UTF8));
 
     private TextDocument? _attachedDocument;
 
@@ -86,6 +111,87 @@ public sealed partial class TextEditor : UserControl
         set => SetValue(ThemeProperty, value);
     }
 
+    public TextEditorOptions Options
+    {
+        get => (TextEditorOptions)GetValue(OptionsProperty);
+        set => SetValue(OptionsProperty, value);
+    }
+
+    public IHighlightingDefinition? SyntaxHighlighting
+    {
+        get => (IHighlightingDefinition?)GetValue(SyntaxHighlightingProperty);
+        set => SetValue(SyntaxHighlightingProperty, value);
+    }
+
+    public Encoding Encoding
+    {
+        get => (Encoding)GetValue(EncodingProperty);
+        set => SetValue(EncodingProperty, value);
+    }
+
+    public string Text
+    {
+        get => Document?.Text ?? string.Empty;
+        set
+        {
+            var document = EnsureDocument();
+            document.Text = value ?? string.Empty;
+            CurrentOffset = 0;
+            SelectionStartOffset = 0;
+            SelectionEndOffset = 0;
+            document.UndoStack.ClearAll();
+        }
+    }
+
+    public int CaretOffset
+    {
+        get => CurrentOffset;
+        set => CurrentOffset = value;
+    }
+
+    public int SelectionStart
+    {
+        get => SelectionLength == 0 ? CurrentOffset : Math.Min(SelectionStartOffset, SelectionEndOffset);
+        set => Select(value, SelectionLength);
+    }
+
+    public int SelectionLength
+    {
+        get => Math.Abs(SelectionEndOffset - SelectionStartOffset);
+        set => Select(SelectionStart, value);
+    }
+
+    public string SelectedText
+    {
+        get
+        {
+            if (Document is null || SelectionLength == 0)
+            {
+                return string.Empty;
+            }
+
+            int startOffset = Math.Min(SelectionStartOffset, SelectionEndOffset);
+            return Document.GetText(startOffset, SelectionLength);
+        }
+        set
+        {
+            if (value is null)
+                throw new ArgumentNullException(nameof(value));
+
+            var document = EnsureDocument();
+            int startOffset = SelectionStart;
+            int selectionLength = SelectionLength;
+            document.Replace(startOffset, selectionLength, value);
+            Select(startOffset, value.Length);
+        }
+    }
+
+    public int LineCount => Document?.LineCount ?? 1;
+
+    public bool CanUndo => Document?.UndoStack.CanUndo ?? false;
+
+    public bool CanRedo => Document?.UndoStack.CanRedo ?? false;
+
     /// <summary>Provides access to the inner TextArea for testing and advanced scenarios.</summary>
     public TextArea TextArea => PART_TextArea;
 
@@ -108,6 +214,12 @@ public sealed partial class TextEditor : UserControl
         get => PART_TextArea.HighlightedLineSource;
         set => PART_TextArea.HighlightedLineSource = value;
     }
+
+    public event EventHandler? DocumentChanged;
+
+    public event EventHandler? TextChanged;
+
+    public event PropertyChangedEventHandler? OptionChanged;
 
     /// <summary>Raised when the user Ctrl+Clicks a reference segment.</summary>
     public event EventHandler<ReferenceSegment>? NavigationRequested;
@@ -136,6 +248,107 @@ public sealed partial class TextEditor : UserControl
         CurrentOffset        = SelectionEndOffset;
     }
 
+    public void Select(int start, int length)
+    {
+        var document = Document;
+        int documentLength = document?.TextLength ?? 0;
+        if (start < 0 || start > documentLength)
+            throw new ArgumentOutOfRangeException(nameof(start), start, $"Value must be between 0 and {documentLength}");
+        if (length < 0 || start + length > documentLength)
+            throw new ArgumentOutOfRangeException(nameof(length), length, $"Value must be between 0 and {documentLength - start}");
+
+        SetSelection(start, start + length);
+    }
+
+    public void AppendText(string textData)
+    {
+        var document = EnsureDocument();
+        document.Insert(document.TextLength, textData ?? string.Empty);
+    }
+
+    public void BeginChange()
+    {
+        EnsureDocument().BeginUpdate();
+    }
+
+    public IDisposable DeclareChangeBlock()
+    {
+        return EnsureDocument().RunUpdate();
+    }
+
+    public void EndChange()
+    {
+        EnsureDocument().EndUpdate();
+    }
+
+    public void Clear()
+    {
+        Text = string.Empty;
+    }
+
+    public void Undo()
+    {
+        if (Document?.UndoStack.CanUndo == true)
+        {
+            Document.UndoStack.Undo();
+        }
+    }
+
+    public void Redo()
+    {
+        if (Document?.UndoStack.CanRedo == true)
+        {
+            Document.UndoStack.Redo();
+        }
+    }
+
+    public void Load(Stream stream)
+    {
+        if (stream is null)
+            throw new ArgumentNullException(nameof(stream));
+
+        using var reader = new StreamReader(stream, Encoding ?? Encoding.UTF8, true, 1024, leaveOpen: true);
+        Text = reader.ReadToEnd();
+        Encoding = reader.CurrentEncoding;
+        Document?.UndoStack.MarkAsOriginalFile();
+    }
+
+    public void Load(string fileName)
+    {
+        if (fileName is null)
+            throw new ArgumentNullException(nameof(fileName));
+
+        using FileStream fs = new(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+        Load(fs);
+    }
+
+    public void Save(Stream stream)
+    {
+        if (stream is null)
+            throw new ArgumentNullException(nameof(stream));
+
+        using var writer = new StreamWriter(stream, Encoding ?? Encoding.UTF8, 1024, leaveOpen: true);
+        if (Document is not null)
+        {
+            Document.WriteTextTo(writer);
+        }
+        else
+        {
+            writer.Write(string.Empty);
+        }
+        writer.Flush();
+        Document?.UndoStack.MarkAsOriginalFile();
+    }
+
+    public void Save(string fileName)
+    {
+        if (fileName is null)
+            throw new ArgumentNullException(nameof(fileName));
+
+        using FileStream fs = new(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
+        Save(fs);
+    }
+
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var editor = (TextEditor)dependencyObject;
@@ -143,6 +356,8 @@ public sealed partial class TextEditor : UserControl
         editor.PART_TextArea.Document = args.NewValue as TextDocument;
         editor.PART_SearchPanel.UpdateDocument(args.NewValue as TextDocument);
         editor.UpdateSummary();
+        editor.DocumentChanged?.Invoke(editor, EventArgs.Empty);
+        editor.TextChanged?.Invoke(editor, EventArgs.Empty);
     }
 
     private static void OnThemeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -152,6 +367,19 @@ public sealed partial class TextEditor : UserControl
         editor.PART_TextArea.Theme = theme;
         editor.PART_SearchPanel.UpdateTheme(theme);
         editor.ApplyThemeToChrome();
+    }
+
+    private static void OnOptionsChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.Options = (args.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+        editor.OptionChanged?.Invoke(editor, new PropertyChangedEventArgs(null));
+    }
+
+    private static void OnSyntaxHighlightingChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.SyntaxHighlighting = args.NewValue as IHighlightingDefinition;
     }
 
     private void ApplyThemeToChrome()
@@ -210,6 +438,7 @@ public sealed partial class TextEditor : UserControl
     {
         PART_SearchPanel.RefreshSearch();
         UpdateSummary();
+        TextChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnTextAreaCaretOffsetChanged(object? sender, EventArgs e)
@@ -345,5 +574,15 @@ public sealed partial class TextEditor : UserControl
         return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(flags)
             || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(flags)
             || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(flags);
+    }
+
+    private TextDocument EnsureDocument()
+    {
+        if (Document is null)
+        {
+            Document = new TextDocument();
+        }
+
+        return Document;
     }
 }

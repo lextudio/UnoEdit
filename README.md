@@ -33,6 +33,8 @@ Current status:
 - Shared AvalonEdit command definitions now exist again through a narrow `AvalonEditCommands.cs` fork; this restores the command identifiers and default gestures without pretending the shared `TextEditor` type is already in the library
 - Phase 10 is now started with a separate `src/UnoEdit.TextMate` library instead of baking TextMateSharp into the core `src/UnoEdit` assembly
 - The sample app now proves the TextMate path end-to-end by attaching a C# TextMate grammar/theme-backed highlighted-line source to the editor
+- Phase 11 has started with API parity expansion on the public `TextEditor` surface: core AvalonEdit-style members such as `Text`, `SelectedText`, `CaretOffset`, `SelectionStart`, `SelectionLength`, `Load`/`Save`, `Undo`/`Redo`, `Encoding`, `SyntaxHighlighting`, and `Options` are now exposed on the Uno control
+- API parity is now measurable in-repo through `tools/ApiParity` and `scripts/check_api_parity.sh`, including a justifications file for intentional Uno/TextMate surface divergences
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
 - Current regression total: `244` passing tests

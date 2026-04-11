@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
@@ -48,6 +49,20 @@ public sealed partial class TextView : UserControl
             typeof(TextEditorTheme),
             typeof(TextView),
             new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
+
+    public static readonly DependencyProperty OptionsProperty =
+        DependencyProperty.Register(
+            nameof(Options),
+            typeof(TextEditorOptions),
+            typeof(TextView),
+            new PropertyMetadata(new TextEditorOptions(), OnOptionsChanged));
+
+    public static readonly DependencyProperty SyntaxHighlightingProperty =
+        DependencyProperty.Register(
+            nameof(SyntaxHighlighting),
+            typeof(IHighlightingDefinition),
+            typeof(TextView),
+            new PropertyMetadata(null, OnSyntaxHighlightingChanged));
 
     public static readonly DependencyProperty ReferenceSegmentSourceProperty =
         DependencyProperty.Register(
@@ -159,6 +174,18 @@ public sealed partial class TextView : UserControl
         set => SetValue(ThemeProperty, value);
     }
 
+    public TextEditorOptions Options
+    {
+        get => (TextEditorOptions)GetValue(OptionsProperty);
+        set => SetValue(OptionsProperty, value);
+    }
+
+    public IHighlightingDefinition? SyntaxHighlighting
+    {
+        get => (IHighlightingDefinition?)GetValue(SyntaxHighlightingProperty);
+        set => SetValue(SyntaxHighlightingProperty, value);
+    }
+
     public IReferenceSegmentSource? ReferenceSegmentSource
     {
         get => (IReferenceSegmentSource?)GetValue(ReferenceSegmentSourceProperty);
@@ -231,6 +258,23 @@ public sealed partial class TextView : UserControl
         textView.RefreshViewport();
     }
 
+    private static void OnOptionsChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView._pendingFullRebuild = true;
+        LogFlash("full queued: options changed");
+        textView.RefreshViewport();
+    }
+
+    private static void OnSyntaxHighlightingChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView.UpdateDocumentHighlighter();
+        textView._pendingFullRebuild = true;
+        LogFlash("full queued: syntax highlighting changed");
+        textView.RefreshViewport();
+    }
+
     private static void OnFoldingManagerChanged(DependencyObject d, DependencyPropertyChangedEventArgs args)
     {
         var tv = (TextView)d;
@@ -260,7 +304,6 @@ public sealed partial class TextView : UserControl
         }
 
         _document = newDocument;
-        _highlighter = null;
         _visibleDocLines.Clear();
         _highlightedLineSource?.SetDocument(newDocument);
 
@@ -271,15 +314,6 @@ public sealed partial class TextView : UserControl
             SelectionStartOffset = Math.Min(SelectionStartOffset, newDocument.TextLength);
             SelectionEndOffset = Math.Min(SelectionEndOffset, newDocument.TextLength);
             _selectionAnchorOffset = CurrentOffset;
-
-            // Try to initialise highlighting for whichever language fits the document extension.
-            // Default to C# if nothing else is detected.
-            var definition = HighlightingManager.Instance.GetDefinition("C#")
-                ?? (HighlightingManager.Instance.HighlightingDefinitions.Count > 0
-                    ? HighlightingManager.Instance.HighlightingDefinitions[0]
-                    : null);
-            if (definition != null)
-                _highlighter = new DocumentHighlighter(newDocument, definition);
         }
         else
         {
@@ -289,10 +323,35 @@ public sealed partial class TextView : UserControl
             _selectionAnchorOffset = 0;
         }
 
+        UpdateDocumentHighlighter();
         RebuildVisibleLineList();
         _pendingFullRebuild = true;
         LogFlash("full queued: document attached");
         RefreshViewport();
+    }
+
+    private void UpdateDocumentHighlighter()
+    {
+        _highlighter = null;
+
+        if (_document is null)
+        {
+            return;
+        }
+
+        IHighlightingDefinition? definition = SyntaxHighlighting;
+        if (definition is null && !_highlightedLineSourceExplicitlySet)
+        {
+            definition = HighlightingManager.Instance.GetDefinition("C#")
+                ?? (HighlightingManager.Instance.HighlightingDefinitions.Count > 0
+                    ? HighlightingManager.Instance.HighlightingDefinitions[0]
+                    : null);
+        }
+
+        if (definition is not null)
+        {
+            _highlighter = new DocumentHighlighter(_document, definition);
+        }
     }
 
     private void OnHighlightedLineSourceInvalidated(object? sender, EventArgs e)

@@ -73,6 +73,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\MouseSelectionMode.cs"                Link="Editing\MouseSelectionMode.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\SelectionSegment.cs"                  Link="Editing\SelectionSegment.cs" />
     <Compile Include="Editing\TextEventArgs.cs" />
+    <Compile Include="Editing\Caret.uno.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\DragDropException.cs"                 Link="Editing\DragDropException.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\NoReadOnlySections.cs"                Link="Editing\NoReadOnlySections.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\TextSegmentReadOnlySectionProvider.cs" Link="Editing\TextSegmentReadOnlySectionProvider.cs" />

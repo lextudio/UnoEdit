@@ -12,6 +12,7 @@ internal static class EditingCommandHandler
             Windows.System.VirtualKey.Z when controlPressed && extendSelection => textView.Redo(),
             Windows.System.VirtualKey.Z when controlPressed => textView.Undo(),
             Windows.System.VirtualKey.X when controlPressed => textView.CutSelection(),
+            Windows.System.VirtualKey.Insert when !controlPressed => ToggleOverstrike(textView),
             Windows.System.VirtualKey.Back when controlPressed => textView.DeleteWord(backward: true),
             Windows.System.VirtualKey.Delete when controlPressed => textView.DeleteWord(backward: false),
             Windows.System.VirtualKey.Back => textView.Backspace(),
@@ -28,5 +29,11 @@ internal static class EditingCommandHandler
         }
 
         return handled;
+    }
+
+    private static bool ToggleOverstrike(TextView textView)
+    {
+        textView.OverstrikeMode = !textView.OverstrikeMode;
+        return true;
     }
 }

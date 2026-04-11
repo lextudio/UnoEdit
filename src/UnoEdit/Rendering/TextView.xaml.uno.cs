@@ -1,14 +1,16 @@
 using System.Collections.ObjectModel;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Indentation;
 using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using ICSharpCode.AvalonEdit.Editing;
+using System.ComponentModel.Design;
 using System.Windows.Documents;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
@@ -80,6 +82,20 @@ public sealed partial class TextView : UserControl
             typeof(TextView),
             new PropertyMetadata(false, OnWordWrapChanged));
 
+    public static readonly DependencyProperty IndentationStrategyProperty =
+        DependencyProperty.Register(
+            nameof(IndentationStrategy),
+            typeof(IIndentationStrategy),
+            typeof(TextView),
+            new PropertyMetadata(null));
+
+    public static readonly DependencyProperty OverstrikeModeProperty =
+        DependencyProperty.Register(
+            nameof(OverstrikeMode),
+            typeof(bool),
+            typeof(TextView),
+            new PropertyMetadata(false));
+
     public static readonly DependencyProperty LineNumbersForegroundProperty =
         DependencyProperty.Register(
             nameof(LineNumbersForeground),
@@ -143,6 +159,7 @@ public sealed partial class TextView : UserControl
             new PropertyMetadata(null, OnFoldingManagerChanged));
 
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
+    private readonly ServiceContainer _services = new();
     private readonly TextBlock _measurementProbe = new()
     {
         TextWrapping = TextWrapping.NoWrap,
@@ -191,6 +208,7 @@ public sealed partial class TextView : UserControl
     public TextView()
     {
         this.InitializeComponent();
+        _services.AddService(typeof(TextView), this);
         FontFamily = EditorTextMetrics.CreateFontFamily();
         FontSize = EditorTextMetrics.FontSize;
         _measurementProbe.FontFamily = EditorTextMetrics.CreateFontFamily();
@@ -256,6 +274,18 @@ public sealed partial class TextView : UserControl
         set => SetValue(WordWrapProperty, value);
     }
 
+    public IIndentationStrategy? IndentationStrategy
+    {
+        get => (IIndentationStrategy?)GetValue(IndentationStrategyProperty);
+        set => SetValue(IndentationStrategyProperty, value);
+    }
+
+    public bool OverstrikeMode
+    {
+        get => (bool)GetValue(OverstrikeModeProperty);
+        set => SetValue(OverstrikeModeProperty, value);
+    }
+
     public Brush? LineNumbersForeground
     {
         get => (Brush?)GetValue(LineNumbersForegroundProperty);
@@ -285,6 +315,10 @@ public sealed partial class TextView : UserControl
         get => (double)GetValue(SelectionCornerRadiusProperty);
         set => SetValue(SelectionCornerRadiusProperty, value);
     }
+
+    public IReadOnlySectionProvider? ReadOnlySectionProvider { get; set; }
+
+    public IServiceContainer Services => _services;
 
     internal event EventHandler<TextEventArgs>? TextCopied;
 
@@ -337,6 +371,19 @@ public sealed partial class TextView : UserControl
 
     /// <summary>Raised when a reference segment is Ctrl+Clicked. The event arg carries the segment.</summary>
     public event EventHandler<ReferenceSegment>? NavigationRequested;
+
+    public object? GetService(Type serviceType)
+    {
+        ArgumentNullException.ThrowIfNull(serviceType);
+
+        object? instance = _services.GetService(serviceType);
+        if (instance is not null)
+        {
+            return instance;
+        }
+
+        return _document?.ServiceProvider.GetService(serviceType);
+    }
 
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {

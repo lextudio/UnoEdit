@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -23,8 +24,11 @@ internal static class Program
 
         var options = ParseOptions(args, repoRoot, defaultJustifications);
 
-        var avalonSymbols = CollectSymbols(options.AvalonRoots);
-        var unoSymbols = CollectSymbols(options.UnoRoots);
+        var avalonSymbols = CollectSymbols(options.AvalonRoots, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        var unoLinkedFiles = options.UnoProjectFiles
+            .SelectMany(GetLinkedFilesFromCsproj)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unoSymbols = CollectSymbols(options.UnoRoots, unoLinkedFiles);
         var justifications = LoadJustifications(options.JustificationsPath);
 
         var rawMissingTypes = avalonSymbols.Types.Except(unoSymbols.Types, StringComparer.Ordinal).OrderBy(static x => x).ToList();
@@ -77,6 +81,10 @@ internal static class Program
             Path.Combine(repoRoot, "src", "UnoEdit"),
             Path.Combine(repoRoot, "src", "UnoEdit.TextMate")
         };
+        var unoProjectFiles = new List<string>
+        {
+            Path.Combine(repoRoot, "src", "UnoEdit", "UnoEdit.csproj")
+        };
 
         string justificationsPath = defaultJustifications;
         string? outputJsonPath = null;
@@ -107,6 +115,9 @@ internal static class Program
                 case "--replace-uno-roots":
                     unoRoots.Clear();
                     break;
+                case "--uno-project":
+                    unoProjectFiles.Add(RequireValue(args, ref i, "--uno-project"));
+                    break;
                 default:
                     throw new ArgumentException($"Unknown argument '{args[i]}'.");
             }
@@ -115,6 +126,7 @@ internal static class Program
         return new Options(
             avalonRoots.Select(Path.GetFullPath).ToArray(),
             unoRoots.Select(Path.GetFullPath).ToArray(),
+            unoProjectFiles.Where(File.Exists).Select(Path.GetFullPath).ToArray(),
             Path.GetFullPath(justificationsPath),
             outputJsonPath,
             listLimit);
@@ -147,10 +159,11 @@ internal static class Program
         throw new InvalidOperationException("Could not locate repo root containing UnoEdit.slnx.");
     }
 
-    private static SourceSymbols CollectSymbols(IEnumerable<string> roots)
+    private static SourceSymbols CollectSymbols(IEnumerable<string> roots, HashSet<string> additionalFiles)
     {
         var types = new HashSet<string>(StringComparer.Ordinal);
         var members = new HashSet<string>(StringComparer.Ordinal);
+        var processedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (string root in roots.Where(Directory.Exists))
         {
@@ -162,15 +175,75 @@ internal static class Program
                     continue;
                 }
 
-                string text = File.ReadAllText(file);
-                SyntaxTree tree = CSharpSyntaxTree.ParseText(text);
-                SyntaxNode rootNode = tree.GetRoot();
-                var walker = new PublicApiWalker(types, members);
-                walker.Visit(rootNode);
+                processedFiles.Add(file);
+                ScanFile(file, types, members);
+            }
+        }
+
+        foreach (string file in additionalFiles)
+        {
+            if (!processedFiles.Contains(file) && File.Exists(file))
+            {
+                processedFiles.Add(file);
+                ScanFile(file, types, members);
             }
         }
 
         return new SourceSymbols(types, members);
+    }
+
+    private static void ScanFile(string file, HashSet<string> types, HashSet<string> members)
+    {
+        string text = File.ReadAllText(file);
+        SyntaxTree tree = CSharpSyntaxTree.ParseText(text);
+        SyntaxNode rootNode = tree.GetRoot();
+        var walker = new PublicApiWalker(types, members);
+        walker.Visit(rootNode);
+    }
+
+    private static IEnumerable<string> GetLinkedFilesFromCsproj(string csprojPath)
+    {
+        string csprojDir = Path.GetDirectoryName(csprojPath)!;
+        XDocument xdoc = XDocument.Load(csprojPath);
+
+        foreach (XElement compile in xdoc.Descendants().Where(e => e.Name.LocalName == "Compile"))
+        {
+            string? include = compile.Attribute("Include")?.Value;
+            if (include == null)
+                continue;
+
+            // Normalize path separators
+            include = include.Replace('\\', Path.DirectorySeparatorChar);
+
+            // Only process paths that point outside src/ (i.e., linked from avalonedit/)
+            if (!include.StartsWith("..", StringComparison.Ordinal))
+                continue;
+
+            if (include.Contains("**"))
+            {
+                // MSBuild recursive glob: split at **
+                int starIdx = include.IndexOf("**", StringComparison.Ordinal);
+                string baseRelative = include.Substring(0, starIdx);
+                string baseDir = Path.GetFullPath(Path.Combine(csprojDir, baseRelative));
+                if (Directory.Exists(baseDir))
+                {
+                    foreach (string file in Directory.EnumerateFiles(baseDir, "*.cs", SearchOption.AllDirectories))
+                    {
+                        if (!file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                            && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                        {
+                            yield return file;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                string fullPath = Path.GetFullPath(Path.Combine(csprojDir, include));
+                if (File.Exists(fullPath))
+                    yield return fullPath;
+            }
+        }
     }
 
     private static Justifications LoadJustifications(string path)
@@ -412,6 +485,7 @@ internal static class Program
     private sealed record Options(
         string[] AvalonRoots,
         string[] UnoRoots,
+        string[] UnoProjectFiles,
         string JustificationsPath,
         string? OutputJsonPath,
         int ListLimit);

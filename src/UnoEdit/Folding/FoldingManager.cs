@@ -119,6 +119,15 @@ namespace ICSharpCode.AvalonEdit.Folding
 			return fs != null ? fs.StartOffset : -1;
 		}
 
+		/// <summary>
+		/// Gets the first <see cref="FoldingSection"/> whose start offset is ≥ <paramref name="startOffset"/>,
+		/// or <c>null</c> if there is none.
+		/// </summary>
+		public FoldingSection GetNextFolding(int startOffset)
+		{
+			return foldings.FindFirstSegmentWithStartAfter(startOffset);
+		}
+
 		/// <summary>Gets all foldings whose start offset equals <paramref name="startOffset"/>.</summary>
 		public ReadOnlyCollection<FoldingSection> GetFoldingsAt(int startOffset)
 		{

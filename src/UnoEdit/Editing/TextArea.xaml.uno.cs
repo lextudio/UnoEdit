@@ -2,13 +2,16 @@ using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Indentation;
 using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Xaml.Media;
 using System.ComponentModel;
+using System.ComponentModel.Design;
+using System.Windows.Input;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
-public sealed partial class TextArea : UserControl
+public sealed partial class TextArea : UserControl, IServiceProvider
 {
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(
@@ -73,6 +76,20 @@ public sealed partial class TextArea : UserControl
             typeof(TextArea),
             new PropertyMetadata(false, OnWordWrapChanged));
 
+    public static readonly DependencyProperty IndentationStrategyProperty =
+        DependencyProperty.Register(
+            nameof(IndentationStrategy),
+            typeof(IIndentationStrategy),
+            typeof(TextArea),
+            new PropertyMetadata(null, OnIndentationStrategyChanged));
+
+    public static readonly DependencyProperty OverstrikeModeProperty =
+        DependencyProperty.Register(
+            nameof(OverstrikeMode),
+            typeof(bool),
+            typeof(TextArea),
+            new PropertyMetadata(false, OnOverstrikeModeChanged));
+
     public static readonly DependencyProperty LineNumbersForegroundProperty =
         DependencyProperty.Register(
             nameof(LineNumbersForeground),
@@ -115,9 +132,46 @@ public sealed partial class TextArea : UserControl
     public event EventHandler<ReferenceSegment>? NavigationRequested;
     public event EventHandler<TextEventArgs>? TextCopied;
 
+    /// <summary>Raised after text has been entered into the editor.</summary>
+    public event EventHandler<TextCompositionEventArgs>? TextEntered;
+
+    /// <summary>Raised before text is entered into the editor, allowing the handler to preview or cancel.</summary>
+    public event EventHandler<TextCompositionEventArgs>? TextEntering;
+
+    private Caret _caret;
+
+    /// <summary>Gets the caret used by this text area.</summary>
+    public Caret Caret => _caret;
+
+    /// <summary>
+    /// Gets or sets whether the caret is allowed to be placed outside of the selection.
+    /// </summary>
+    public bool AllowCaretOutsideSelection { get; set; } = true;
+
+    /// <summary>
+    /// Gets the current mouse selection mode.
+    /// </summary>
+    public MouseSelectionMode MouseSelectionMode { get; internal set; } = MouseSelectionMode.None;
+
     public TextArea()
     {
         this.InitializeComponent();
+        _caret = new Caret(
+            bringIntoView: () => ScrollToLine(_caret.Line),
+            setOffset: offset => {
+                if (offset >= 0)
+                    CurrentOffset = offset;
+                else {
+                    // Negative sentinel encodes line*100000+col, written by Position setter
+                    int encoded = -offset;
+                    int line = encoded / 100000;
+                    int col  = encoded % 100000;
+                    var doc = Document;
+                    if (doc != null && line >= 1 && line <= doc.LineCount)
+                        CurrentOffset = doc.GetOffset(line, col);
+                }
+            });
+        PART_TextView.Services.AddService(typeof(TextArea), this);
         PART_TextView.CaretOffsetChanged  += OnTextViewCaretOffsetChanged;
         PART_TextView.SelectionChanged    += OnTextViewSelectionChanged;
         PART_TextView.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
@@ -178,6 +232,18 @@ public sealed partial class TextArea : UserControl
         set => SetValue(WordWrapProperty, value);
     }
 
+    public IIndentationStrategy? IndentationStrategy
+    {
+        get => (IIndentationStrategy?)GetValue(IndentationStrategyProperty);
+        set => SetValue(IndentationStrategyProperty, value);
+    }
+
+    public bool OverstrikeMode
+    {
+        get => (bool)GetValue(OverstrikeModeProperty);
+        set => SetValue(OverstrikeModeProperty, value);
+    }
+
     public Brush? LineNumbersForeground
     {
         get => (Brush?)GetValue(LineNumbersForegroundProperty);
@@ -206,6 +272,12 @@ public sealed partial class TextArea : UserControl
     {
         get => (double)GetValue(SelectionCornerRadiusProperty);
         set => SetValue(SelectionCornerRadiusProperty, value);
+    }
+
+    public IReadOnlySectionProvider? ReadOnlySectionProvider
+    {
+        get => PART_TextView.ReadOnlySectionProvider;
+        set => PART_TextView.ReadOnlySectionProvider = value;
     }
 
     /// <summary>Provides access to the inner TextView for testing and advanced scenarios.</summary>
@@ -273,6 +345,18 @@ public sealed partial class TextArea : UserControl
         textArea.PART_TextView.WordWrap = (bool)args.NewValue;
     }
 
+    private static void OnIndentationStrategyChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.IndentationStrategy = args.NewValue as IIndentationStrategy;
+    }
+
+    private static void OnOverstrikeModeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.OverstrikeMode = (bool)args.NewValue;
+    }
+
     private static void OnLineNumbersForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textArea = (TextArea)dependencyObject;
@@ -308,6 +392,16 @@ public sealed partial class TextArea : UserControl
         PART_TextView.ScrollToLine(lineNumber);
     }
 
+    public void ClearSelection()
+    {
+        PART_TextView.ClearSelection();
+    }
+
+    public object? GetService(Type serviceType)
+    {
+        return PART_TextView.GetService(serviceType);
+    }
+
     private static void OnCurrentOffsetChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textArea = (TextArea)dependencyObject;
@@ -336,6 +430,14 @@ public sealed partial class TextArea : UserControl
         if (CurrentOffset != PART_TextView.CurrentOffset)
         {
             CurrentOffset = PART_TextView.CurrentOffset;
+        }
+
+        // Keep the Caret facade in sync.
+        var doc = Document;
+        if (doc != null && CurrentOffset >= 0 && CurrentOffset <= doc.TextLength)
+        {
+            var loc = doc.GetLocation(CurrentOffset);
+            _caret?.Update(CurrentOffset, loc.Line, loc.Column);
         }
 
         CaretOffsetChanged?.Invoke(this, EventArgs.Empty);

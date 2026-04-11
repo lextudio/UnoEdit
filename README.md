@@ -37,10 +37,12 @@ Current status:
 - The next parity slice is also in: `IsReadOnly`, `IsModified`, and `ShowLineNumbers` now exist on the Uno `TextEditor` surface, with `IsReadOnly` enforced by the current edit pipeline and `IsModified` driven by `UndoStack.IsOriginalFile`
 - `WordWrap` and `LineNumbersForeground` are now present as well; wrapping currently improves the visible text surface and scrollbar behavior, while full wrapped-layout editor parity is still pending
 - `TextArea` parity moved forward too: `DocumentChanged`, `OptionChanged`, `TextCopied`, `SelectionBrush`, `SelectionForeground`, `SelectionBorder`, and `SelectionCornerRadius` now exist on the current Uno surface; copied-text events and the main selection brush/corner styling are already wired through the live renderer
+- The next `TextArea` parity slice is also in: `IndentationStrategy`, `OverstrikeMode`, `ReadOnlySectionProvider`, `ClearSelection()`, and `GetService(Type)` now exist on the current Uno surface; readonly segments now gate the live edit pipeline, `Insert` toggles overstrike mode, and newline insertion consults the current indentation strategy
 - API parity is now measurable in-repo through `tools/ApiParity` and `scripts/check_api_parity.sh`, including a justifications file for intentional Uno/TextMate surface divergences
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
 - Current regression total: `244` passing tests
+- Current API parity baseline: `31/193` public types (`16.1%`) and `211/1295` public members (`16.3%`)
 - The headless Uno runtime-test host is now green again after fixing the search-panel navigation regression
 
 Next steps:

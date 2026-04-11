@@ -240,3 +240,26 @@ namespace System.Windows
 		public object      Source      { get; set; }
 	}
 }
+namespace System.Windows.Input
+{
+        /// <summary>
+        /// Portable shim for System.Windows.Input.TextCompositionEventArgs.
+        /// Carries the text that was entered by the user via IME or direct keyboard input.
+        /// </summary>
+        public class TextCompositionEventArgs : System.Windows.RoutedEventArgs
+        {
+                public TextCompositionEventArgs(string text)
+                {
+                        Text = text ?? string.Empty;
+                }
+
+                /// <summary>Gets the composed text that was entered.</summary>
+                public string Text { get; }
+
+                /// <summary>Gets system text (e.g. from ALT key combinations). Empty in the UnoEdit shim.</summary>
+                public string SystemText => string.Empty;
+
+                /// <summary>Gets control text. Empty in the UnoEdit shim.</summary>
+                public string ControlText => string.Empty;
+        }
+}

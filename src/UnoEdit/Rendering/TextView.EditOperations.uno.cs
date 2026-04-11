@@ -1,12 +1,25 @@
 using System.Windows.Documents;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
+using ICSharpCode.AvalonEdit.Utils;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
 public sealed partial class TextView
 {
+    private readonly struct EditableSegment(int offset, int length) : ISegment
+    {
+        public int Offset { get; } = offset;
+        public int Length { get; } = length;
+        public int EndOffset => Offset + Length;
+    }
+
+    public void ClearSelection()
+    {
+        CollapseSelection(CurrentOffset);
+    }
+
     internal static string? TranslateKeyToText(Windows.System.VirtualKey key, bool shiftPressed)
     {
         if (key >= Windows.System.VirtualKey.A && key <= Windows.System.VirtualKey.Z)
@@ -204,6 +217,11 @@ public sealed partial class TextView
             return false;
         }
 
+        if (!CanDelete(startOffset, length))
+        {
+            return false;
+        }
+
         BatchRefresh(() =>
         {
             using (_document.RunUpdate())
@@ -235,6 +253,11 @@ public sealed partial class TextView
         }
 
         int newOffset = CurrentOffset - 1;
+        if (!CanDelete(newOffset, 1))
+        {
+            return false;
+        }
+
         BatchRefresh(() =>
         {
             using (_document.RunUpdate())
@@ -266,6 +289,11 @@ public sealed partial class TextView
         }
 
         int offset = CurrentOffset;
+        if (!CanDelete(offset, 1))
+        {
+            return false;
+        }
+
         BatchRefresh(() =>
         {
             using (_document.RunUpdate())
@@ -286,21 +314,46 @@ public sealed partial class TextView
         }
 
         int insertionOffset = CurrentOffset;
+        bool changed = false;
         BatchRefresh(() =>
         {
             using (_document.RunUpdate())
             {
                 if (HasSelection())
                 {
+                    if (!CanDeleteSelection())
+                    {
+                        return;
+                    }
+
                     insertionOffset = DeleteSelectedTextInternal();
+                }
+                else if (!CanInsert(insertionOffset))
+                {
+                    return;
+                }
+
+                int overstrikeLength = GetOverstrikeReplacementLength(text, insertionOffset);
+                if (overstrikeLength > 0)
+                {
+                    _document.Remove(insertionOffset, overstrikeLength);
                 }
 
                 _document.Insert(insertionOffset, text);
+                changed = true;
+
+                if (text == Environment.NewLine || text == "\n" || text == "\r\n")
+                {
+                    ApplyIndentationStrategyAtOffset(insertionOffset + text.Length);
+                }
             }
 
-            CollapseSelection(insertionOffset + text.Length);
+            if (changed)
+            {
+                CollapseSelection(insertionOffset + text.Length);
+            }
         });
-        return true;
+        return changed;
     }
 
     internal bool SelectAll()
@@ -454,6 +507,11 @@ public sealed partial class TextView
             return;
         }
 
+        if (!CanDeleteSelection())
+        {
+            return;
+        }
+
         int startOffset;
         BatchRefresh(() =>
         {
@@ -481,6 +539,79 @@ public sealed partial class TextView
         }
 
         return startOffset;
+    }
+
+    private bool CanInsert(int offset)
+    {
+        return ReadOnlySectionProvider?.CanInsert(offset) ?? true;
+    }
+
+    private bool CanDelete(int startOffset, int length)
+    {
+        if (length == 0)
+        {
+            return CanInsert(startOffset);
+        }
+
+        if (ReadOnlySectionProvider is null)
+        {
+            return true;
+        }
+
+        var segment = new EditableSegment(startOffset, length);
+        int deletableLength = 0;
+        foreach (ISegment deletableSegment in ReadOnlySectionProvider.GetDeletableSegments(segment))
+        {
+            if (deletableSegment.Offset < startOffset || deletableSegment.Offset + deletableSegment.Length > segment.EndOffset)
+            {
+                return false;
+            }
+
+            deletableLength += deletableSegment.Length;
+        }
+
+        return deletableLength == length;
+    }
+
+    private bool CanDeleteSelection()
+    {
+        int startOffset = Math.Min(SelectionStartOffset, SelectionEndOffset);
+        int length = Math.Abs(SelectionEndOffset - SelectionStartOffset);
+        return CanDelete(startOffset, length);
+    }
+
+    private int GetOverstrikeReplacementLength(string text, int insertionOffset)
+    {
+        if (_document is null || !OverstrikeMode || HasSelection() || string.IsNullOrEmpty(text))
+        {
+            return 0;
+        }
+
+        if (text.Contains('\r') || text.Contains('\n'))
+        {
+            return 0;
+        }
+
+        DocumentLine line = _document.GetLineByOffset(insertionOffset);
+        int available = Math.Max(0, line.EndOffset - insertionOffset);
+        int replacementLength = Math.Min(text.Length, available);
+        if (replacementLength == 0)
+        {
+            return 0;
+        }
+
+        return CanDelete(insertionOffset, replacementLength) ? replacementLength : 0;
+    }
+
+    private void ApplyIndentationStrategyAtOffset(int offset)
+    {
+        if (_document is null || IndentationStrategy is null)
+        {
+            return;
+        }
+
+        DocumentLine line = _document.GetLineByOffset(Math.Clamp(offset, 0, _document.TextLength));
+        IndentationStrategy.IndentLine(_document, line);
     }
 
     internal void CollapseSelection(int offset)

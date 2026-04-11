@@ -54,7 +54,13 @@ public sealed partial class TextView : UserControl
             nameof(ReferenceSegmentSource),
             typeof(IReferenceSegmentSource),
             typeof(TextView),
-            new PropertyMetadata(null, (d, _) => ((TextView)d).RefreshViewport()));
+            new PropertyMetadata(null, (d, _) =>
+            {
+                var tv = (TextView)d;
+                tv._pendingFullRebuild = true;
+                LogFlash("full queued: ReferenceSegmentSource changed");
+                tv.RefreshViewport();
+            }));
 
     public static readonly DependencyProperty FoldingManagerProperty =
         DependencyProperty.Register(
@@ -82,6 +88,15 @@ public sealed partial class TextView : UserControl
     private bool _isPointerSelecting;
     // When > 0, RefreshViewport() is suppressed and a deferred refresh is pending.
     private int _suppressRefreshDepth;
+    // When true, the next RefreshViewport() must do a full rebuild (text/theme/fold changed).
+    private bool _pendingFullRebuild = true;
+    // Visible row range from the previous full RefreshViewport, used for partial-update detection.
+    private int _prevFirstVisualRow = -1;
+    private int _prevLastVisualRow = -1;
+
+    private static readonly bool s_debugFlash =
+        string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_FLASH"), "1", StringComparison.Ordinal);
+    private static void LogFlash(string msg) { if (s_debugFlash) Console.WriteLine($"[Flash] {msg}"); }
     private double _characterWidth = DefaultCharacterWidth;
     private List<int> _visibleDocLines = new();
 
@@ -172,6 +187,8 @@ public sealed partial class TextView : UserControl
     {
         var textView = (TextView)dependencyObject;
         textView.ApplyThemeToChrome();
+        textView._pendingFullRebuild = true;
+        LogFlash("full queued: theme changed");
         textView.RefreshViewport();
     }
 
@@ -183,12 +200,16 @@ public sealed partial class TextView : UserControl
         if (args.NewValue is ICSharpCode.AvalonEdit.Folding.FoldingManager newFm)
             newFm.FoldingsChanged += tv.OnFoldingsChanged;
         tv.RebuildVisibleLineList();
+        tv._pendingFullRebuild = true;
+        LogFlash("full queued: FoldingManager changed");
         tv.RefreshViewport();
     }
 
     private void OnFoldingsChanged(object? sender, EventArgs e)
     {
         RebuildVisibleLineList();
+        _pendingFullRebuild = true;
+        LogFlash("full queued: folds changed");
         RefreshViewport();
     }
 
@@ -229,6 +250,8 @@ public sealed partial class TextView : UserControl
         }
 
         RebuildVisibleLineList();
+        _pendingFullRebuild = true;
+        LogFlash("full queued: document attached");
         RefreshViewport();
     }
 
@@ -253,18 +276,24 @@ public sealed partial class TextView : UserControl
         }
 
         RebuildVisibleLineList();
+        _pendingFullRebuild = true;
+        LogFlash("full queued: document text changed");
         RefreshViewport();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         UpdateTextMetrics();
+        _pendingFullRebuild = true;
+        LogFlash("full queued: OnLoaded");
         RefreshViewport();
         UpdatePlatformInputBridge();
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        _pendingFullRebuild = true;
+        LogFlash("full queued: OnSizeChanged");
         RefreshViewport();
         UpdatePlatformInputBridge();
     }
@@ -445,6 +474,7 @@ public sealed partial class TextView : UserControl
     {
         if (_suppressRefreshDepth > 0)
         {
+            LogFlash($"suppressed depth={_suppressRefreshDepth}");
             return;
         }
 
@@ -455,6 +485,8 @@ public sealed partial class TextView : UserControl
             BottomSpacer.Height = 0;
             _firstVisibleLineNumber = 1;
             _lastVisibleLineNumber = 0;
+            _prevFirstVisualRow = -1;
+            _prevLastVisualRow = -1;
             return;
         }
 
@@ -480,11 +512,84 @@ public sealed partial class TextView : UserControl
             _lastVisibleLineNumber  = _visibleDocLines[lastVisualRow];
         }
 
-        _lines.Clear();
         int selectionStart = Math.Min(SelectionStartOffset, SelectionEndOffset);
         int selectionEnd = Math.Max(SelectionStartOffset, SelectionEndOffset);
         bool hasSelection = selectionStart != selectionEnd;
 
+        // ── Partial-update fast path ────────────────────────────────────────────
+        // When only caret/selection positions changed (no text, fold, or theme
+        // change, and the visible row window is unchanged), update only the
+        // affected items in-place.  This avoids an ObservableCollection.Clear()
+        // + sequential Add() that cause Skia to emit intermediate blank frames.
+        bool canPartialUpdate =
+            !_pendingFullRebuild
+            && firstVisualRow == _prevFirstVisualRow
+            && lastVisualRow  == _prevLastVisualRow
+            && _lines.Count   == (lastVisualRow - firstVisualRow + 1);
+
+        if (canPartialUpdate)
+        {
+            LogFlash($"partial rows={firstVisualRow}-{lastVisualRow} caret={CurrentOffset} sel={SelectionStartOffset}-{SelectionEndOffset}");
+            for (int i = 0; i < _lines.Count; i++)
+            {
+                int vRow = firstVisualRow + i;
+                int lineNumber = _visibleDocLines[vRow];
+                DocumentLine line = _document.GetLineByNumber(lineNumber);
+                string lineText = _document.GetText(line);
+
+                bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
+                int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
+                double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
+
+                double newSelectionOpacity = 0d;
+                double newSelectionLeft = 0d;
+                double newSelectionWidth = 0d;
+                if (hasSelection)
+                {
+                    int lineSelStart = Math.Max(selectionStart, line.Offset);
+                    int lineSelEnd   = Math.Min(selectionEnd,   line.EndOffset);
+                    if (lineSelStart < lineSelEnd)
+                    {
+                        int startLogical = lineSelStart - line.Offset;
+                        int endLogical   = lineSelEnd   - line.Offset;
+                        newSelectionLeft  = Math.Max(0, GetDisplayColumnX(lineText, startLogical));
+                        newSelectionWidth = Math.Max(2, GetDisplayColumnX(lineText, endLogical) - newSelectionLeft);
+                        newSelectionOpacity = 0.45d;
+                    }
+                }
+
+                double newCaretOpacity     = isCaretLine ? 1d    : 0d;
+                double newHighlightOpacity = isCaretLine ? 0.18d : 0d;
+                var    newCaretMargin      = new Thickness(caretLeft,        0, 0, 0);
+                var    newSelectionMargin  = new Thickness(newSelectionLeft, 0, 0, 0);
+
+                var oldVm = _lines[i];
+                bool changed =
+                    Math.Abs(oldVm.CaretOpacity     - newCaretOpacity)     > 0.001
+                    || Math.Abs(oldVm.HighlightOpacity - newHighlightOpacity) > 0.001
+                    || oldVm.CaretMargin.Left   != newCaretMargin.Left
+                    || Math.Abs(oldVm.SelectionOpacity - newSelectionOpacity) > 0.001
+                    || oldVm.SelectionMargin.Left != newSelectionMargin.Left
+                    || Math.Abs(oldVm.SelectionWidth   - newSelectionWidth)   > 0.001;
+
+                if (changed)
+                {
+                    _lines[i] = oldVm.WithCaretAndSelection(
+                        newCaretOpacity, newHighlightOpacity,
+                        newCaretMargin,
+                        newSelectionMargin, newSelectionWidth, newSelectionOpacity);
+                }
+            }
+            return;
+        }
+
+        // ── Full rebuild ────────────────────────────────────────────────────────
+        _pendingFullRebuild = false;
+        _prevFirstVisualRow = firstVisualRow;
+        _prevLastVisualRow  = lastVisualRow;
+        LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} pendingFull={_pendingFullRebuild} prevRows={_prevFirstVisualRow}-{_prevLastVisualRow} lineCount={_lines.Count}");
+
+        _lines.Clear();
         for (int vRow = firstVisualRow; vRow <= lastVisualRow; vRow++)
         {
             int lineNumber = _visibleDocLines[vRow];

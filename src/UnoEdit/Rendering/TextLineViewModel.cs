@@ -79,6 +79,44 @@ public sealed class TextLineViewModel
         Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground);
     }
 
+    // Copy constructor that reuses all text/run data and only updates transient visual state.
+    private TextLineViewModel(
+        TextLineViewModel source,
+        double caretOpacity,
+        double highlightOpacity,
+        Thickness caretMargin,
+        Thickness selectionMargin,
+        double selectionWidth,
+        double selectionOpacity)
+    {
+        FoldMarker            = source.FoldMarker;
+        Number                = source.Number;
+        Text                  = source.Text;
+        CaretOpacity          = caretOpacity;
+        HighlightOpacity      = highlightOpacity;
+        CaretMargin           = caretMargin;
+        SelectionMargin       = selectionMargin;
+        SelectionWidth        = selectionWidth;
+        SelectionOpacity      = selectionOpacity;
+        LineHighlightBrush    = source.LineHighlightBrush;
+        SelectionBrush        = source.SelectionBrush;
+        CaretBrush            = source.CaretBrush;
+        GutterForegroundBrush = source.GutterForegroundBrush;
+        _defaultForeground    = source._defaultForeground;
+        ReferenceSegments     = source.ReferenceSegments;
+        Runs                  = source.Runs;  // reuse pre-computed syntax-highlighted runs
+    }
+
+    /// <summary>
+    /// Create a copy of this view-model with updated caret and selection state only.
+    /// Reuses pre-computed text runs so syntax highlighting is not recomputed.
+    /// </summary>
+    internal TextLineViewModel WithCaretAndSelection(
+        double caretOpacity, double highlightOpacity,
+        Thickness caretMargin,
+        Thickness selectionMargin, double selectionWidth, double selectionOpacity)
+        => new(this, caretOpacity, highlightOpacity, caretMargin, selectionMargin, selectionWidth, selectionOpacity);
+
     public string Number { get; }
 
     public FoldMarkerKind FoldMarker { get; }

@@ -148,9 +148,12 @@ public sealed partial class TextView
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
         int targetOffset = GetOffsetFromViewPoint(point.X, point.Y);
 
-        CurrentOffset = targetOffset;
-        SelectionStartOffset = Math.Min(_selectionAnchorOffset, targetOffset);
-        SelectionEndOffset = Math.Max(_selectionAnchorOffset, targetOffset);
+        BatchRefresh(() =>
+        {
+            CurrentOffset = targetOffset;
+            SelectionStartOffset = Math.Min(_selectionAnchorOffset, targetOffset);
+            SelectionEndOffset = Math.Max(_selectionAnchorOffset, targetOffset);
+        });
         return true;
     }
 

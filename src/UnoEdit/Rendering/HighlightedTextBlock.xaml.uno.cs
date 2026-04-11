@@ -11,6 +11,11 @@ public sealed partial class HighlightedTextBlock : UserControl
             typeof(HighlightedTextBlock),
             new PropertyMetadata(null, OnViewModelChanged));
 
+    // Last rendered Runs/refs — used to skip unnecessary Inlines rebuilds when only
+    // caret/selection state changed (text content is the same object reference).
+    private System.Collections.Generic.IReadOnlyList<TextRun>? _lastRuns;
+    private System.Collections.Generic.IReadOnlyList<ICSharpCode.AvalonEdit.Rendering.ReferenceSegment>? _lastRefSegs;
+
     public HighlightedTextBlock()
     {
         this.InitializeComponent();
@@ -26,45 +31,106 @@ public sealed partial class HighlightedTextBlock : UserControl
 
     private static void OnViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        ((HighlightedTextBlock)d).RefreshInlines((TextLineViewModel?)e.NewValue);
+        var block = (HighlightedTextBlock)d;
+        // Unsubscribe from old VM's INPC.
+        if (e.OldValue is TextLineViewModel oldVm)
+            oldVm.PropertyChanged -= block.OnVmPropertyChanged;
+        // Subscribe to new VM's INPC (for in-place UpdateFrom mutations).
+        if (e.NewValue is TextLineViewModel newVm)
+            newVm.PropertyChanged += block.OnVmPropertyChanged;
+        block.RefreshInlines((TextLineViewModel?)e.NewValue);
+    }
+
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(TextLineViewModel.Runs) or nameof(TextLineViewModel.ReferenceSegments))
+            RefreshInlines(ViewModel);
     }
 
     private void RefreshInlines(TextLineViewModel? vm)
     {
-        PART_Text.Inlines.Clear();
+        var newRuns    = vm?.Runs;
+        var newRefSegs = vm?.ReferenceSegments;
 
-        if (vm is null) return;
+        // Same Runs + RefSegs reference → text content unchanged, skip entirely.
+        if (ReferenceEquals(newRuns, _lastRuns) && ReferenceEquals(newRefSegs, _lastRefSegs))
+            return;
 
-        var runs = vm.Runs;
-        if (runs is null || runs.Count == 0) return;
+        _lastRuns    = newRuns;
+        _lastRefSegs = newRefSegs;
 
-        var refSegments = vm.ReferenceSegments;
-        bool hasRefs    = refSegments is { Count: > 0 };
+        var inlines = PART_Text.Inlines;
+        bool hasRefs = newRefSegs is { Count: > 0 };
 
-        // Track cumulative visual-column position to detect reference overlaps.
-        int visualPos = 0;
-
-        foreach (var textRun in runs)
+        if (newRuns is null || newRuns.Count == 0)
         {
-            int runStart = visualPos;
-            int runEnd   = visualPos + textRun.Text.Length;
-            visualPos    = runEnd;
-
-            bool isRef = hasRefs && IsInReference(refSegments, runStart, runEnd, vm.Text);
-
-            var inline = new Run
+            // Use empty Run rather than Clear() so the TextBlock never shows blank.
+            if (inlines.Count == 1 && inlines[0] is Run r0)
             {
-                Text       = textRun.Text,
-                Foreground = new SolidColorBrush(textRun.Foreground),
-            };
-
-            if (isRef)
-            {
-                inline.TextDecorations = Windows.UI.Text.TextDecorations.Underline;
+                r0.Text = string.Empty;
             }
-
-            PART_Text.Inlines.Add(inline);
+            else
+            {
+                // Trim excess from the tail, then set the first to empty.
+                while (inlines.Count > 1) inlines.RemoveAt(inlines.Count - 1);
+                if (inlines.Count == 1) ((Run)inlines[0]).Text = string.Empty;
+                else inlines.Add(new Run { Text = string.Empty });
+            }
+            return;
         }
+
+        int vPos = 0;
+
+        // Update or create Run objects positionally — never Clear().
+        // 1. Update existing runs in-place up to min(old, new) count.
+        int commonCount = Math.Min(inlines.Count, newRuns.Count);
+        for (int j = 0; j < commonCount; j++)
+        {
+            if (inlines[j] is not Run run)
+            {
+                // Unexpected inline type — replace it.
+                run = new Run();
+                inlines[j] = run;   // ObservableCollection Replace
+            }
+            var textRun = newRuns[j];
+            int rStart  = vPos;
+            int rEnd    = vPos + textRun.Text.Length;
+            vPos        = rEnd;
+            bool isRef  = hasRefs && IsInReference(newRefSegs!, rStart, rEnd, vm!.Text);
+            if (run.Text != textRun.Text)
+                run.Text = textRun.Text;
+            var curBrush = run.Foreground as SolidColorBrush;
+            if (curBrush is null || curBrush.Color != textRun.Foreground)
+                run.Foreground = new SolidColorBrush(textRun.Foreground);
+            var wantDeco = isRef
+                ? Windows.UI.Text.TextDecorations.Underline
+                : Windows.UI.Text.TextDecorations.None;
+            if (run.TextDecorations != wantDeco)
+                run.TextDecorations = wantDeco;
+        }
+
+        // 2. Add new runs at the tail if new count > old.
+        for (int j = commonCount; j < newRuns.Count; j++)
+        {
+            var textRun = newRuns[j];
+            int rStart  = vPos;
+            int rEnd    = vPos + textRun.Text.Length;
+            vPos        = rEnd;
+            bool isRef  = hasRefs && IsInReference(newRefSegs!, rStart, rEnd, vm!.Text);
+            var run = new Run
+            {
+                Text            = textRun.Text,
+                Foreground      = new SolidColorBrush(textRun.Foreground),
+                TextDecorations = isRef
+                    ? Windows.UI.Text.TextDecorations.Underline
+                    : Windows.UI.Text.TextDecorations.None,
+            };
+            inlines.Add(run);
+        }
+
+        // 3. Remove excess runs from the tail if old count > new.
+        while (inlines.Count > newRuns.Count)
+            inlines.RemoveAt(inlines.Count - 1);
     }
 
     /// <summary>

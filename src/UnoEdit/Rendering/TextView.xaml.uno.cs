@@ -93,6 +93,8 @@ public sealed partial class TextView : UserControl
     // Visible row range from the previous full RefreshViewport, used for partial-update detection.
     private int _prevFirstVisualRow = -1;
     private int _prevLastVisualRow = -1;
+    // Theme at the last full rebuild — used to detect theme changes that invalidate cached Runs.
+    private TextEditorTheme? _prevTheme;
 
     private static readonly bool s_debugFlash =
         string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_FLASH"), "1", StringComparison.Ordinal);
@@ -564,34 +566,35 @@ public sealed partial class TextView : UserControl
                 var    newSelectionMargin  = new Thickness(newSelectionLeft, 0, 0, 0);
 
                 var oldVm = _lines[i];
-                bool changed =
-                    Math.Abs(oldVm.CaretOpacity     - newCaretOpacity)     > 0.001
-                    || Math.Abs(oldVm.HighlightOpacity - newHighlightOpacity) > 0.001
-                    || oldVm.CaretMargin.Left   != newCaretMargin.Left
-                    || Math.Abs(oldVm.SelectionOpacity - newSelectionOpacity) > 0.001
-                    || oldVm.SelectionMargin.Left != newSelectionMargin.Left
-                    || Math.Abs(oldVm.SelectionWidth   - newSelectionWidth)   > 0.001;
-
-                if (changed)
-                {
-                    _lines[i] = oldVm.WithCaretAndSelection(
-                        newCaretOpacity, newHighlightOpacity,
-                        newCaretMargin,
-                        newSelectionMargin, newSelectionWidth, newSelectionOpacity);
-                }
+                // Mutate the existing VM in-place — INPC setters fire only for changed values.
+                oldVm.CaretOpacity     = newCaretOpacity;
+                oldVm.HighlightOpacity = newHighlightOpacity;
+                oldVm.CaretMargin      = newCaretMargin;
+                oldVm.SelectionMargin  = newSelectionMargin;
+                oldVm.SelectionWidth   = newSelectionWidth;
+                oldVm.SelectionOpacity = newSelectionOpacity;
             }
             return;
         }
 
         // ── Full rebuild ────────────────────────────────────────────────────────
+        bool themeChanged = !ReferenceEquals(Theme, _prevTheme);
         _pendingFullRebuild = false;
         _prevFirstVisualRow = firstVisualRow;
         _prevLastVisualRow  = lastVisualRow;
-        LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} pendingFull={_pendingFullRebuild} prevRows={_prevFirstVisualRow}-{_prevLastVisualRow} lineCount={_lines.Count}");
+        _prevTheme          = Theme;
 
-        _lines.Clear();
-        for (int vRow = firstVisualRow; vRow <= lastVisualRow; vRow++)
+        int expectedCount = lastVisualRow - firstVisualRow + 1;
+        LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} count={expectedCount} prevLineCount={_lines.Count} themeChanged={themeChanged}");
+
+        // Build new view-models into a temporary list first so we can decide
+        // whether to update in-place (avoids Clear() which flashes a blank frame)
+        // or do a full Clear+Add (only needed when the row count changes).
+        bool canReuseExisting = _lines.Count == expectedCount;
+        var newVms = new TextLineViewModel[expectedCount];
+        for (int i = 0; i < expectedCount; i++)
         {
+            int vRow = firstVisualRow + i;
             int lineNumber = _visibleDocLines[vRow];
             DocumentLine line = _document.GetLineByNumber(lineNumber);
             string lineText = _document.GetText(line);
@@ -617,6 +620,29 @@ public sealed partial class TextView : UserControl
                     selectionWidth = Math.Max(2, endX - startX);
                     selectionOpacity = 0.45d;
                 }
+            }
+
+            string displayText = lineText.Length == 0 ? " " : lineText;
+            FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
+
+            // If the line text and fold-marker haven't changed, reuse the existing VM's pre-computed
+            // Runs (and ReferenceSegments) via WithCaretAndSelection.  HighlightedTextBlock will then
+            // skip its Inlines rebuild because the Runs reference is identical, eliminating
+            // the brief blank-text flash that otherwise occurs on every caret/selection change.
+            if (canReuseExisting
+                && !themeChanged
+                && _lines[i].Text == displayText
+                && _lines[i].FoldMarker == foldMarker
+                && ReferenceSegmentSource is null)   // ref-segment source changes handled by _pendingFullRebuild
+            {
+                newVms[i] = _lines[i].WithCaretAndSelection(
+                    isCaretLine ? 1d    : 0d,
+                    isCaretLine ? 0.18d : 0d,
+                    new Thickness(caretLeft,        0, 0, 0),
+                    new Thickness(selectionLeft,    0, 0, 0),
+                    selectionWidth,
+                    selectionOpacity);
+                continue;
             }
 
             HighlightedLine? highlightedLine = null;
@@ -650,11 +676,9 @@ public sealed partial class TextView : UserControl
                 }
             }
 
-            FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
-
-            _lines.Add(new TextLineViewModel(
+            newVms[i] = new TextLineViewModel(
                 line.LineNumber,
-                lineText.Length == 0 ? " " : lineText,
+                displayText,
                 isCaretLine ? 1d : 0d,
                 isCaretLine ? 0.18d : 0d,
                 new Thickness(caretLeft, 0, 0, 0),
@@ -664,7 +688,24 @@ public sealed partial class TextView : UserControl
                 Theme,
                 foldMarker,
                 highlightedLine,
-                lineRefs));
+                lineRefs);
+        }
+
+        // Apply: mutate existing VMs in-place via UpdateFrom (raises only PropertyChanged
+        // for properties that actually differ).  The ObservableCollection is never modified,
+        // so ItemsControl keeps its visual tree intact → no flash.  Only fall back to
+        // Clear+Add when the row count changes (first render / scroll).
+        if (_lines.Count == expectedCount)
+        {
+            for (int i = 0; i < expectedCount; i++)
+                _lines[i].UpdateFrom(newVms[i]);
+            LogFlash($"  in-place UpdateFrom: {expectedCount} items");
+        }
+        else
+        {
+            _lines.Clear();
+            foreach (var vm in newVms)
+                _lines.Add(vm);
         }
 
         TopSpacer.Height = firstVisualRow * LineHeight;

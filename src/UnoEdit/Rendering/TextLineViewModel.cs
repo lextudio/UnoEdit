@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
 
@@ -20,8 +22,10 @@ public readonly struct TextRun
     public Windows.UI.Color Foreground { get; }
 }
 
-public sealed class TextLineViewModel
+public sealed class TextLineViewModel : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     // Default foreground color (#E2E8F0) — used only when no theme is provided (static builds/tests).
     private static readonly Windows.UI.Color DefaultForeground =
         Windows.UI.Color.FromArgb(255, 226, 232, 240);
@@ -64,12 +68,12 @@ public sealed class TextLineViewModel
         FoldMarker = foldMarker;
         Number = number.ToString();
         Text = text;
-        CaretOpacity = caretOpacity;
-        HighlightOpacity = highlightOpacity;
-        CaretMargin = caretMargin;
-        SelectionMargin = selectionMargin;
-        SelectionWidth = selectionWidth;
-        SelectionOpacity = selectionOpacity;
+        _caretOpacity = caretOpacity;
+        _highlightOpacity = highlightOpacity;
+        _caretMargin = caretMargin;
+        _selectionMargin = selectionMargin;
+        _selectionWidth = selectionWidth;
+        _selectionOpacity = selectionOpacity;
         LineHighlightBrush   = new SolidColorBrush(theme.LineHighlight);
         SelectionBrush       = new SolidColorBrush(theme.SelectionColor);
         CaretBrush           = new SolidColorBrush(theme.CaretColor);
@@ -92,12 +96,12 @@ public sealed class TextLineViewModel
         FoldMarker            = source.FoldMarker;
         Number                = source.Number;
         Text                  = source.Text;
-        CaretOpacity          = caretOpacity;
-        HighlightOpacity      = highlightOpacity;
-        CaretMargin           = caretMargin;
-        SelectionMargin       = selectionMargin;
-        SelectionWidth        = selectionWidth;
-        SelectionOpacity      = selectionOpacity;
+        _caretOpacity         = caretOpacity;
+        _highlightOpacity     = highlightOpacity;
+        _caretMargin          = caretMargin;
+        _selectionMargin      = selectionMargin;
+        _selectionWidth       = selectionWidth;
+        _selectionOpacity     = selectionOpacity;
         LineHighlightBrush    = source.LineHighlightBrush;
         SelectionBrush        = source.SelectionBrush;
         CaretBrush            = source.CaretBrush;
@@ -110,16 +114,70 @@ public sealed class TextLineViewModel
     /// <summary>
     /// Create a copy of this view-model with updated caret and selection state only.
     /// Reuses pre-computed text runs so syntax highlighting is not recomputed.
+    /// Returns <c>this</c> when all values are unchanged to avoid ObservableCollection Replace churn.
     /// </summary>
     internal TextLineViewModel WithCaretAndSelection(
         double caretOpacity, double highlightOpacity,
         Thickness caretMargin,
         Thickness selectionMargin, double selectionWidth, double selectionOpacity)
-        => new(this, caretOpacity, highlightOpacity, caretMargin, selectionMargin, selectionWidth, selectionOpacity);
+    {
+        if (Math.Abs(CaretOpacity - caretOpacity) < 0.001
+            && Math.Abs(HighlightOpacity - highlightOpacity) < 0.001
+            && CaretMargin.Left == caretMargin.Left
+            && Math.Abs(SelectionOpacity - selectionOpacity) < 0.001
+            && SelectionMargin.Left == selectionMargin.Left
+            && Math.Abs(SelectionWidth - selectionWidth) < 0.001)
+        {
+            return this;
+        }
+        return new(this, caretOpacity, highlightOpacity, caretMargin, selectionMargin, selectionWidth, selectionOpacity);
+    }
 
-    public string Number { get; }
+    /// <summary>
+    /// Mutate this view-model in-place from <paramref name="source"/>. Raises PropertyChanged
+    /// only for properties whose values actually differ, so the XAML binding engine updates
+    /// only the affected UI elements. The ObservableCollection item is never replaced, which
+    /// avoids tearing down and recreating the DataTemplate visual tree (the root cause of flash).
+    /// </summary>
+    internal void UpdateFrom(TextLineViewModel source)
+    {
+        // Caret / selection — use property setters (they check for change).
+        CaretOpacity     = source._caretOpacity;
+        HighlightOpacity = source._highlightOpacity;
+        CaretMargin      = source._caretMargin;
+        SelectionMargin  = source._selectionMargin;
+        SelectionWidth   = source._selectionWidth;
+        SelectionOpacity = source._selectionOpacity;
 
-    public FoldMarkerKind FoldMarker { get; }
+        // Text / runs — only change when line content was re-highlighted.
+        if (Text != source.Text)
+        {
+            Text = source.Text;
+            Notify(nameof(Text));
+        }
+        if (!ReferenceEquals(Runs, source.Runs))
+        {
+            Runs = source.Runs;
+            Notify(nameof(Runs));
+        }
+        if (!ReferenceEquals(ReferenceSegments, source.ReferenceSegments))
+        {
+            ReferenceSegments = source.ReferenceSegments;
+            Notify(nameof(ReferenceSegments));
+        }
+        if (FoldMarker != source.FoldMarker)
+        {
+            FoldMarker = source.FoldMarker;
+            Notify(nameof(FoldMarker));
+            Notify(nameof(FoldMarkerGlyph));
+            Notify(nameof(FoldMarkerAutomationName));
+        }
+        // Brushes and Number don't change within a theme / line-number.
+    }
+
+    public string Number { get; private set; }
+
+    public FoldMarkerKind FoldMarker { get; private set; }
 
     public string FoldMarkerGlyph => FoldMarker switch
     {
@@ -135,30 +193,36 @@ public sealed class TextLineViewModel
         _                        => string.Empty,
     };
 
-    public string Text { get; }
+    public string Text { get; private set; }
 
-    public double CaretOpacity { get; }
+    private double _caretOpacity;
+    public double CaretOpacity { get => _caretOpacity; internal set { if (Math.Abs(_caretOpacity - value) > 0.001) { _caretOpacity = value; Notify(); } } }
 
-    public double HighlightOpacity { get; }
+    private double _highlightOpacity;
+    public double HighlightOpacity { get => _highlightOpacity; internal set { if (Math.Abs(_highlightOpacity - value) > 0.001) { _highlightOpacity = value; Notify(); } } }
 
-    public Thickness CaretMargin { get; }
+    private Thickness _caretMargin;
+    public Thickness CaretMargin { get => _caretMargin; internal set { if (_caretMargin.Left != value.Left) { _caretMargin = value; Notify(); } } }
 
-    public Thickness SelectionMargin { get; }
+    private Thickness _selectionMargin;
+    public Thickness SelectionMargin { get => _selectionMargin; internal set { if (_selectionMargin.Left != value.Left) { _selectionMargin = value; Notify(); } } }
 
-    public double SelectionWidth { get; }
+    private double _selectionWidth;
+    public double SelectionWidth { get => _selectionWidth; internal set { if (Math.Abs(_selectionWidth - value) > 0.001) { _selectionWidth = value; Notify(); } } }
 
-    public double SelectionOpacity { get; }
+    private double _selectionOpacity;
+    public double SelectionOpacity { get => _selectionOpacity; internal set { if (Math.Abs(_selectionOpacity - value) > 0.001) { _selectionOpacity = value; Notify(); } } }
 
-    public SolidColorBrush LineHighlightBrush   { get; }
-    public SolidColorBrush SelectionBrush       { get; }
-    public SolidColorBrush CaretBrush           { get; }
-    public SolidColorBrush GutterForegroundBrush { get; }
+    public SolidColorBrush LineHighlightBrush   { get; private set; }
+    public SolidColorBrush SelectionBrush       { get; private set; }
+    public SolidColorBrush CaretBrush           { get; private set; }
+    public SolidColorBrush GutterForegroundBrush { get; private set; }
 
     /// <summary>Reference segments that fall within this line (for underline rendering).</summary>
-    public IReadOnlyList<ReferenceSegment> ReferenceSegments { get; }
+    public IReadOnlyList<ReferenceSegment> ReferenceSegments { get; private set; }
 
     /// <summary>Pre-computed color runs for syntax-highlighted rendering.</summary>
-    public IReadOnlyList<TextRun> Runs { get; }
+    public IReadOnlyList<TextRun> Runs { get; private set; }
 
     private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground)
     {

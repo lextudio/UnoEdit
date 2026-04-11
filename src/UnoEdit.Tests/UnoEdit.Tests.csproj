@@ -27,6 +27,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="AvalonEditCommandsTests.cs" />
+    <Compile Include="Compatibility\InputShimsTests.cs" />
     <Compile Include="CodeCompletion\CompletionWindowPlacementTests.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\ChangeTrackingTest.cs" Link="Document\ChangeTrackingTest.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Document\LineManagerTests.cs" Link="Document\LineManagerTests.cs" />
@@ -40,6 +41,7 @@
     <Compile Include="Utils\PixelSnapHelpersTests.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\RopeTests.cs" Link="Utils\RopeTests.cs" />
     <Compile Include="Document\LargeFileTests.cs" />
+    <Compile Include="Editing\CaretTests.cs" />
     <Compile Include="Folding\FoldingManagerTests.cs" />
     <Compile Include="Rendering\RenderingSplitTests.cs" />
     <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />

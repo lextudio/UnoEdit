@@ -64,6 +64,7 @@ internal static class Program
             rawMissingMembers.Take(options.ListLimit).ToList(),
             adjustedMissingTypes.Take(options.ListLimit).ToList(),
             adjustedMissingMembers.Take(options.ListLimit).ToList(),
+            suspectedStubs.Count,
             suspectedStubs.Take(options.ListLimit).ToList(),
             justifications);
 
@@ -76,6 +77,13 @@ internal static class Program
             File.WriteAllText(outputPath, JsonSerializer.Serialize(report, JsonOptions));
             Console.WriteLine();
             Console.WriteLine($"JSON report written to {outputPath}");
+        }
+
+        if (options.FailOnStubs && suspectedStubs.Count > options.MaxSuspectedStubs)
+        {
+            Console.Error.WriteLine(
+                $"Stub detection threshold exceeded: suspected stubs={suspectedStubs.Count}, allowed={options.MaxSuspectedStubs}.");
+            return 2;
         }
 
         return 0;
@@ -103,6 +111,8 @@ internal static class Program
         int listLimit = 25;
         bool detectStubs = false;
         bool detectStubsIncludeLinked = false;
+        bool failOnStubs = false;
+        int maxSuspectedStubs = 0;
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -132,6 +142,12 @@ internal static class Program
                 case "--detect-stubs-include-linked":
                     detectStubsIncludeLinked = true;
                     break;
+                case "--fail-on-stubs":
+                    failOnStubs = true;
+                    break;
+                case "--max-suspected-stubs":
+                    maxSuspectedStubs = int.Parse(RequireValue(args, ref i, "--max-suspected-stubs"));
+                    break;
                 case "--replace-avalon-roots":
                     avalonRoots.Clear();
                     break;
@@ -155,7 +171,9 @@ internal static class Program
             outputJsonPath,
             listLimit,
             detectStubs,
-            detectStubsIncludeLinked);
+            detectStubsIncludeLinked,
+            failOnStubs,
+            maxSuspectedStubs);
     }
 
     private static HashSet<string> LoadStubSuppressions(string path)
@@ -346,6 +364,8 @@ internal static class Program
         PrintList("Raw missing members", report.RawMissingMembersSample);
         PrintList("Adjusted missing types", report.AdjustedMissingTypesSample);
         PrintList("Adjusted missing members", report.AdjustedMissingMembersSample);
+        Console.WriteLine($"Suspected stubs count: {report.SuspectedStubCount}");
+        Console.WriteLine();
         PrintList("Suspected stubs", report.SuspectedStubsSample);
     }
 
@@ -568,7 +588,9 @@ internal static class Program
         string? OutputJsonPath,
         int ListLimit,
         bool DetectStubs,
-        bool DetectStubsIncludeLinked);
+        bool DetectStubsIncludeLinked,
+        bool FailOnStubs,
+        int MaxSuspectedStubs);
 
     private sealed record SourceSymbols(
         HashSet<string> Types,
@@ -587,6 +609,7 @@ internal static class Program
         IReadOnlyList<string> RawMissingMembersSample,
         IReadOnlyList<string> AdjustedMissingTypesSample,
         IReadOnlyList<string> AdjustedMissingMembersSample,
+        int SuspectedStubCount,
         IReadOnlyList<string> SuspectedStubsSample,
         Justifications Justifications);
 
@@ -602,11 +625,19 @@ internal static class Program
 
         public override void VisitClassDeclaration(ClassDeclarationSyntax node)
         {
+            if (IsPublic(node) && HasStubMarker(node))
+            {
+                suspected.Add(node.Identifier.ValueText);
+            }
             VisitType(node, node.Identifier.ValueText, static (walker, current) => walker.VisitClassDeclarationCore(current));
         }
 
         public override void VisitStructDeclaration(StructDeclarationSyntax node)
         {
+            if (IsPublic(node) && HasStubMarker(node))
+            {
+                suspected.Add(node.Identifier.ValueText);
+            }
             VisitType(node, node.Identifier.ValueText, static (walker, current) => walker.VisitStructDeclarationCore(current));
         }
 
@@ -625,7 +656,7 @@ internal static class Program
             if ((IsPublic(node.GetModifiers()) || IsInterfaceMember(node.Parent, node.GetModifiers())) && TryGetCurrentType(out var typeName))
             {
                 string memberName = node.Identifier.ValueText;
-                if (IsStubMethod(node))
+                if (HasStubMarker(node) || IsStubMethod(node))
                     suspected.Add($"{typeName}.{memberName}");
             }
 
@@ -637,7 +668,7 @@ internal static class Program
             if ((IsPublic(node.GetModifiers()) || IsInterfaceMember(node.Parent, node.GetModifiers())) && TryGetCurrentType(out var typeName))
             {
                 string memberName = node.Identifier.ValueText;
-                if (IsStubProperty(node))
+                if (HasStubMarker(node) || IsStubProperty(node))
                     suspected.Add($"{typeName}.{memberName}");
             }
 
@@ -703,11 +734,16 @@ internal static class Program
 
         private static bool IsStubMethod(MethodDeclarationSyntax node)
         {
+            if (node.Body != null && node.Body.Statements.Count == 0)
+            {
+                return true;
+            }
+
             // expression-bodied: => throw new NotImplementedException();
             if (node.ExpressionBody != null)
             {
                 var expr = node.ExpressionBody.Expression;
-                if (IsThrowingNotImplemented(expr))
+                if (IsThrowingNotImplemented(expr) || IsStubReturnExpression(expr))
                     return true;
             }
 
@@ -720,7 +756,7 @@ internal static class Program
                     if (stmt is ThrowStatementSyntax throwStmt && IsThrowingNotImplemented(throwStmt.Expression))
                         return true;
 
-                    if (stmt is ReturnStatementSyntax ret && IsDefaultOrNullOrFalse(ret.Expression))
+                    if (stmt is ReturnStatementSyntax ret && IsStubReturnExpression(ret.Expression))
                         return true;
                 }
             }
@@ -732,7 +768,7 @@ internal static class Program
         {
             if (node.ExpressionBody != null)
             {
-                if (IsThrowingNotImplemented(node.ExpressionBody.Expression))
+                if (IsThrowingNotImplemented(node.ExpressionBody.Expression) || IsStubReturnExpression(node.ExpressionBody.Expression))
                     return true;
             }
 
@@ -746,10 +782,14 @@ internal static class Program
                         if (stmt is ThrowStatementSyntax throwStmt && IsThrowingNotImplemented(throwStmt.Expression))
                             return true;
 
-                        if (stmt is ReturnStatementSyntax ret && IsDefaultOrNullOrFalse(ret.Expression))
+                        if (stmt is ReturnStatementSyntax ret && IsStubReturnExpression(ret.Expression))
                             return true;
                     }
-                    else if (acc.ExpressionBody != null && IsThrowingNotImplemented(acc.ExpressionBody.Expression))
+                    else if (acc.Body != null && acc.Body.Statements.Count == 0)
+                    {
+                        return true;
+                    }
+                    else if (acc.ExpressionBody != null && (IsThrowingNotImplemented(acc.ExpressionBody.Expression) || IsStubReturnExpression(acc.ExpressionBody.Expression)))
                     {
                         return true;
                     }
@@ -780,7 +820,7 @@ internal static class Program
             return false;
         }
 
-        private static bool IsDefaultOrNullOrFalse(ExpressionSyntax? expr)
+        private static bool IsStubReturnExpression(ExpressionSyntax? expr)
         {
             if (expr == null)
                 return false;
@@ -789,6 +829,11 @@ internal static class Program
             {
                 if (lit.IsKind(SyntaxKind.NullLiteralExpression) || lit.IsKind(SyntaxKind.FalseLiteralExpression))
                     return true;
+
+                if (lit.IsKind(SyntaxKind.NumericLiteralExpression))
+                {
+                    return lit.Token.ValueText is "0" or "0.0";
+                }
             }
 
             if (expr is DefaultExpressionSyntax)
@@ -796,6 +841,38 @@ internal static class Program
 
             if (expr is LiteralExpressionSyntax les && les.Token.IsKind(SyntaxKind.DefaultKeyword))
                 return true;
+
+            if (expr is MemberAccessExpressionSyntax memberAccess)
+            {
+                if (memberAccess.Name.Identifier.ValueText == "Empty")
+                    return true;
+            }
+
+            if (expr is PrefixUnaryExpressionSyntax prefixUnary
+                && prefixUnary.IsKind(SyntaxKind.UnaryMinusExpression)
+                && prefixUnary.Operand is LiteralExpressionSyntax operand
+                && operand.IsKind(SyntaxKind.NumericLiteralExpression)
+                && operand.Token.ValueText == "1")
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasStubMarker(MemberDeclarationSyntax node)
+        {
+            foreach (SyntaxTrivia trivia in node.GetLeadingTrivia())
+            {
+                string text = trivia.ToString();
+                if (text.Contains("stub", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("surface-only", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("placeholder", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("API parity", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
 
             return false;
         }

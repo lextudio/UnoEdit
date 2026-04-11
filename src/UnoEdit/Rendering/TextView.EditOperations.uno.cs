@@ -2,6 +2,7 @@ using System.Windows.Documents;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Utils;
+using System.Windows.Input;
 using Windows.ApplicationModel.DataTransfer;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -82,7 +83,7 @@ public sealed partial class TextView
     internal bool InsertPrintableKey(Windows.System.VirtualKey key, bool shiftPressed)
     {
         string? text = TranslateKeyToText(key, shiftPressed);
-        return text is not null && InsertText(text);
+        return text is not null && InsertText(text, raiseTextInputEvents: true);
     }
 
     internal bool MoveHorizontal(int delta, bool extendSelection)
@@ -306,11 +307,16 @@ public sealed partial class TextView
         return true;
     }
 
-    internal bool InsertText(string text)
+    internal bool InsertText(string text, bool raiseTextInputEvents = false)
     {
         if (_document is null || IsReadOnly)
         {
             return false;
+        }
+
+        if (raiseTextInputEvents)
+        {
+            RaiseTextEntering(text);
         }
 
         int insertionOffset = CurrentOffset;
@@ -353,6 +359,12 @@ public sealed partial class TextView
                 CollapseSelection(insertionOffset + text.Length);
             }
         });
+
+        if (changed && raiseTextInputEvents)
+        {
+            RaiseTextEntered(text);
+        }
+
         return changed;
     }
 
@@ -623,5 +635,21 @@ public sealed partial class TextView
             SelectionStartOffset = offset;
             SelectionEndOffset = offset;
         });
+    }
+
+    private void RaiseTextEntering(string text)
+    {
+        if (!string.IsNullOrEmpty(text))
+        {
+            TextEntering?.Invoke(this, new TextCompositionEventArgs(text));
+        }
+    }
+
+    private void RaiseTextEntered(string text)
+    {
+        if (!string.IsNullOrEmpty(text))
+        {
+            TextEntered?.Invoke(this, new TextCompositionEventArgs(text));
+        }
     }
 }

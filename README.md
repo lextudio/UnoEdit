@@ -40,14 +40,16 @@ Current status:
 - The next `TextArea` parity slice is also in: `IndentationStrategy`, `OverstrikeMode`, `ReadOnlySectionProvider`, `ClearSelection()`, and `GetService(Type)` now exist on the current Uno surface; readonly segments now gate the live edit pipeline, `Insert` toggles overstrike mode, and newline insertion consults the current indentation strategy
 - Completion and insight popup placement were restarted from scratch: they now anchor through the same caret-rectangle path used by the platform IME bridge instead of a separate reflection-based approximation
 - API parity is now measurable in-repo through `tools/ApiParity` and `scripts/check_api_parity.sh`, including a justifications file for intentional Uno/TextMate surface divergences
+- The parity report now also has stub detection. The current tree can report full public-surface coverage while still carrying a significant suspected-stub backlog, so surface parity should not be read as behavior parity.
+- The first stub burn-down slice is complete: command bindings now execute real handlers, caret rectangle/visibility APIs are live, and `TextArea.TextEntering` / `TextArea.TextEntered` now flow through normal keyboard and IME commit paths.
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
-- Current regression total: `247` passing tests
-- Current API parity baseline: `31/193` public types (`16.1%`) and `211/1295` public members (`16.3%`)
+- Current regression total: `252` passing tests
+- Latest parity sweep reached `193/193` public types and `1295/1295` public members, and stub detection now reports `102` suspected stubs
 - The headless Uno runtime-test host is now green again after fixing the search-panel navigation regression
 
 Next steps:
 
-1. Continue selective source convergence from AvalonEdit into `src/UnoEdit` where that reduces duplication without destabilizing the desktop host.
-2. Start the next product-facing track from the stabilized base: ILSpy integration, completion/snippet UI, or deeper editor fidelity work.
-3. Expand IME validation and remaining desktop-fidelity checks where they provide real value.
+1. Keep burning down the `102` suspected stubs, prioritizing rendering and selection semantics over more surface-only parity.
+2. Continue selective source convergence from AvalonEdit into `src/UnoEdit` where that reduces duplication without destabilizing the desktop host.
+3. Start the next product-facing track from the stabilized base: ILSpy integration, completion/snippet UI, or deeper editor fidelity work.

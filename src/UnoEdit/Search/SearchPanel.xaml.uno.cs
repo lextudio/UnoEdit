@@ -297,11 +297,33 @@ public sealed partial class SearchPanel : UserControl
     }
 
     // ----------------------------------------------------------------
-    // AvalonEdit API surface stubs
+    // AvalonEdit API compatibility surface
     // ----------------------------------------------------------------
     public bool IsClosed => !IsOpen;
-    public void Reactivate() { Open(); }
-    public void Uninstall() { Close(); }
+    public void Reactivate()
+    {
+        if (!IsOpen)
+        {
+            Open();
+        }
+        else
+        {
+            SearchTextBox.Focus(FocusState.Programmatic);
+            SearchTextBox.SelectAll();
+        }
+    }
+
+    public void Uninstall()
+    {
+        Close();
+        if (_attachedDocument is not null)
+        {
+            _attachedDocument.TextChanged -= OnDocumentTextChanged;
+            _attachedDocument = null;
+        }
+        _results.Clear();
+        _selectedResultIndex = -1;
+    }
     public static SearchPanel Install(object textArea)
     {
         if (textArea == null)
@@ -329,10 +351,12 @@ public sealed partial class SearchPanel : UserControl
         throw new ArgumentException("Could not locate a SearchPanel for the provided text area/editor.", nameof(textArea));
     }
 
-    public static void RegisterCommands(Microsoft.UI.Xaml.Input.KeyboardAccelerator accelerators)
+    public void RegisterCommands(System.Windows.Input.CommandBindingCollection commandBindings)
     {
-        // Uno keyboard accelerators are typically registered at control level in TextEditor.
-        // Keep API compatibility and no-op when called from existing parity tests.
+        ArgumentNullException.ThrowIfNull(commandBindings);
+        commandBindings.Add(SearchCommands.FindNext, (_, __) => FindNext());
+        commandBindings.Add(SearchCommands.FindPrevious, (_, __) => FindPrevious());
+        commandBindings.Add(SearchCommands.CloseSearchPanel, (_, __) => Close());
     }
 
     public static readonly DependencyProperty SearchPatternProperty =

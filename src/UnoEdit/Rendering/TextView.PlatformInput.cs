@@ -607,6 +607,7 @@ public sealed partial class TextView
 
         int insertAt = _isComposing ? _compositionStartOffset : CurrentOffset;
         int removeLen = _isComposing ? _compositionLength : 0;
+        RaiseTextEntering(text);
 
         BatchRefresh(() =>
         {
@@ -624,6 +625,7 @@ public sealed partial class TextView
             _compositionLength = 0;
             CollapseSelection(insertAt + text.Length);
         });
+        RaiseTextEntered(text);
         UpdatePlatformInputBridge();
     }
 

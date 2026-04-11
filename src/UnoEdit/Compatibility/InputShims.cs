@@ -101,6 +101,7 @@ namespace System.Windows.Input
 		public string Name { get; }
 		public Type OwnerType { get; }
 		public InputGestureCollection InputGestures { get; }
+		private readonly List<CommandBinding> _bindings = [];
 
 		public RoutedCommand(string name, Type ownerType)
 		{
@@ -116,8 +117,53 @@ namespace System.Windows.Input
 			InputGestures = inputGestures ?? new InputGestureCollection();
 		}
 
-		public bool CanExecute(object parameter) => true;
-		public void Execute(object parameter) { }
+		internal void RegisterBinding(CommandBinding binding)
+		{
+			if (binding != null && !_bindings.Contains(binding))
+			{
+				_bindings.Add(binding);
+			}
+		}
+
+		public bool CanExecute(object parameter)
+		{
+			if (_bindings.Count == 0)
+			{
+				return true;
+			}
+
+			bool anyHandled = false;
+			bool canExecute = true;
+			foreach (CommandBinding binding in _bindings)
+			{
+				var args = new CanExecuteRoutedEventArgs(this, parameter);
+				binding.OnCanExecute(args);
+				if (args.Handled)
+				{
+					anyHandled = true;
+					canExecute = args.CanExecute;
+					if (!args.ContinueRouting)
+					{
+						return args.CanExecute;
+					}
+				}
+			}
+
+			return !anyHandled || canExecute;
+		}
+
+		public void Execute(object parameter)
+		{
+			foreach (CommandBinding binding in _bindings)
+			{
+				var args = new ExecutedRoutedEventArgs(this, parameter);
+				binding.OnExecuted(args);
+				if (args.Handled)
+				{
+					return;
+				}
+			}
+		}
 #pragma warning disable 67
 		public event EventHandler CanExecuteChanged { add { } remove { } }
 #pragma warning restore 67
@@ -196,19 +242,45 @@ namespace System.Windows.Input
 	public class CommandBinding
 	{
 		public ICommand Command { get; }
+		private readonly EventHandler<ExecutedRoutedEventArgs>? _executed;
+		private readonly EventHandler<CanExecuteRoutedEventArgs>? _canExecute;
 
-		public CommandBinding(ICommand command) { Command = command; }
+		public CommandBinding(ICommand command)
+		{
+			Command = command;
+			if (command is RoutedCommand routedCommand)
+			{
+				routedCommand.RegisterBinding(this);
+			}
+		}
 
 		public CommandBinding(
 			ICommand command,
 			EventHandler<ExecutedRoutedEventArgs> executed)
-			: this(command) { }
+			: this(command)
+		{
+			_executed = executed;
+		}
 
 		public CommandBinding(
 			ICommand command,
 			EventHandler<ExecutedRoutedEventArgs> executed,
 			EventHandler<CanExecuteRoutedEventArgs> canExecute)
-			: this(command) { }
+			: this(command)
+		{
+			_executed = executed;
+			_canExecute = canExecute;
+		}
+
+		internal void OnExecuted(ExecutedRoutedEventArgs e)
+		{
+			_executed?.Invoke(this, e);
+		}
+
+		internal void OnCanExecute(CanExecuteRoutedEventArgs e)
+		{
+			_canExecute?.Invoke(this, e);
+		}
 	}
 
 	public class CommandBindingCollection : List<CommandBinding>
@@ -259,7 +331,7 @@ namespace System.Windows.Input
                 /// <summary>Gets system text (e.g. from ALT key combinations). Empty in the UnoEdit shim.</summary>
                 public string SystemText => string.Empty;
 
-                /// <summary>Gets control text. Empty in the UnoEdit shim.</summary>
-                public string ControlText => string.Empty;
+                /// <summary>Gets control text when the composed input is a control character.</summary>
+                public string ControlText => Text.Length > 0 && char.IsControl(Text, 0) ? Text : string.Empty;
         }
 }

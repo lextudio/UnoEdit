@@ -72,7 +72,7 @@ public sealed partial class TextView
         {
             if (!_isComposing)
             {
-                InsertText(unicodeKey.Value.ToString());
+                InsertText(unicodeKey.Value.ToString(), raiseTextInputEvents: true);
             }
             e.Handled = true;
             return;

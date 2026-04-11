@@ -17,8 +17,8 @@ internal static class EditingCommandHandler
             Windows.System.VirtualKey.Delete when controlPressed => textView.DeleteWord(backward: false),
             Windows.System.VirtualKey.Back => textView.Backspace(),
             Windows.System.VirtualKey.Delete => textView.Delete(),
-            Windows.System.VirtualKey.Enter => textView.InsertText(Environment.NewLine),
-            Windows.System.VirtualKey.Tab => textView.InsertText("\t"),
+            Windows.System.VirtualKey.Enter => textView.InsertText(Environment.NewLine, raiseTextInputEvents: true),
+            Windows.System.VirtualKey.Tab => textView.InsertText("\t", raiseTextInputEvents: true),
             _ when !controlPressed => textView.InsertPrintableKey(key, extendSelection),
             _ => false
         };

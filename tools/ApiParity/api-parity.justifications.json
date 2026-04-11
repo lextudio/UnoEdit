@@ -10,16 +10,7 @@
       "reason": "WPF UI Automation text provider is intentionally deferred until a concrete accessibility pass."
     }
   ],
-  "ignoredMembers": [
-    {
-      "name": "TextEditor.ShowLineNumbers",
-      "reason": "Planned parity item for Phase 11 follow-up; current Uno text surface still uses a fixed gutter model."
-    },
-    {
-      "name": "TextEditor.WordWrap",
-      "reason": "Planned parity item; current viewport renderer is still line-oriented and does not implement wrapped layout."
-    }
-  ],
+  "ignoredMembers": [],
   "mappedMembers": [
     {
       "source": "TextEditor.CreateColorizer",

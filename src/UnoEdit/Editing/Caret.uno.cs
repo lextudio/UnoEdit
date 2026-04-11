@@ -43,6 +43,9 @@ namespace ICSharpCode.AvalonEdit.Editing
 
 		// Optional callback to set the caret offset on the owning TextArea.
 		private readonly Action<int> _setOffset;
+		private readonly Func<Rect>? _calculateRectangle;
+		private readonly Action<bool>? _setVisibility;
+		private bool _isVisible = true;
 
 		/// <summary>
 		/// Creates a standalone Caret with no owner.
@@ -54,10 +57,14 @@ namespace ICSharpCode.AvalonEdit.Editing
 		/// </summary>
 		/// <param name="bringIntoView">Called by <see cref="BringCaretToView"/>.</param>
 		/// <param name="setOffset">Called when the caller writes <see cref="Offset"/> or <see cref="Position"/>.</param>
-		internal Caret(Action bringIntoView, Action<int> setOffset)
+		/// <param name="calculateRectangle">Called by <see cref="CalculateCaretRectangle"/> when screen geometry is available.</param>
+		/// <param name="setVisibility">Called by <see cref="Show"/> and <see cref="Hide"/> so the owning view can update caret rendering.</param>
+		internal Caret(Action bringIntoView, Action<int> setOffset, Func<Rect>? calculateRectangle = null, Action<bool>? setVisibility = null)
 		{
 			_bringIntoView = bringIntoView;
 			_setOffset     = setOffset;
+			_calculateRectangle = calculateRectangle;
+			_setVisibility = setVisibility;
 		}
 
 		// === Internal state management called by the owning TextArea ===
@@ -137,16 +144,26 @@ namespace ICSharpCode.AvalonEdit.Editing
 		public event EventHandler PositionChanged;
 
 		/// <summary>Returns the screen rectangle of the caret. Returns Rect.Empty when unavailable.</summary>
-		public Rect CalculateCaretRectangle() => Rect.Empty;
+		public Rect CalculateCaretRectangle() => _calculateRectangle?.Invoke() ?? Rect.Empty;
 
 		/// <summary>Scrolls the view so the caret is visible.</summary>
 		public void BringCaretToView() => _bringIntoView?.Invoke();
 
-		/// <summary>Makes the caret visible (visibility is managed by the renderer).</summary>
-		public void Show() { }
+		/// <summary>Makes the caret visible.</summary>
+		public void Show()
+		{
+			_isVisible = true;
+			_setVisibility?.Invoke(true);
+		}
 
-		/// <summary>Hides the caret (visibility is managed by the renderer).</summary>
-		public void Hide() { }
+		/// <summary>Hides the caret.</summary>
+		public void Hide()
+		{
+			_isVisible = false;
+			_setVisibility?.Invoke(false);
+		}
+
+		internal bool IsVisible => _isVisible;
 
 		// === Uno-specific rendering property ===
 

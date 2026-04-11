@@ -172,7 +172,9 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
                     if (doc != null && line >= 1 && line <= doc.LineCount)
                         CurrentOffset = doc.GetOffset(line, col);
                 }
-            });
+            },
+            calculateRectangle: () => PART_TextView.TryGetCaretAnchorRect(out Rect rect) ? rect : Rect.Empty,
+            setVisibility: isVisible => PART_TextView.SetCaretVisible(isVisible));
         DefaultInputHandler = new TextAreaDefaultInputHandler(this);
         ActiveInputHandler  = DefaultInputHandler;
         PART_TextView.Services.AddService(typeof(TextArea), this);
@@ -180,6 +182,8 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
         PART_TextView.SelectionChanged    += OnTextViewSelectionChanged;
         PART_TextView.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
         PART_TextView.TextCopied          += (s, e) => TextCopied?.Invoke(this, e);
+        PART_TextView.TextEntering        += (s, e) => TextEntering?.Invoke(this, e);
+        PART_TextView.TextEntered         += (s, e) => TextEntered?.Invoke(this, e);
     }
 
     public TextDocument? Document

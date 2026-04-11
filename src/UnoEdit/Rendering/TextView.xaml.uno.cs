@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System.ComponentModel.Design;
 using System.Windows.Documents;
+using System.Windows.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 
@@ -194,6 +195,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
     private IHighlightedLineSource? _prevHighlightedLineSource;
     // Set when the current highlighter fires HighlightingInvalidated (e.g. theme change within the source).
     private bool _highlightingDataInvalidated;
+    private bool _caretVisible = true;
 
     private static readonly bool s_debugFlash =
         string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_FLASH"), "1", StringComparison.Ordinal);
@@ -322,6 +324,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
     public IServiceContainer Services => _services;
 
     internal event EventHandler<TextEventArgs>? TextCopied;
+    internal event EventHandler<TextCompositionEventArgs>? TextEntering;
+    internal event EventHandler<TextCompositionEventArgs>? TextEntered;
 
     public IHighlightingDefinition? SyntaxHighlighting
     {
@@ -390,6 +394,17 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
     {
         rect = CalculatePlatformInputCaretRect();
         return !rect.IsEmpty;
+    }
+
+    internal void SetCaretVisible(bool isVisible)
+    {
+        if (_caretVisible == isVisible)
+        {
+            return;
+        }
+
+        _caretVisible = isVisible;
+        RefreshViewport();
     }
 
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -890,7 +905,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                     }
                 }
 
-                double newCaretOpacity     = isCaretLine ? 1d    : 0d;
+                double newCaretOpacity     = isCaretLine && _caretVisible ? 1d : 0d;
                 double newHighlightOpacity = isCaretLine ? 0.18d : 0d;
                 var    newCaretMargin      = new Thickness(caretLeft,        0, 0, 0);
                 var    newSelectionMargin  = new Thickness(newSelectionLeft, 0, 0, 0);
@@ -972,7 +987,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                 && ReferenceSegmentSource is null)   // ref-segment source changes handled by _pendingFullRebuild
             {
                 newVms[i] = _lines[i].WithCaretAndSelection(
-                    isCaretLine ? 1d    : 0d,
+                    isCaretLine && _caretVisible ? 1d : 0d,
                     isCaretLine ? 0.18d : 0d,
                     new Thickness(caretLeft,        0, 0, 0),
                     new Thickness(selectionLeft,    0, 0, 0),
@@ -1020,7 +1035,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             newVms[i] = new TextLineViewModel(
                 line.LineNumber,
                 displayText,
-                isCaretLine ? 1d : 0d,
+                isCaretLine && _caretVisible ? 1d : 0d,
                 isCaretLine ? 0.18d : 0d,
                 new Thickness(caretLeft, 0, 0, 0),
                 new Thickness(selectionLeft, 0, 0, 0),

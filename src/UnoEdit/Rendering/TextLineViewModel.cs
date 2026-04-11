@@ -61,12 +61,14 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         double selectionWidth,
         double selectionOpacity,
         TextEditorTheme theme,
+        bool showLineNumbers = true,
         FoldMarkerKind foldMarker = FoldMarkerKind.None,
         HighlightedLine? highlightedLine = null,
         IReadOnlyList<ReferenceSegment>? referenceSegments = null)
     {
         FoldMarker = foldMarker;
-        Number = number.ToString();
+        ShowLineNumbers = showLineNumbers;
+        LineNumber = number.ToString();
         Text = text;
         _caretOpacity = caretOpacity;
         _highlightOpacity = highlightOpacity;
@@ -94,7 +96,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         double selectionOpacity)
     {
         FoldMarker            = source.FoldMarker;
-        Number                = source.Number;
+        ShowLineNumbers       = source.ShowLineNumbers;
+        LineNumber            = source.LineNumber;
         Text                  = source.Text;
         _caretOpacity         = caretOpacity;
         _highlightOpacity     = highlightOpacity;
@@ -155,6 +158,12 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             Text = source.Text;
             Notify(nameof(Text));
         }
+        if (ShowLineNumbers != source.ShowLineNumbers)
+        {
+            ShowLineNumbers = source.ShowLineNumbers;
+            Notify(nameof(ShowLineNumbers));
+            Notify(nameof(Number));
+        }
         if (!ReferenceEquals(Runs, source.Runs))
         {
             Runs = source.Runs;
@@ -172,10 +181,14 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             Notify(nameof(FoldMarkerGlyph));
             Notify(nameof(FoldMarkerAutomationName));
         }
-        // Brushes and Number don't change within a theme / line-number.
+        // Brushes and LineNumber don't change within a theme / line-number.
     }
 
-    public string Number { get; private set; }
+    public string LineNumber { get; private set; }
+
+    public bool ShowLineNumbers { get; private set; }
+
+    public string Number => ShowLineNumbers ? LineNumber : string.Empty;
 
     public FoldMarkerKind FoldMarker { get; private set; }
 
@@ -188,8 +201,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
 
     public string FoldMarkerAutomationName => FoldMarker switch
     {
-        FoldMarkerKind.CanFold   => $"Collapse line {Number}",
-        FoldMarkerKind.CanExpand => $"Expand line {Number}",
+        FoldMarkerKind.CanFold   => $"Collapse line {LineNumber}",
+        FoldMarkerKind.CanExpand => $"Expand line {LineNumber}",
         _                        => string.Empty,
     };
 

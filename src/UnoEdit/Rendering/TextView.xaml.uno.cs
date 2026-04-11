@@ -57,6 +57,20 @@ public sealed partial class TextView : UserControl
             typeof(TextView),
             new PropertyMetadata(new TextEditorOptions(), OnOptionsChanged));
 
+    public static readonly DependencyProperty IsReadOnlyProperty =
+        DependencyProperty.Register(
+            nameof(IsReadOnly),
+            typeof(bool),
+            typeof(TextView),
+            new PropertyMetadata(false));
+
+    public static readonly DependencyProperty ShowLineNumbersProperty =
+        DependencyProperty.Register(
+            nameof(ShowLineNumbers),
+            typeof(bool),
+            typeof(TextView),
+            new PropertyMetadata(true, OnShowLineNumbersChanged));
+
     public static readonly DependencyProperty SyntaxHighlightingProperty =
         DependencyProperty.Register(
             nameof(SyntaxHighlighting),
@@ -180,6 +194,18 @@ public sealed partial class TextView : UserControl
         set => SetValue(OptionsProperty, value);
     }
 
+    public bool IsReadOnly
+    {
+        get => (bool)GetValue(IsReadOnlyProperty);
+        set => SetValue(IsReadOnlyProperty, value);
+    }
+
+    public bool ShowLineNumbers
+    {
+        get => (bool)GetValue(ShowLineNumbersProperty);
+        set => SetValue(ShowLineNumbersProperty, value);
+    }
+
     public IHighlightingDefinition? SyntaxHighlighting
     {
         get => (IHighlightingDefinition?)GetValue(SyntaxHighlightingProperty);
@@ -263,6 +289,14 @@ public sealed partial class TextView : UserControl
         var textView = (TextView)dependencyObject;
         textView._pendingFullRebuild = true;
         LogFlash("full queued: options changed");
+        textView.RefreshViewport();
+    }
+
+    private static void OnShowLineNumbersChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView._pendingFullRebuild = true;
+        LogFlash("full queued: show line numbers changed");
         textView.RefreshViewport();
     }
 
@@ -824,6 +858,7 @@ public sealed partial class TextView : UserControl
                 selectionWidth,
                 selectionOpacity,
                 Theme,
+                ShowLineNumbers,
                 foldMarker,
                 highlightedLine,
                 lineRefs);

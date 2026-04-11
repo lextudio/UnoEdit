@@ -54,6 +54,27 @@ public sealed partial class TextEditor : UserControl
             typeof(TextEditor),
             new PropertyMetadata(new TextEditorOptions(), OnOptionsChanged));
 
+    public static readonly DependencyProperty IsReadOnlyProperty =
+        DependencyProperty.Register(
+            nameof(IsReadOnly),
+            typeof(bool),
+            typeof(TextEditor),
+            new PropertyMetadata(false, OnIsReadOnlyChanged));
+
+    public static readonly DependencyProperty IsModifiedProperty =
+        DependencyProperty.Register(
+            nameof(IsModified),
+            typeof(bool),
+            typeof(TextEditor),
+            new PropertyMetadata(false, OnIsModifiedChanged));
+
+    public static readonly DependencyProperty ShowLineNumbersProperty =
+        DependencyProperty.Register(
+            nameof(ShowLineNumbers),
+            typeof(bool),
+            typeof(TextEditor),
+            new PropertyMetadata(true, OnShowLineNumbersChanged));
+
     public static readonly DependencyProperty SyntaxHighlightingProperty =
         DependencyProperty.Register(
             nameof(SyntaxHighlighting),
@@ -115,6 +136,24 @@ public sealed partial class TextEditor : UserControl
     {
         get => (TextEditorOptions)GetValue(OptionsProperty);
         set => SetValue(OptionsProperty, value);
+    }
+
+    public bool IsReadOnly
+    {
+        get => (bool)GetValue(IsReadOnlyProperty);
+        set => SetValue(IsReadOnlyProperty, value);
+    }
+
+    public bool IsModified
+    {
+        get => (bool)GetValue(IsModifiedProperty);
+        set => SetValue(IsModifiedProperty, value);
+    }
+
+    public bool ShowLineNumbers
+    {
+        get => (bool)GetValue(ShowLineNumbersProperty);
+        set => SetValue(ShowLineNumbersProperty, value);
     }
 
     public IHighlightingDefinition? SyntaxHighlighting
@@ -376,6 +415,40 @@ public sealed partial class TextEditor : UserControl
         editor.OptionChanged?.Invoke(editor, new PropertyChangedEventArgs(null));
     }
 
+    private static void OnIsReadOnlyChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.IsReadOnly = (bool)args.NewValue;
+    }
+
+    private static void OnIsModifiedChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        var document = editor.Document;
+        if (document is null)
+        {
+            return;
+        }
+
+        if ((bool)args.NewValue)
+        {
+            if (document.UndoStack.IsOriginalFile)
+            {
+                document.UndoStack.DiscardOriginalFileMarker();
+            }
+        }
+        else
+        {
+            document.UndoStack.MarkAsOriginalFile();
+        }
+    }
+
+    private static void OnShowLineNumbersChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.ShowLineNumbers = (bool)args.NewValue;
+    }
+
     private static void OnSyntaxHighlightingChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var editor = (TextEditor)dependencyObject;
@@ -424,6 +497,7 @@ public sealed partial class TextEditor : UserControl
         if (oldDocument is not null)
         {
             oldDocument.TextChanged -= OnDocumentTextChanged;
+            oldDocument.UndoStack.PropertyChanged -= OnUndoStackPropertyChanged;
         }
 
         _attachedDocument = newDocument;
@@ -431,7 +505,10 @@ public sealed partial class TextEditor : UserControl
         if (newDocument is not null)
         {
             newDocument.TextChanged += OnDocumentTextChanged;
+            newDocument.UndoStack.PropertyChanged += OnUndoStackPropertyChanged;
         }
+
+        SyncIsModifiedFromDocument();
     }
 
     private void OnDocumentTextChanged(object? sender, EventArgs e)
@@ -439,6 +516,14 @@ public sealed partial class TextEditor : UserControl
         PART_SearchPanel.RefreshSearch();
         UpdateSummary();
         TextChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnUndoStackPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is null or nameof(ICSharpCode.AvalonEdit.Document.UndoStack.IsOriginalFile))
+        {
+            SyncIsModifiedFromDocument();
+        }
     }
 
     private void OnTextAreaCaretOffsetChanged(object? sender, EventArgs e)
@@ -584,5 +669,14 @@ public sealed partial class TextEditor : UserControl
         }
 
         return Document;
+    }
+
+    private void SyncIsModifiedFromDocument()
+    {
+        bool isModified = Document is not null && !Document.UndoStack.IsOriginalFile;
+        if (IsModified != isModified)
+        {
+            SetValue(IsModifiedProperty, isModified);
+        }
     }
 }

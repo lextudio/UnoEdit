@@ -178,7 +178,7 @@ public sealed partial class TextView
 
     internal bool DeleteWord(bool backward)
     {
-        if (_document is null)
+        if (_document is null || IsReadOnly)
         {
             return false;
         }
@@ -217,7 +217,7 @@ public sealed partial class TextView
 
     internal bool Backspace()
     {
-        if (_document is null)
+        if (_document is null || IsReadOnly)
         {
             return false;
         }
@@ -248,7 +248,7 @@ public sealed partial class TextView
 
     internal bool Delete()
     {
-        if (_document is null)
+        if (_document is null || IsReadOnly)
         {
             return false;
         }
@@ -279,7 +279,7 @@ public sealed partial class TextView
 
     internal bool InsertText(string text)
     {
-        if (_document is null)
+        if (_document is null || IsReadOnly)
         {
             return false;
         }
@@ -370,6 +370,11 @@ public sealed partial class TextView
 
     internal bool CutSelection()
     {
+        if (IsReadOnly)
+        {
+            return false;
+        }
+
         if (!CopySelection())
         {
             return false;
@@ -381,7 +386,7 @@ public sealed partial class TextView
 
     internal async Task<bool> PasteAsync()
     {
-        if (_document is null)
+        if (_document is null || IsReadOnly)
         {
             return false;
         }
@@ -442,7 +447,7 @@ public sealed partial class TextView
 
     internal void DeleteSelectedText()
     {
-        if (_document is null || !HasSelection())
+        if (_document is null || IsReadOnly || !HasSelection())
         {
             return;
         }

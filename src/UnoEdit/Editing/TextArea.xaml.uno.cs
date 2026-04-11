@@ -49,6 +49,20 @@ public sealed partial class TextArea : UserControl
             typeof(TextArea),
             new PropertyMetadata(new TextEditorOptions(), OnOptionsChanged));
 
+    public static readonly DependencyProperty IsReadOnlyProperty =
+        DependencyProperty.Register(
+            nameof(IsReadOnly),
+            typeof(bool),
+            typeof(TextArea),
+            new PropertyMetadata(false, OnIsReadOnlyChanged));
+
+    public static readonly DependencyProperty ShowLineNumbersProperty =
+        DependencyProperty.Register(
+            nameof(ShowLineNumbers),
+            typeof(bool),
+            typeof(TextArea),
+            new PropertyMetadata(true, OnShowLineNumbersChanged));
+
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
     public event EventHandler<ReferenceSegment>? NavigationRequested;
@@ -97,6 +111,18 @@ public sealed partial class TextArea : UserControl
         set => SetValue(OptionsProperty, value);
     }
 
+    public bool IsReadOnly
+    {
+        get => (bool)GetValue(IsReadOnlyProperty);
+        set => SetValue(IsReadOnlyProperty, value);
+    }
+
+    public bool ShowLineNumbers
+    {
+        get => (bool)GetValue(ShowLineNumbersProperty);
+        set => SetValue(ShowLineNumbersProperty, value);
+    }
+
     /// <summary>Provides access to the inner TextView for testing and advanced scenarios.</summary>
     public TextView TextView => PART_TextView;
 
@@ -140,6 +166,18 @@ public sealed partial class TextArea : UserControl
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.Options = (args.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+    }
+
+    private static void OnIsReadOnlyChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.IsReadOnly = (bool)args.NewValue;
+    }
+
+    private static void OnShowLineNumbersChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.ShowLineNumbers = (bool)args.NewValue;
     }
 
     public void ScrollToLine(int lineNumber)

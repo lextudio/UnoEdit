@@ -76,8 +76,11 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\NoReadOnlySections.cs"                Link="Editing\NoReadOnlySections.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\TextSegmentReadOnlySectionProvider.cs" Link="Editing\TextSegmentReadOnlySectionProvider.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\AbstractMargin.cs"                    Link="Editing\AbstractMargin.cs" />
-    <!-- Editing — partial class splits (shared logic + Uno-specific partials).
-         Caret.cs deferred: depends on TextArea / TextView / VisualLine (Phase 4/5 links). -->
+    <!-- Editing — structural blocker:
+         the current repo has shared TextArea/Caret split work, but the reusable library still does not
+         compile the shared Editing/TextArea.cs + Editing/Caret.cs surface. Their active Uno UI partials
+         are compiled by UnoEdit.Sample instead. Any additional shared editing files that depend on
+         library-side TextArea/Caret stay blocked until that boundary is promoted into src/UnoEdit. -->
 
     <!-- Snippets — pure leaf files (no SnippetElement / InsertionContext deps) -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Snippets\IActiveElement.cs"  Link="Snippets\IActiveElement.cs" />

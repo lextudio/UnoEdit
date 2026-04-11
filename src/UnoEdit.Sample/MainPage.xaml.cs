@@ -1,5 +1,6 @@
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
+using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.TextMate;
 using TextMateSharp.Grammars;
 using UnoEdit.Skia.Desktop.Controls;
@@ -41,6 +42,16 @@ public sealed partial class MainPage : Page
     private void UpdateFoldings()
     {
         _foldingStrategy.UpdateFoldings(_foldingManager, _document);
+    }
+
+    private void OnHighlighterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        Editor.HighlightedLineSource = HighlighterComboBox.SelectedIndex switch
+        {
+            0 => _textMateHighlighter,
+            1 => new XshdHighlightedLineSource(HighlightingManager.Instance.GetDefinitionByExtension(".cs")),
+            _ => null,
+        };
     }
 
     private void OnThemeToggleClick(object sender, RoutedEventArgs e)

@@ -23,11 +23,21 @@
           <TextBlock Opacity="0.72"
                      Text="This host is using the portable UnoEdit document core from the ported AvalonEdit model." />
         </StackPanel>
-        <ToggleButton x:Name="ThemeToggle"
-                      Grid.Column="1"
-                      Content="☀ Light"
-                      VerticalAlignment="Center"
-                      Click="OnThemeToggleClick" />
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalAlignment="Center">
+          <ComboBox x:Name="HighlighterComboBox"
+                    SelectedIndex="0"
+                    SelectionChanged="OnHighlighterChanged">
+            <ComboBoxItem Content="TextMate" />
+            <ComboBoxItem Content="XSHD" />
+            <ComboBoxItem Content="None" />
+          </ComboBox>
+          <ToggleButton x:Name="ThemeToggle"
+                        Content="☀ Light"
+                        Click="OnThemeToggleClick" />
+        </StackPanel>
       </Grid>
     </StackPanel>
 

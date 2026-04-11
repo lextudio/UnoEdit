@@ -82,6 +82,7 @@ public sealed partial class TextView : UserControl
     private TextDocument? _document;
     private DocumentHighlighter? _highlighter;
     private IHighlightedLineSource? _highlightedLineSource;
+    private bool _highlightedLineSourceExplicitlySet;
     private int _firstVisibleLineNumber = 1;
     private int _lastVisibleLineNumber;
     private int _desiredColumn = 1;
@@ -89,6 +90,8 @@ public sealed partial class TextView : UserControl
     private bool _isPointerSelecting;
     // When > 0, RefreshViewport() is suppressed and a deferred refresh is pending.
     private int _suppressRefreshDepth;
+    // Guards against re-entrant RefreshViewport() calls (e.g. from synchronous highlighting callbacks).
+    private bool _isRefreshingViewport;
     // When true, the next RefreshViewport() must do a full rebuild (text/theme/fold changed).
     private bool _pendingFullRebuild = true;
     // Visible row range from the previous full RefreshViewport, used for partial-update detection.
@@ -96,6 +99,10 @@ public sealed partial class TextView : UserControl
     private int _prevLastVisualRow = -1;
     // Theme at the last full rebuild — used to detect theme changes that invalidate cached Runs.
     private TextEditorTheme? _prevTheme;
+    // Highlighter source at the last full rebuild — used to detect source swaps that invalidate cached Runs.
+    private IHighlightedLineSource? _prevHighlightedLineSource;
+    // Set when the current highlighter fires HighlightingInvalidated (e.g. theme change within the source).
+    private bool _highlightingDataInvalidated;
 
     private static readonly bool s_debugFlash =
         string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_FLASH"), "1", StringComparison.Ordinal);
@@ -179,6 +186,7 @@ public sealed partial class TextView : UserControl
             }
 
             _highlightedLineSource = value;
+            _highlightedLineSourceExplicitlySet = true;
 
             if (_highlightedLineSource is not null)
             {
@@ -290,6 +298,7 @@ public sealed partial class TextView : UserControl
     private void OnHighlightedLineSourceInvalidated(object? sender, EventArgs e)
     {
         _pendingFullRebuild = true;
+        _highlightingDataInvalidated = true;
         LogFlash("full queued: external highlighting invalidated");
         RefreshViewport();
     }
@@ -517,6 +526,28 @@ public sealed partial class TextView : UserControl
             return;
         }
 
+        if (_isRefreshingViewport)
+        {
+            // Re-entrant call from a synchronous highlighting callback (e.g. TMModel.ForceTokenization
+            // firing ModelTokensChanged during HighlightLine).  _pendingFullRebuild is already set by
+            // the caller; the outer RefreshViewport will finish the current frame correctly.
+            return;
+        }
+
+        _isRefreshingViewport = true;
+        try
+        {
+            RefreshViewportCore();
+        }
+        finally
+        {
+            _isRefreshingViewport = false;
+        }
+    }
+
+    private void RefreshViewportCore()
+    {
+
         if (_document is null)
         {
             _lines.Clear();
@@ -616,10 +647,14 @@ public sealed partial class TextView : UserControl
 
         // ── Full rebuild ────────────────────────────────────────────────────────
         bool themeChanged = !ReferenceEquals(Theme, _prevTheme);
+        bool highlighterChanged = !ReferenceEquals(_highlightedLineSource, _prevHighlightedLineSource);
+        bool highlightingInvalidated = _highlightingDataInvalidated;
         _pendingFullRebuild = false;
+        _highlightingDataInvalidated = false;
         _prevFirstVisualRow = firstVisualRow;
         _prevLastVisualRow  = lastVisualRow;
         _prevTheme          = Theme;
+        _prevHighlightedLineSource = _highlightedLineSource;
 
         int expectedCount = lastVisualRow - firstVisualRow + 1;
         LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} count={expectedCount} prevLineCount={_lines.Count} themeChanged={themeChanged}");
@@ -668,6 +703,8 @@ public sealed partial class TextView : UserControl
             // the brief blank-text flash that otherwise occurs on every caret/selection change.
             if (canReuseExisting
                 && !themeChanged
+                && !highlighterChanged
+                && !highlightingInvalidated
                 && _lines[i].Text == displayText
                 && _lines[i].FoldMarker == foldMarker
                 && ReferenceSegmentSource is null)   // ref-segment source changes handled by _pendingFullRebuild
@@ -685,7 +722,7 @@ public sealed partial class TextView : UserControl
             HighlightedLine? highlightedLine = null;
             try {
                 highlightedLine = _highlightedLineSource?.HighlightLine(lineNumber)
-                    ?? _highlighter?.HighlightLine(lineNumber);
+                    ?? (_highlightedLineSourceExplicitlySet ? null : _highlighter?.HighlightLine(lineNumber));
             } catch {
                 /* ignore errors during highlighting */
             }

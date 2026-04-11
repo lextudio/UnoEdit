@@ -227,6 +227,18 @@
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
 
+  <!-- Platform-specific IME bridges: compiled by the app, listed here for IDE navigation -->
+  <ItemGroup>
+    <None Include="PlatformsWindowsWin32ImeBridge.cs" />
+    <None Include="PlatformsLinuxDBusDBusConstants.cs" />
+    <None Include="PlatformsLinuxDBusDBusMessage.cs" />
+    <None Include="PlatformsLinuxDBusDBusReader.cs" />
+    <None Include="PlatformsLinuxDBusDBusWriter.cs" />
+    <None Include="PlatformsLinuxDBusDBusConnection.cs" />
+    <None Include="PlatformsLinuxIBusIBusConnection.cs" />
+    <None Include="PlatformsLinuxLinuxImeBridge.cs" />
+  </ItemGroup>
+
   <!-- XAML files live in this folder but are compiled by the app project (UnoEdit.Skia.Desktop),
        not by this library.  Remove them from Uno SDK's automatic <Page> glob AFTER that glob
        has been evaluated (Uno.DefaultItems.targets runs after the project file, so a plain

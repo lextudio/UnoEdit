@@ -1,10 +1,14 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Uno.UI.Xaml;
+using UnoEdit.Skia.Desktop.Controls.Platform.Linux;
+using UnoEdit.Skia.Desktop.Controls.Platform.Windows;
 using Windows.Foundation;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -253,6 +257,10 @@ public sealed partial class TextView
         }
     }
 
+    // macOS uses ShouldDeferToPlatformTextInput; Linux-only path returns false here.
+    internal bool TryHandleWithLinuxIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed)
+        => false;
+
     private sealed class MacOSNativeImeBridge : IDisposable
     {
         private static long s_nextEventId;
@@ -445,21 +453,401 @@ public sealed partial class TextView
         }
     }
 #else
+    // -----------------------------------------------------------------------
+    // Windows / Linux IME support
+    // -----------------------------------------------------------------------
+
+    // Composition state tracked in the document.
+    private bool _isComposing;
+    private int _compositionStartOffset;
+    private int _compositionLength;
+
+    // Platform-specific bridges (at most one is non-null at runtime).
+    private Win32ImeBridge? _win32ImeBridge;
+    private LinuxImeBridge? _linuxImeBridge;
+
     partial void InitializePlatformInputBridge()
     {
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows))
+        {
+            Loaded += OnPlatformInputLoaded;
+            Unloaded += OnPlatformInputUnloaded;
+        }
+        else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                     System.Runtime.InteropServices.OSPlatform.Linux))
+        {
+            Loaded += OnPlatformInputLoaded;
+            Unloaded += OnPlatformInputUnloaded;
+        }
     }
 
     partial void UpdatePlatformInputBridge()
     {
+        Rect rect = CalculatePlatformInputCaretRect();
+        if (_win32ImeBridge is { } win32)
+        {
+            win32.CaretRect = rect;
+            win32.PositionImeWindow();
+        }
+        else if (_linuxImeBridge is { IsAvailable: true } linux)
+        {
+            linux.UpdateCursorLocation(rect);
+        }
     }
 
     partial void FocusPlatformInputBridge()
     {
+        _linuxImeBridge?.FocusIn();
     }
 
     private partial bool ShouldDeferToPlatformTextInput(bool controlPressed)
     {
+        // Windows and Linux do NOT defer Uno key events; IME integration is handled
+        // via WndProc subclassing (Win32) and explicit key forwarding (Linux IBus).
         return false;
+    }
+
+    /// <summary>
+    /// Forwards a key to the Linux IBus bridge before normal UnoEdit processing.
+    /// Returns true if IBus consumed the key (caller should suppress normal handling).
+    /// Only active on Linux; always returns false on Windows.
+    /// </summary>
+    internal bool TryHandleWithLinuxIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed)
+    {
+        if (_linuxImeBridge is not { IsAvailable: true } bridge)
+        {
+            return false;
+        }
+
+        // Control-key shortcuts are handled by the editor, not the IME.
+        if (controlPressed)
+        {
+            return false;
+        }
+
+        uint keyval = ConvertToX11Keysym(key, shiftPressed);
+        if (keyval == 0)
+        {
+            return false; // unknown key — let UnoEdit handle it
+        }
+
+        uint state = GetX11ModifierState(shiftPressed, controlPressed);
+        return bridge.ProcessKeyEvent(keyval, 0, state);
+    }
+
+    // -----------------------------------------------------------------------
+    // Composition document management
+    // -----------------------------------------------------------------------
+
+    internal void HandleCompositionStart()
+    {
+        _compositionStartOffset = CurrentOffset;
+        _compositionLength = 0;
+        _isComposing = true;
+        UpdatePlatformInputBridge();
+    }
+
+    internal void HandleCompositionUpdate(string text)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        if (!_isComposing)
+        {
+            HandleCompositionStart();
+        }
+
+        using (_document.RunUpdate())
+        {
+            if (_compositionLength > 0)
+            {
+                _document.Remove(_compositionStartOffset, _compositionLength);
+            }
+
+            if (text.Length > 0)
+            {
+                _document.Insert(_compositionStartOffset, text);
+            }
+
+            _compositionLength = text.Length;
+        }
+
+        CollapseSelection(_compositionStartOffset + text.Length);
+        UpdatePlatformInputBridge();
+    }
+
+    internal void HandleCompositionEnd()
+    {
+        if (_document is null || !_isComposing)
+        {
+            _isComposing = false;
+            _compositionLength = 0;
+            return;
+        }
+
+        if (_compositionLength > 0)
+        {
+            using (_document.RunUpdate())
+            {
+                _document.Remove(_compositionStartOffset, _compositionLength);
+            }
+
+            _compositionLength = 0;
+            CollapseSelection(_compositionStartOffset);
+        }
+
+        _isComposing = false;
+        UpdatePlatformInputBridge();
+    }
+
+    internal void HandleCompositionCommit(string text)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        int insertAt = _isComposing ? _compositionStartOffset : CurrentOffset;
+        int removeLen = _isComposing ? _compositionLength : 0;
+
+        using (_document.RunUpdate())
+        {
+            if (removeLen > 0)
+            {
+                _document.Remove(insertAt, removeLen);
+            }
+
+            _document.Insert(insertAt, text);
+        }
+
+        _isComposing = false;
+        _compositionLength = 0;
+        CollapseSelection(insertAt + text.Length);
+        UpdatePlatformInputBridge();
+    }
+
+    // -----------------------------------------------------------------------
+    // Bridge lifecycle
+    // -----------------------------------------------------------------------
+
+    private void OnPlatformInputLoaded(object sender, RoutedEventArgs e)
+    {
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows))
+        {
+            EnsureWin32ImeBridge();
+        }
+        else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                     System.Runtime.InteropServices.OSPlatform.Linux))
+        {
+            EnsureLinuxImeBridge();
+        }
+
+        UpdatePlatformInputBridge();
+    }
+
+    private void OnPlatformInputUnloaded(object sender, RoutedEventArgs e)
+    {
+        _win32ImeBridge?.Dispose();
+        _win32ImeBridge = null;
+        _linuxImeBridge?.Dispose();
+        _linuxImeBridge = null;
+    }
+
+    private void EnsureWin32ImeBridge()
+    {
+        if (_win32ImeBridge is not null)
+        {
+            return;
+        }
+
+        nint hwnd = TryGetNativeWindowHandleForCurrentPlatform();
+        if (hwnd == nint.Zero)
+        {
+            return;
+        }
+
+        _win32ImeBridge = Win32ImeBridge.TryCreate(hwnd);
+        if (_win32ImeBridge is null)
+        {
+            return;
+        }
+
+        _win32ImeBridge.CompositionStarted += () => HandleCompositionStart();
+        _win32ImeBridge.CompositionUpdated += text => HandleCompositionUpdate(text);
+        _win32ImeBridge.CompositionEnded += () => HandleCompositionEnd();
+        _win32ImeBridge.TextCommitted += text => HandleCompositionCommit(text);
+    }
+
+    private void EnsureLinuxImeBridge()
+    {
+        if (_linuxImeBridge is not null)
+        {
+            return;
+        }
+
+        _linuxImeBridge = LinuxImeBridge.TryCreate();
+        if (_linuxImeBridge is null)
+        {
+            return;
+        }
+
+        _linuxImeBridge.TextCommitted += text => HandleCompositionCommit(text);
+        _linuxImeBridge.PreeditUpdated += text => HandleCompositionUpdate(text);
+        _linuxImeBridge.PreeditEnded += () => HandleCompositionEnd();
+
+        _linuxImeBridge.FocusIn();
+    }
+
+    // -----------------------------------------------------------------------
+    // Caret rect (shared between macOS and Windows/Linux)
+    // -----------------------------------------------------------------------
+
+    private Rect CalculatePlatformInputCaretRect()
+    {
+        if (_document is null || _visibleDocLines.Count == 0 || RootBorder.XamlRoot is null)
+        {
+            return Rect.Empty;
+        }
+
+        TextLocation location = _document.GetLocation(CurrentOffset);
+        DocumentLine line = _document.GetLineByNumber(location.Line);
+        string lineText = _document.GetText(line);
+        int logicalColumn = Math.Clamp(location.Column - 1, 0, lineText.Length);
+
+        int visualRow = GetVisualRow(location.Line);
+        if (visualRow < 0)
+        {
+            visualRow = 0;
+        }
+
+        double x = GutterWidth + TextLeftPadding + GetDisplayColumnX(lineText, logicalColumn) - TextScrollViewer.HorizontalOffset;
+        double y = (visualRow * LineHeight) - TextScrollViewer.VerticalOffset;
+
+        GeneralTransform transform = RootBorder.TransformToVisual(null);
+        Point point = transform.TransformPoint(new Point(x, y));
+
+        return new Rect(point.X, point.Y + 3d, 2d, 16d);
+    }
+
+    // -----------------------------------------------------------------------
+    // Native window handle (Windows / Linux shared)
+    // -----------------------------------------------------------------------
+
+    private static nint TryGetNativeWindowHandleForCurrentPlatform()
+    {
+        Window? window = Window.Current;
+        if (window is null)
+        {
+            return nint.Zero;
+        }
+
+        object? nativeWindow = WindowHelper.GetNativeWindow(window);
+        if (nativeWindow is null)
+        {
+            return nint.Zero;
+        }
+
+        PropertyInfo? handleProperty = nativeWindow.GetType().GetProperty(
+            "Handle",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+
+        if (handleProperty?.GetValue(nativeWindow) is nint handle)
+        {
+            return handle;
+        }
+
+        if (handleProperty?.GetValue(nativeWindow) is IntPtr intPtrHandle)
+        {
+            return intPtrHandle;
+        }
+
+        if (handleProperty?.GetValue(nativeWindow) is long longHandle)
+        {
+            return new nint(longHandle);
+        }
+
+        return nint.Zero;
+    }
+
+    // -----------------------------------------------------------------------
+    // X11 keysym / modifier helpers (Linux IBus)
+    // -----------------------------------------------------------------------
+
+    private static uint ConvertToX11Keysym(Windows.System.VirtualKey key, bool shiftPressed)
+    {
+        if (key >= Windows.System.VirtualKey.A && key <= Windows.System.VirtualKey.Z)
+        {
+            int offset = (int)key - (int)Windows.System.VirtualKey.A;
+            return shiftPressed ? (uint)(0x41 + offset) : (uint)(0x61 + offset);
+        }
+
+        if (key >= Windows.System.VirtualKey.Number0 && key <= Windows.System.VirtualKey.Number9)
+        {
+            int digit = (int)key - (int)Windows.System.VirtualKey.Number0;
+            if (shiftPressed)
+            {
+                // US keyboard shifted digits
+                uint[] shifted = [0x29, 0x21, 0x40, 0x23, 0x24, 0x25, 0x5E, 0x26, 0x2A, 0x28]; // ) ! @ # $ % ^ & * (
+                return digit < shifted.Length ? shifted[digit] : 0;
+            }
+
+            return (uint)(0x30 + digit);
+        }
+
+        return key switch
+        {
+            Windows.System.VirtualKey.Back => 0xFF08u,    // BackSpace
+            Windows.System.VirtualKey.Tab => 0xFF09u,     // Tab
+            Windows.System.VirtualKey.Return => 0xFF0Du,  // Return
+            Windows.System.VirtualKey.Escape => 0xFF1Bu,  // Escape
+            Windows.System.VirtualKey.Space => 0x0020u,   // space
+            Windows.System.VirtualKey.PageUp => 0xFF55u,
+            Windows.System.VirtualKey.PageDown => 0xFF56u,
+            Windows.System.VirtualKey.End => 0xFF57u,
+            Windows.System.VirtualKey.Home => 0xFF50u,
+            Windows.System.VirtualKey.Left => 0xFF51u,
+            Windows.System.VirtualKey.Up => 0xFF52u,
+            Windows.System.VirtualKey.Right => 0xFF53u,
+            Windows.System.VirtualKey.Down => 0xFF54u,
+            Windows.System.VirtualKey.Delete => 0xFFFFu,
+            (Windows.System.VirtualKey)186 => shiftPressed ? 0x3Au : 0x3Bu, // : or ;
+            (Windows.System.VirtualKey)187 => shiftPressed ? 0x2Bu : 0x3Du, // + or =
+            (Windows.System.VirtualKey)188 => shiftPressed ? 0x3Cu : 0x2Cu, // < or ,
+            (Windows.System.VirtualKey)189 => shiftPressed ? 0x5Fu : 0x2Du, // _ or -
+            (Windows.System.VirtualKey)190 => shiftPressed ? 0x3Eu : 0x2Eu, // > or .
+            (Windows.System.VirtualKey)191 => shiftPressed ? 0x3Fu : 0x2Fu, // ? or /
+            (Windows.System.VirtualKey)219 => shiftPressed ? 0x7Bu : 0x5Bu, // { or [
+            (Windows.System.VirtualKey)220 => shiftPressed ? 0x7Cu : 0x5Cu, // | or \
+            (Windows.System.VirtualKey)221 => shiftPressed ? 0x7Du : 0x5Du, // } or ]
+            (Windows.System.VirtualKey)222 => shiftPressed ? 0x22u : 0x27u, // " or '
+            _ => 0u
+        };
+    }
+
+    private static uint GetX11ModifierState(bool shiftPressed, bool controlPressed)
+    {
+        uint state = 0;
+        if (shiftPressed)
+        {
+            state |= 0x0001; // ShiftMask
+        }
+
+        if (controlPressed)
+        {
+            state |= 0x0004; // ControlMask
+        }
+
+        var flags = Windows.UI.Core.CoreVirtualKeyStates.Down;
+        if (InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(flags))
+        {
+            state |= 0x0008; // Mod1Mask (Alt)
+        }
+
+        return state;
     }
 #endif
 }

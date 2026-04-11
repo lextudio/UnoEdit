@@ -34,6 +34,22 @@
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
   </ItemGroup>
 
+  <!-- Windows IME bridge -->
+  <ItemGroup>
+    <Compile Include="../UnoEdit/Platforms/Windows/Win32ImeBridge.cs" />
+  </ItemGroup>
+
+  <!-- Linux IBus IME bridge -->
+  <ItemGroup>
+    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusConstants.cs" />
+    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusMessage.cs" />
+    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusReader.cs" />
+    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusWriter.cs" />
+    <Compile Include="../UnoEdit/Platforms/Linux/DBus/DBusConnection.cs" />
+    <Compile Include="../UnoEdit/Platforms/Linux/IBus/IBusConnection.cs" />
+    <Compile Include="../UnoEdit/Platforms/Linux/LinuxImeBridge.cs" />
+  </ItemGroup>
+
   <!-- Import macOS IME support automatically -->
   <Import Project="../UnoEdit/UnoEdit.MacOS.IME.targets" />
 

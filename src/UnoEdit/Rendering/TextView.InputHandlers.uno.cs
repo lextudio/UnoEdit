@@ -37,9 +37,18 @@ public sealed partial class TextView
         bool extendSelection = IsShiftPressed();
         bool controlPressed = IsControlPressed();
 
+        // macOS: defer all key handling to the native AppKit bridge.
         if (ShouldDeferToPlatformTextInput(controlPressed))
         {
             LogMacIme($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
+            e.Handled = true;
+            return;
+        }
+
+        // Linux: forward the key to IBus synchronously before UnoEdit processes it.
+        // If IBus handles the key (e.g. for IME composition), suppress normal processing.
+        if (TryHandleWithLinuxIme(e.Key, controlPressed, extendSelection))
+        {
             e.Handled = true;
             return;
         }

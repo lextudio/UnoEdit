@@ -199,6 +199,42 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 			listBox = new CompletionListBox { ItemsSource = completionData };
 			listBox.SelectionChanged += ListBox_SelectionChanged;
 			Content = listBox;
+
+			// Ensure the completion popup has an opaque background (not transparent).
+			// Prefer the editor background resource when available to match AvalonEdit styling.
+			try {
+				var app = Application.Current;
+				if (app?.Resources != null &&
+					app.Resources.ContainsKey("CompletionBackgroundBrush") &&
+					app.Resources.ContainsKey("CompletionForegroundBrush"))
+				{
+					var resBg = app.Resources["CompletionBackgroundBrush"] as Microsoft.UI.Xaml.Media.Brush;
+					var resFg = app.Resources["CompletionForegroundBrush"] as Microsoft.UI.Xaml.Media.Brush;
+					if (resBg != null) Background = resBg;
+					if (resFg != null) Foreground = resFg;
+					if (listBox != null) {
+						listBox.Background = resBg ?? listBox.Background;
+						listBox.Foreground = resFg ?? listBox.Foreground;
+					}
+				}
+				else {
+					var theme = app?.RequestedTheme ?? Microsoft.UI.Xaml.ApplicationTheme.Dark;
+					if (theme == Microsoft.UI.Xaml.ApplicationTheme.Light) {
+						var bg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+						var fg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 17, 24, 39));
+						Background = bg; Foreground = fg;
+						if (listBox != null) { listBox.Background = bg; listBox.Foreground = fg; }
+					} else {
+						var bg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 17, 24, 39));
+						var fg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 229, 231, 235));
+						Background = bg; Foreground = fg;
+						if (listBox != null) { listBox.Background = bg; listBox.Foreground = fg; }
+					}
+				}
+			}
+			catch {
+				// Swallow resource lookup errors; fall back to default brush.
+			}
 		}
 
 		void ListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

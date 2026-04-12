@@ -39,7 +39,9 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		readonly ObserveAddRemoveCollection<IBackgroundRenderer> backgroundRenderers;
 		readonly ServiceContainer services = new ServiceContainer();
 		readonly HashSet<KnownLayer> invalidatedLayers = new HashSet<KnownLayer>();
+		readonly List<CollapsedLineSection> collapsedLineSections = new List<CollapsedLineSection>();
 		TextDocument document;
+		HeightTree heightTree;
 
 		public TextView()
 		{
@@ -55,6 +57,9 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			set {
 				if (!ReferenceEquals(document, value)) {
 					document = value;
+					heightTree?.Dispose();
+					heightTree = document != null ? new HeightTree(document, DefaultLineHeight > 0 ? DefaultLineHeight : 1.0) : null;
+					collapsedLineSections.Clear();
 					VisualLinesValid = false;
 					VisualLines = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
 					DocumentHeight = 0;
@@ -244,11 +249,19 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			}
 			internal set { documentHeight = value; }
 		}
-		public double DefaultLineHeight { get; internal set; }
+		public double DefaultLineHeight {
+			get { return defaultLineHeight; }
+			internal set {
+				defaultLineHeight = value;
+				if (heightTree != null)
+					heightTree.DefaultLineHeight = value > 0 ? value : 1.0;
+			}
+		}
 		public double DefaultBaseline { get; internal set; }
 		public double WideSpaceWidth { get; internal set; }
 		public double EmptyLineSelectionWidth { get; set; } = 1.0;
 		double documentHeight;
+		double defaultLineHeight;
 
 		// ----------------------------------------------------------------
 		// Scroll state
@@ -458,8 +471,24 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			Layers.Add(layer);
 		}
 
-		/// <summary>Collapses lines between the start and end document lines; stub.</summary>
-		public CollapsedLineSection CollapseLines(DocumentLine start, DocumentLine end) => null;
+		/// <summary>Collapses lines between the start and end document lines using the shared height-tree backend.</summary>
+		public CollapsedLineSection CollapseLines(DocumentLine start, DocumentLine end)
+		{
+			if (Document == null)
+				throw new InvalidOperationException("Cannot collapse lines without a document.");
+			if (start == null)
+				throw new ArgumentNullException(nameof(start));
+			if (end == null)
+				throw new ArgumentNullException(nameof(end));
+			if (start.LineNumber > end.LineNumber)
+				throw new ArgumentException("The start line must not come after the end line.");
+
+			heightTree ??= new HeightTree(Document, DefaultLineHeight > 0 ? DefaultLineHeight : 1.0);
+			CollapsedLineSection section = heightTree.CollapseText(start, end);
+			collapsedLineSections.Add(section);
+			Redraw();
+			return section;
+		}
 
 		/// <summary>Raised when shared code requests a cursor redraw.</summary>
 		public static event EventHandler CursorInvalidated;

@@ -26,23 +26,57 @@ namespace ICSharpCode.AvalonEdit.Editing
 	/// </summary>
 	public abstract class TextAreaStackedInputHandler : ITextAreaInputHandler
 	{
+		bool isAttached;
+		int previewKeyEventVersion;
+
 		/// <inheritdoc/>
 		public object TextArea { get; }
 
 		/// <summary>Creates a new TextAreaStackedInputHandler.</summary>
 		protected TextAreaStackedInputHandler(object textArea) { TextArea = textArea; }
 
-		/// <inheritdoc/>
-		public virtual void Attach() { }
+		/// <summary>Gets whether the handler is currently attached.</summary>
+		public bool IsAttached => isAttached;
+
+		internal int PreviewKeyEventVersion => previewKeyEventVersion;
+
+		internal object LastPreviewKeyDownEvent { get; private set; }
+
+		internal object LastPreviewKeyUpEvent { get; private set; }
 
 		/// <inheritdoc/>
-		public virtual void Detach() { }
+		public virtual void Attach()
+		{
+			isAttached = true;
+		}
+
+		/// <inheritdoc/>
+		public virtual void Detach()
+		{
+			isAttached = false;
+			LastPreviewKeyDownEvent = null;
+			LastPreviewKeyUpEvent = null;
+		}
 
 		/// <summary>Called for PreviewKeyDown events.</summary>
-		public virtual void OnPreviewKeyDown(object e) { }
+		public virtual void OnPreviewKeyDown(object e)
+		{
+			if (!isAttached)
+				return;
+
+			LastPreviewKeyDownEvent = e;
+			previewKeyEventVersion++;
+		}
 
 		/// <summary>Called for PreviewKeyUp events.</summary>
-		public virtual void OnPreviewKeyUp(object e) { }
+		public virtual void OnPreviewKeyUp(object e)
+		{
+			if (!isAttached)
+				return;
+
+			LastPreviewKeyUpEvent = e;
+			previewKeyEventVersion++;
+		}
 	}
 
 	/// <summary>

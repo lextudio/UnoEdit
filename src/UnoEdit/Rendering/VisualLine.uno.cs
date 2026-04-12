@@ -219,27 +219,46 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>
-		/// Gets the visual X position of the specified visual column in the text line.
-		/// Returns 0 because Uno does not expose per-column X metrics from this layer.
-		/// </summary>
-		public double GetTextLineVisualXPosition(UnoTextLine textLine, int visualColumn) => 0.0;
-
-		/// <summary>
 		/// Gets the visual position of the specified visual column.
-		/// X is approximated as 0 (column-level X not available in Uno rendering layer).
+		/// X uses the approximate Uno single-line character width model.
 		/// Y is computed from <see cref="VisualTop"/> and the requested mode.
 		/// </summary>
 		public Windows.Foundation.Point GetVisualPosition(int visualColumn, VisualYPosition yPositionMode)
 		{
 			double y = GetTextLineVisualYPosition(TextLines[0], yPositionMode);
-			return new Windows.Foundation.Point(0, y);
+			double x = GetTextLineVisualXPosition(TextLines[0], visualColumn);
+			return new Windows.Foundation.Point(x, y);
 		}
 
 		/// <summary>
 		/// Gets the visual column at the specified visual position (floor mode).
 		/// Returns 0 because column-level X metrics are not available in Uno rendering layer.
 		/// </summary>
-		public int GetVisualColumnFloor(Windows.Foundation.Point visualPosition, bool allowVirtualSpace = false) => 0;
+		public double GetTextLineVisualXPosition(UnoTextLine textLine, int visualColumn)
+		{
+			if (textLine == null)
+				throw new ArgumentNullException(nameof(textLine));
+			if (textLine.Owner != this)
+				throw new ArgumentException("The text line does not belong to this visual line.", nameof(textLine));
+
+			double charWidth = textView?.WideSpaceWidth > 0 ? textView.WideSpaceWidth : 1.0;
+			int clampedColumn = Math.Max(0, visualColumn);
+			return clampedColumn * charWidth;
+		}
+
+		/// <summary>
+		/// Gets the visual column at the specified visual position (floor mode).
+		/// Uses the Uno single-line model and approximate character width metrics.
+		/// </summary>
+		public int GetVisualColumnFloor(Windows.Foundation.Point visualPosition, bool allowVirtualSpace = false)
+		{
+			double charWidth = textView?.WideSpaceWidth > 0 ? textView.WideSpaceWidth : 1.0;
+			int visualColumn = (int)Math.Floor(Math.Max(0, visualPosition.X) / charWidth);
+			if (allowVirtualSpace)
+				return visualColumn;
+
+			return Math.Min(visualColumn, Math.Max(0, VisualLength));
+		}
 
 		/// <summary>
 		/// Gets the TextViewPosition at the visual position (floor mode).

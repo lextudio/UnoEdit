@@ -387,13 +387,40 @@ namespace System.Windows.Media
 
 	/// <summary>
 	/// Compiler shim for System.Windows.Media.DrawingContext.
-	/// On Uno the actual drawing is performed through Uno's Skia canvas; this stub
-	/// exists only so that <see cref="ICSharpCode.AvalonEdit.Rendering.IBackgroundRenderer"/>
-	/// can keep the same interface signature as the WPF version.
+	/// On Uno the actual drawing is performed through Uno's Skia canvas; this compatibility
+	/// object records draw operations so shared rendering code keeps a meaningful contract.
 	/// </summary>
-	public abstract class DrawingContext : System.IDisposable
+	public class DrawingContext : System.IDisposable
 	{
-		public virtual void Dispose() { }
+		readonly System.Collections.Generic.List<object> _operations = new System.Collections.Generic.List<object>();
+
+		public sealed class DrawOperation
+		{
+			public DrawOperation(string kind, object? payload)
+			{
+				Kind = kind ?? string.Empty;
+				Payload = payload;
+			}
+
+			public string Kind { get; }
+			public object? Payload { get; }
+		}
+
+		public System.Collections.Generic.IReadOnlyList<object> Operations => _operations;
+
+		public bool IsDisposed { get; private set; }
+
+		public virtual void Record(string kind, object? payload)
+		{
+			if (IsDisposed)
+				throw new ObjectDisposedException(nameof(DrawingContext));
+			_operations.Add(new DrawOperation(kind, payload));
+		}
+
+		public virtual void Dispose()
+		{
+			IsDisposed = true;
+		}
 	}
 
 	/// <summary>Parses font-style strings. Shim for WPF's TypeConverter.</summary>

@@ -15,6 +15,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	public sealed class BackgroundGeometryBuilder
 	{
 		readonly List<Rect> rectangles = new List<Rect>();
+		readonly List<int> closedFigureOffsets = new List<int>();
 
 		/// <summary>Creates a new BackgroundGeometryBuilder.</summary>
 		public BackgroundGeometryBuilder() { }
@@ -76,8 +77,18 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			rectangles.Add(new Rect(left, top, right - left, bottom - top));
 		}
 
-		/// <summary>Closes the current figure.</summary>
-		public void CloseFigure() { }
+		/// <summary>Closes the current figure so later rectangles start a new grouping boundary.</summary>
+		public void CloseFigure()
+		{
+			int rectangleCount = rectangles.Count;
+			if (rectangleCount == 0)
+				return;
+
+			if (closedFigureOffsets.Count == 0 || closedFigureOffsets[closedFigureOffsets.Count - 1] != rectangleCount)
+				closedFigureOffsets.Add(rectangleCount);
+		}
+
+		internal IReadOnlyList<int> ClosedFigureOffsets => closedFigureOffsets;
 
 		/// <summary>Creates the final geometry.</summary>
 		public object CreateGeometry()

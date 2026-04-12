@@ -23,3 +23,14 @@ The main deliverable is a few NuGet packages:
 - `UnoEdit` — the core editor component, including document model, editing engine, and platform-agnostic UI logic.
 - `UnoEdit.TextMate` — optional TextMate integration library built on top of `UnoEdit`.
 
+## Current Status
+
+- Public API parity against AvalonEdit currently measures `193/193` types and `1295/1295` members.
+- Behavioral parity is tracked separately with the local parity detector. The latest stub-aware pass reports `50` suspected stubs.
+- The shared regression suite currently passes `268/268`.
+
+## Recent Phase 11 Progress
+
+- Replaced the shared text-run property bag and construction context placeholders with concrete cloneable state.
+- Replaced the formatted-text and drawing compatibility shells so formatted runs now carry prepared text, compute bounds, and record draw operations.
+- Replaced the next cursor and geometry placeholders so cursor invalidation is observable, geometry figures can be closed explicitly, and text-composition system text is preserved when provided.

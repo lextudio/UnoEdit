@@ -199,8 +199,17 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			}
 		}
 
-		/// <summary>Gets the visual start column of the specified text line (always 0 in single-line model).</summary>
-		public int GetTextLineVisualStartColumn(UnoTextLine textLine) => 0;
+		/// <summary>Gets the visual start column of the specified text line in the single-line Uno model.</summary>
+		public int GetTextLineVisualStartColumn(UnoTextLine textLine)
+		{
+			if (textLine == null)
+				throw new ArgumentNullException(nameof(textLine));
+			if (textLine.Owner != this)
+				throw new ArgumentException("The text line does not belong to this visual line.", nameof(textLine));
+
+			int startColumn = 0;
+			return startColumn;
+		}
 
 		/// <summary>Gets the text line for the specified visual column.</summary>
 		public UnoTextLine GetTextLine(int visualColumn, bool isAtEndOfLine = false)

@@ -461,8 +461,17 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Collapses lines between the start and end document lines; stub.</summary>
 		public CollapsedLineSection CollapseLines(DocumentLine start, DocumentLine end) => null;
 
-		/// <summary>Invalidates the cursor; no-op in this stub.</summary>
-		public static void InvalidateCursor() { }
+		/// <summary>Raised when shared code requests a cursor redraw.</summary>
+		public static event EventHandler CursorInvalidated;
+
+		internal static int CursorInvalidationVersion { get; private set; }
+
+		/// <summary>Invalidates the cursor and notifies active hosts that caret visuals need repainting.</summary>
+		public static void InvalidateCursor()
+		{
+			CursorInvalidationVersion++;
+			CursorInvalidated?.Invoke(null, EventArgs.Empty);
+		}
 
 		/// <summary>Makes the given rectangle visible by adjusting the stored scroll offsets.</summary>
 		public virtual void MakeVisible(Rect rectangle)

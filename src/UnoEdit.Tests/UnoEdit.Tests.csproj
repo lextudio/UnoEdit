@@ -45,6 +45,9 @@
     <Compile Include="Editing\SelectionTests.cs" />
     <Compile Include="Folding\FoldingManagerTests.cs" />
     <Compile Include="Rendering\RenderingSplitTests.cs" />
+    <Compile Include="Rendering\BackgroundGeometryBuilderTests.cs" />
+    <Compile Include="Rendering\FormattedTextTypesTests.cs" />
+    <Compile Include="Rendering\TextViewCursorTests.cs" />
     <Compile Include="Rendering\TextRunPropertiesTests.cs" />
     <Compile Include="Rendering\TextViewLayoutTests.cs" />
     <Compile Include="Rendering\TextViewRenderingHostTests.cs" />

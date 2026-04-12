@@ -122,6 +122,11 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			this.TextRunProperties = p;
 		}
 
+		internal void SetTextRunPropertiesForTests(VisualLineElementTextRunProperties p)
+		{
+			SetTextRunProperties(p);
+		}
+
 		/// <summary>
 		/// Gets if this VisualLineElement can be split.
 		/// </summary>

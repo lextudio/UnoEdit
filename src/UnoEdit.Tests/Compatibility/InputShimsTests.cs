@@ -48,4 +48,13 @@ public class InputShimsTests
         Assert.That(args.ControlText, Is.EqualTo("\t"));
         Assert.That(args.SystemText, Is.EqualTo(string.Empty));
     }
+
+    [Test]
+    public void TextCompositionEventArgs_SystemText_PreservesExplicitSystemText()
+    {
+        var args = new TextCompositionEventArgs(string.Empty, "x");
+
+        Assert.That(args.SystemText, Is.EqualTo("x"));
+        Assert.That(args.ControlText, Is.EqualTo(string.Empty));
+    }
 }

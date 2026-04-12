@@ -148,7 +148,7 @@ namespace ICSharpCode.AvalonEdit.Editing
 			return data;
 		}
 
-		/// <summary>Creates an HTML fragment for the selection (stub).</summary>
+		/// <summary>Creates an HTML fragment for the selection.</summary>
 		public virtual string CreateHtmlFragment(object options)
 		{
 			if (!TryGetDocument(GetTextAreaOwner(this), out var document))

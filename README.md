@@ -26,8 +26,8 @@ The main deliverable is a few NuGet packages:
 ## Current Status
 
 - Public API parity against AvalonEdit currently measures `193/193` types and `1295/1295` members.
-- Behavioral parity is tracked separately with the local parity detector. The latest stub-aware pass reports `43` suspected stubs.
-- The shared regression suite currently passes `271/271`.
+- Behavioral parity is tracked separately with the local parity detector. The latest stub-aware pass reports `10` suspected stubs.
+- The shared regression suite currently passes `272/272`.
 
 ## Recent Phase 11 Progress
 
@@ -35,3 +35,4 @@ The main deliverable is a few NuGet packages:
 - Replaced the formatted-text and drawing compatibility shells so formatted runs now carry prepared text, compute bounds, and record draw operations.
 - Replaced the next cursor and geometry placeholders so cursor invalidation is observable, geometry figures can be closed explicitly, and text-composition system text is preserved when provided.
 - Replaced the next requested rendering/input-handler bucket so collapse sections are real, `VisualLine` maps X to columns in the single-line Uno model, and `TextAreaStackedInputHandler` has real lifecycle/event state.
+- Replaced the typography compatibility shell so the AvalonEdit-shaped typography surface now carries stored state instead of literal placeholder getters.

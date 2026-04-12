@@ -51,4 +51,55 @@ public class TextRunPropertiesTests
         Assert.That(clone.TextDecorations, Is.Not.SameAs(properties.TextDecorations));
         Assert.That(clone.TextEffects, Is.Not.SameAs(properties.TextEffects));
     }
+
+    [Test]
+    public void TypographyProperties_CanCarryConfiguredFeatureState()
+    {
+        var typography = new DefaultTextRunTypographyProperties(
+            annotationAlternates: 2,
+            capitals: DefaultTextRunTypographyProperties.TypographyKind.Normal,
+            capitalSpacing: true,
+            caseSensitiveForms: true,
+            contextualAlternates: false,
+            contextualLigatures: false,
+            contextualSwashes: 3,
+            discretionaryLigatures: true,
+            eastAsianExpertForms: true,
+            eastAsianLanguage: DefaultTextRunTypographyProperties.TypographyKind.Proportional,
+            eastAsianWidths: DefaultTextRunTypographyProperties.TypographyKind.Default,
+            fraction: DefaultTextRunTypographyProperties.TypographyKind.Normal,
+            historicalForms: true,
+            historicalLigatures: true,
+            kerning: false,
+            mathematicalGreek: true,
+            numeralAlignment: DefaultTextRunTypographyProperties.TypographyKind.Default,
+            numeralStyle: DefaultTextRunTypographyProperties.TypographyKind.Proportional,
+            slashedZero: true,
+            standardLigatures: false,
+            standardSwashes: 4,
+            stylisticAlternates: 5,
+            variants: DefaultTextRunTypographyProperties.TypographyKind.Proportional,
+            stylisticSets: new[] { true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false });
+
+        Assert.That(typography.AnnotationAlternates, Is.EqualTo(2));
+        Assert.That(typography.CapitalSpacing, Is.True);
+        Assert.That(typography.CaseSensitiveForms, Is.True);
+        Assert.That(typography.ContextualAlternates, Is.False);
+        Assert.That(typography.ContextualLigatures, Is.False);
+        Assert.That(typography.ContextualSwashes, Is.EqualTo(3));
+        Assert.That(typography.DiscretionaryLigatures, Is.True);
+        Assert.That(typography.EastAsianExpertForms, Is.True);
+        Assert.That(typography.HistoricalForms, Is.True);
+        Assert.That(typography.HistoricalLigatures, Is.True);
+        Assert.That(typography.Kerning, Is.False);
+        Assert.That(typography.MathematicalGreek, Is.True);
+        Assert.That(typography.SlashedZero, Is.True);
+        Assert.That(typography.StandardLigatures, Is.False);
+        Assert.That(typography.StandardSwashes, Is.EqualTo(4));
+        Assert.That(typography.StylisticAlternates, Is.EqualTo(5));
+        Assert.That(typography.StylisticSet1, Is.True);
+        Assert.That(typography.StylisticSet2, Is.False);
+        Assert.That(typography.StylisticSet19, Is.True);
+        Assert.That(typography.StylisticSet20, Is.False);
+    }
 }

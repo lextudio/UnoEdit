@@ -55,7 +55,7 @@ public class SelectionTests
             new TextViewPosition(1, 2, 1),
             new TextViewPosition(3, 4, 3));
 
-        Assert.That(selection.GetText(), Is.EqualTo("bc\nfg\njk"));
+        Assert.That(selection.GetText().Replace("\r\n", "\n"), Is.EqualTo("bc\nfg\njk"));
         Assert.That(selection.IsMultiline, Is.True);
         Assert.That(selection.EnableVirtualSpace, Is.True);
     }

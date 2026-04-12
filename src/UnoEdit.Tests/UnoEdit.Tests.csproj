@@ -42,8 +42,12 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit.Tests\Utils\RopeTests.cs" Link="Utils\RopeTests.cs" />
     <Compile Include="Document\LargeFileTests.cs" />
     <Compile Include="Editing\CaretTests.cs" />
+    <Compile Include="Editing\SelectionTests.cs" />
     <Compile Include="Folding\FoldingManagerTests.cs" />
     <Compile Include="Rendering\RenderingSplitTests.cs" />
+    <Compile Include="Rendering\TextRunPropertiesTests.cs" />
+    <Compile Include="Rendering\TextViewLayoutTests.cs" />
+    <Compile Include="Rendering\TextViewRenderingHostTests.cs" />
     <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />
     <Compile Include="Rendering\VisibleLineMapperTests.cs" />
     <Compile Include="Search\SearchCommandsTests.cs" />

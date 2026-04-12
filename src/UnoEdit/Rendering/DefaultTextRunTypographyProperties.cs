@@ -1,13 +1,12 @@
-// Stub for DefaultTextRunTypographyProperties — replaces WPF TextRunTypographyProperties.
-// All properties return default values.
 namespace ICSharpCode.AvalonEdit.Rendering
 {
 	/// <summary>
-	/// Stub implementation of DefaultTextRunTypographyProperties.
-	/// Returns default values for all typography properties.
+	/// Default typography properties for UnoEdit text runs.
 	/// </summary>
 	public class DefaultTextRunTypographyProperties
 	{
+		public static readonly DefaultTextRunTypographyProperties Default = new DefaultTextRunTypographyProperties();
+
 		public enum TypographyKind
 		{
 			Default,

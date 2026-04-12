@@ -38,6 +38,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		readonly ObserveAddRemoveCollection<IVisualLineTransformer> lineTransformers;
 		readonly ObserveAddRemoveCollection<IBackgroundRenderer> backgroundRenderers;
 		readonly ServiceContainer services = new ServiceContainer();
+		readonly HashSet<KnownLayer> invalidatedLayers = new HashSet<KnownLayer>();
 		TextDocument document;
 
 		public TextView()
@@ -54,6 +55,9 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			set {
 				if (!ReferenceEquals(document, value)) {
 					document = value;
+					VisualLinesValid = false;
+					VisualLines = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
+					DocumentHeight = 0;
 					OnDocumentChanged(EventArgs.Empty);
 				}
 			}
@@ -106,18 +110,27 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>
-		/// Placeholder for the WPF redraw entry point.
-		/// The Uno XAML control performs actual rendering invalidation separately.
+		/// Invalidates the current visual-line cache and notifies listeners that the shared host
+		/// needs a redraw. The concrete Uno XAML view is still responsible for repainting.
 		/// </summary>
 		public virtual void Redraw()
 		{
+			VisualLinesValid = false;
+			OnVisualLinesChanged(EventArgs.Empty);
+			OnRedrawRequested(EventArgs.Empty);
 		}
 
 		/// <summary>
-		/// Placeholder for layer invalidation in the Uno host.
+		/// Invalidates a rendering layer in the shared host so background renderers and other
+		/// shared components can request a repaint without knowing the Uno control details.
 		/// </summary>
 		public virtual void InvalidateLayer(KnownLayer knownLayer)
 		{
+			if (!Enum.IsDefined(typeof(KnownLayer), knownLayer))
+				throw new InvalidEnumArgumentException(nameof(knownLayer), (int)knownLayer, typeof(KnownLayer));
+
+			invalidatedLayers.Add(knownLayer);
+			OnLayerInvalidated(knownLayer);
 		}
 
 		/// <summary>Raises the <see cref="DocumentChanged"/> event.</summary>
@@ -136,6 +149,16 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		protected virtual void OnScrollOffsetChanged(EventArgs e)
 		{
 			ScrollOffsetChanged?.Invoke(this, e);
+		}
+
+		/// <summary>Raised when the shared host needs a redraw.</summary>
+		protected virtual void OnRedrawRequested(EventArgs e)
+		{
+		}
+
+		/// <summary>Raised when a specific rendering layer was invalidated.</summary>
+		protected virtual void OnLayerInvalidated(KnownLayer knownLayer)
+		{
 		}
 
 		void ElementGenerator_Added(VisualLineElementGenerator generator)
@@ -211,13 +234,21 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public System.Windows.Media.Pen CurrentLineBorder { get; set; }
 
 		// ----------------------------------------------------------------
-		// Layout metrics (read-only stubs; actual values come from the Uno XAML control)
+		// Layout metrics (shared defaults overridden by the concrete Uno XAML control when available)
 		// ----------------------------------------------------------------
-		public double DocumentHeight { get; internal set; }
+		public double DocumentHeight {
+			get {
+				if (!VisualLinesValid)
+					EnsureVisualLines();
+				return documentHeight;
+			}
+			internal set { documentHeight = value; }
+		}
 		public double DefaultLineHeight { get; internal set; }
 		public double DefaultBaseline { get; internal set; }
 		public double WideSpaceWidth { get; internal set; }
 		public double EmptyLineSelectionWidth { get; set; } = 1.0;
+		double documentHeight;
 
 		// ----------------------------------------------------------------
 		// Scroll state
@@ -233,16 +264,17 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public ReadOnlyCollection<VisualLine> VisualLines { get; internal set; } = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
 		public bool VisualLinesValid { get; internal set; }
 		public int HighlightedLine { get; set; }
+		internal IReadOnlyCollection<KnownLayer> InvalidatedLayers => invalidatedLayers;
 
-		/// <summary>Ensures visual lines are up to date; no-op in this stub.</summary>
+		/// <summary>Ensures a minimal shared visual-line model exists for the current document.</summary>
 		public void EnsureVisualLines()
 		{
 			if (VisualLinesValid)
 				return;
 
+			BuildSimpleVisualLines();
 			VisualLinesValid = true;
 			OnVisualLinesChanged(EventArgs.Empty);
-			Redraw();
 		}
 
 		/// <summary>Returns the visual line for the given document line number, or null.</summary>
@@ -267,9 +299,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			return GetVisualLine(documentLine.LineNumber);
 		}
 
-		/// <summary>Returns the document line at the given visual top position; stub.</summary>
+		/// <summary>Returns the document line at the given visual top position.</summary>
 		public DocumentLine GetDocumentLineByVisualTop(double visualTop)
 		{
+			EnsureVisualLines();
 			var visualLine = GetVisualLineFromVisualTop(visualTop);
 			if (visualLine != null)
 				return visualLine.FirstDocumentLine;
@@ -285,9 +318,11 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			return Document.GetLineByNumber(1);
 		}
 
-		/// <summary>Returns the visual line at the given visual top position; stub.</summary>
+		/// <summary>Returns the visual line at the given visual top position.</summary>
 		public VisualLine GetVisualLineFromVisualTop(double visualTop)
 		{
+			EnsureVisualLines();
+
 			VisualLine lastLine = null;
 			foreach (var visualLine in VisualLines) {
 				lastLine = visualLine;
@@ -303,9 +338,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			return null;
 		}
 
-		/// <summary>Returns the visual top position for the given document line number; stub.</summary>
+		/// <summary>Returns the visual top position for the given document line number.</summary>
 		public double GetVisualTopByDocumentLine(int line)
 		{
+			EnsureVisualLines();
 			var visualLine = GetVisualLine(line);
 			if (visualLine != null)
 				return visualLine.VisualTop;
@@ -313,18 +349,19 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			return line > 1 && DefaultLineHeight > 0 ? (line - 1) * DefaultLineHeight : 0.0;
 		}
 
-		/// <summary>Gets the text view position from a visual position; stub.</summary>
+		/// <summary>Gets the text view position from a visual position.</summary>
 		public TextViewPosition? GetPosition(Point visualPosition)
 		{
 			return GetPositionFloor(visualPosition);
 		}
 
-		/// <summary>Gets the text view position (floor) from a visual position; stub.</summary>
+		/// <summary>Gets the text view position (floor) from a visual position.</summary>
 		public TextViewPosition? GetPositionFloor(Point visualPosition)
 		{
 			if (Document == null)
 				return null;
 
+			EnsureVisualLines();
 			var visualLine = GetVisualLineFromVisualTop(visualPosition.Y);
 			if (visualLine == null)
 				return null;
@@ -332,15 +369,45 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			return visualLine.GetTextViewPositionFloor(visualPosition, Options.EnableVirtualSpace);
 		}
 
-		/// <summary>Gets the visual position from a text view position; stub.</summary>
+		/// <summary>Gets the visual position from a text view position.</summary>
 		public Point GetVisualPosition(TextViewPosition position, VisualYPosition yPositionMode)
 		{
+			EnsureVisualLines();
 			var visualLine = GetVisualLine(position.Line);
 			if (visualLine == null)
 				return new Point(0, GetVisualTopByDocumentLine(position.Line));
 
 			int visualColumn = position.VisualColumn >= 0 ? position.VisualColumn : Math.Max(0, position.Column - 1);
 			return visualLine.GetVisualPosition(visualColumn, yPositionMode);
+		}
+
+		void BuildSimpleVisualLines()
+		{
+			if (Document == null || Document.LineCount == 0) {
+				VisualLines = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
+				DocumentHeight = 0;
+				return;
+			}
+
+			double lineHeight = DefaultLineHeight > 0 ? DefaultLineHeight : 1.0;
+			var lines = new List<VisualLine>(Document.LineCount);
+			DocumentLine current = Document.GetLineByNumber(1);
+			double visualTop = 0;
+			while (current != null) {
+				var visualLine = new VisualLine(this, current) {
+					LastDocumentLine = current,
+					VisualTop = visualTop,
+					Height = lineHeight,
+					VisualLength = current.Length
+				};
+				visualLine.Elements = new ReadOnlyCollection<VisualLineElement>(new List<VisualLineElement>());
+				lines.Add(visualLine);
+				visualTop += lineHeight;
+				current = current.NextLine;
+			}
+
+			VisualLines = new ReadOnlyCollection<VisualLine>(lines);
+			DocumentHeight = lines.Count * lineHeight;
 		}
 
 		// ----------------------------------------------------------------

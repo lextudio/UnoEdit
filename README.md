@@ -42,14 +42,18 @@ Current status:
 - API parity is now measurable in-repo through `tools/ApiParity` and `scripts/check_api_parity.sh`, including a justifications file for intentional Uno/TextMate surface divergences
 - The parity report now also has stub detection. The current tree can report full public-surface coverage while still carrying a significant suspected-stub backlog, so surface parity should not be read as behavior parity.
 - The first stub burn-down slice is complete: command bindings now execute real handlers, caret rectangle/visibility APIs are live, and `TextArea.TextEntering` / `TextArea.TextEntered` now flow through normal keyboard and IME commit paths.
+- The next stub burn-down slice is complete: the shared `Selection` / `RectangleSelection` layer now has real text, containment, replace, and rectangular-paste behavior instead of sentinel returns.
+- The next rendering-host slice is complete too: shared `TextView.Redraw()` and `InvalidateLayer()` now perform real invalidation work instead of being empty compatibility shells.
+- The next shared layout slice is complete as well: `TextView` now builds a minimal visual-line model and uses it for document-height, visual-top, and position-mapping behavior.
+- The next text-run-properties slice is complete too: the shared rendering pipeline now uses concrete, cloneable run-property descriptors instead of null/opaque placeholders.
 - Full solution build is green, including the desktop host
 - The NUnit regression suite runs through `NUnitLite` via `dotnet run --project src/UnoEdit.Tests/UnoEdit.Tests.csproj`
-- Current regression total: `252` passing tests
-- Latest parity sweep reached `193/193` public types and `1295/1295` public members, and stub detection now reports `102` suspected stubs
+- Current regression total: `263` passing tests
+- Latest parity sweep reached `193/193` public types and `1295/1295` public members, and stub detection now reports `68` suspected stubs
 - The headless Uno runtime-test host is now green again after fixing the search-panel navigation regression
 
 Next steps:
 
-1. Keep burning down the `102` suspected stubs, prioritizing rendering and selection semantics over more surface-only parity.
+1. Keep burning down the `68` suspected stubs, prioritizing the remaining formatted-text, drawing, and editor-input seams over more surface-only parity.
 2. Continue selective source convergence from AvalonEdit into `src/UnoEdit` where that reduces duplication without destabilizing the desktop host.
 3. Start the next product-facing track from the stabilized base: ILSpy integration, completion/snippet UI, or deeper editor fidelity work.

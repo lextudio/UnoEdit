@@ -23,7 +23,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 {
 	/// <summary>
 	/// Contains information relevant for text run creation.
-	/// Uno fork: WPF-only <c>GlobalTextRunProperties</c> member removed.
+	/// UnoEdit exposes a global run-property bag instead of WPF's TextRunProperties.
 	/// </summary>
 	public interface ITextRunConstructionContext
 	{
@@ -48,8 +48,8 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		StringSegment GetText(int offset, int length);
 
 		/// <summary>
-		/// Gets the global text run properties. Stub for parity with WPF AvalonEdit.
+		/// Gets the global text run properties for the current construction pass.
 		/// </summary>
-		object GlobalTextRunProperties { get; }
+		VisualLineElementTextRunProperties GlobalTextRunProperties { get; }
 	}
 }

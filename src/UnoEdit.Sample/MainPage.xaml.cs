@@ -28,7 +28,19 @@ public sealed partial class MainPage : Page
         _textMateRegistryOptions = new RegistryOptions(ThemeName.DarkPlus);
         _textMateHighlighter = new TextMateLineHighlighter(_textMateRegistryOptions);
         _textMateHighlighter.SetGrammarByExtension(".cs");
+        // Detect OS theme and apply the matching editor theme on startup.
+        if (Application.Current.RequestedTheme == ApplicationTheme.Light)
+        {
+            _isDarkTheme = false;
+            _textMateRegistryOptions = new RegistryOptions(ThemeName.LightPlus);
+            _textMateHighlighter.SetTheme(ThemeName.LightPlus);
+        }
         Editor.Document = _document;
+        if (!_isDarkTheme)
+        {
+            Editor.Theme = TextEditorTheme.Light;
+            ThemeToggle.Content = "🌙 Dark";
+        }
         Editor.FoldingManager = _foldingManager;
         Editor.HighlightedLineSource = _textMateHighlighter;
         // Wire search and simple completion hooks for the sample host.

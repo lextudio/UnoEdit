@@ -19,6 +19,12 @@ public sealed partial class SearchPanel : UserControl
     public SearchPanel()
     {
         this.InitializeComponent();
+        SearchTextBox.GotFocus += (_, _) =>
+        {
+            var fgBrush = SearchTextBox.Foreground as SolidColorBrush;
+            var bgBrush = SearchTextBox.Background as SolidColorBrush;
+            Console.WriteLine($"[SearchTextBox.GotFocus] Foreground={fgBrush?.Color} Background={bgBrush?.Color}");
+        };
     }
 
     public bool IsOpen => Visibility == Visibility.Visible;
@@ -36,9 +42,98 @@ public sealed partial class SearchPanel : UserControl
 
     public void UpdateTheme(TextEditorTheme theme)
     {
-        RootBorder.Background = new SolidColorBrush(theme.TitleBarBackground);
-        RootBorder.BorderBrush = new SolidColorBrush(theme.BorderColor);
-        ResultsTextBlock.Foreground = new SolidColorBrush(theme.GutterForeground);
+        var bg = new SolidColorBrush(theme.TitleBarBackground);
+        var border = new SolidColorBrush(theme.BorderColor);
+        var fg = new SolidColorBrush(theme.TitleBarForeground);
+        var boxBorder = new SolidColorBrush(theme.GutterForeground);
+        var placeholder = new SolidColorBrush(theme.GutterForeground);
+        var results = new SolidColorBrush(theme.GutterForeground);
+        var textBoxBg = new SolidColorBrush(theme.EditorBackground);
+        bool isDark = theme == TextEditorTheme.Dark;
+
+        RootBorder.Background = bg;
+        RootBorder.BorderBrush = border;
+        SearchTextBox.Foreground = fg;
+        SearchTextBox.PlaceholderForeground = placeholder;
+        SearchTextBox.Background = textBoxBg;
+
+        // TextBox border / underline and background resource overrides via RequestedTheme.
+        // ThemeResource in the TextBox ControlTemplate resolves from ThemeDictionaries in
+        // ancestor elements, not from flat Resources. We define our custom keys in
+        // SearchPanel's UserControl.Resources ThemeDictionaries (SearchPanel.xaml).
+        SearchTextBox.RequestedTheme = isDark ? ElementTheme.Dark : ElementTheme.Light;
+
+        // Remove stale flat-resource overrides — ThemeDictionaries above take priority
+        this.Resources.Remove("TextControlBackgroundFocused");
+        this.Resources.Remove("TextControlForegroundFocused");
+        this.Resources.Remove("TextControlBackgroundPointerOver");
+        // Remove per-element overrides too (ThemeDictionaries approach supersedes them)
+        foreach (var key in new[] { "TextControlBackground", "TextControlBackgroundPointerOver",
+                                    "TextControlBackgroundFocused", "TextControlForegroundFocused",
+                                    "TextControlBorderBrush", "TextControlBorderBrushPointerOver",
+                                    "TextControlBorderBrushFocused" })
+        {
+            SearchTextBox.Resources.Remove(key);
+        }
+
+        Console.WriteLine($"[SearchPanel.UpdateTheme] theme={theme.Name}");
+        Console.WriteLine($"  SearchTextBox.Foreground = {fg.Color}");
+        Console.WriteLine($"  SearchTextBox.Background = {textBoxBg.Color}");
+        Console.WriteLine($"  TextControlBackground    = {textBoxBg.Color}");
+        Console.WriteLine($"  TextControlBackgroundFocused = {textBoxBg.Color}");
+        Console.WriteLine($"  TextControlForegroundFocused = {fg.Color}");
+
+        PreviousButton.Foreground = fg;
+        NextButton.Foreground = fg;
+        CloseButton.Foreground = fg;
+
+        // Checkbox box border + hover/pressed states (overrides local resource keys set in XAML)
+        var boxBorderHover = new SolidColorBrush(theme == TextEditorTheme.Dark
+            ? Windows.UI.Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1)   // #CBD5E1
+            : Windows.UI.Color.FromArgb(0xFF, 0x37, 0x41, 0x51));  // #374151
+        var boxFillHover = new SolidColorBrush(theme == TextEditorTheme.Dark
+            ? Windows.UI.Color.FromArgb(0x22, 0x33, 0x41, 0x55)    // #22334155
+            : Windows.UI.Color.FromArgb(0x22, 0x09, 0x69, 0xDA));  // #220969DA
+
+        foreach (var cb in new[] { MatchCaseCheckBox, WholeWordsCheckBox, UseRegexCheckBox })
+        {
+            cb.Resources["CheckBoxCheckBackgroundStrokeUnchecked"] = boxBorder;
+            cb.Resources["CheckBoxCheckBackgroundStrokeUncheckedPointerOver"] = boxBorderHover;
+            cb.Resources["CheckBoxCheckBackgroundStrokeUncheckedPressed"] = boxBorder;
+            cb.Resources["CheckBoxCheckBackgroundStrokeChecked"] = boxBorder;
+            cb.Resources["CheckBoxCheckBackgroundStrokeCheckedPointerOver"] = boxBorderHover;
+            cb.Resources["CheckBoxCheckBackgroundStrokeCheckedPressed"] = boxBorder;
+            cb.Resources["CheckBoxCheckBackgroundFillUncheckedPointerOver"] = boxFillHover;
+        }
+
+        // Button hover/pressed foreground and background
+        var btnFgHover = new SolidColorBrush(theme == TextEditorTheme.Dark
+            ? Windows.UI.Color.FromArgb(0xFF, 0xE5, 0xE7, 0xEB)    // #E5E7EB
+            : Windows.UI.Color.FromArgb(0xFF, 0x11, 0x18, 0x27));  // #111827
+        var btnFgPressed = new SolidColorBrush(theme == TextEditorTheme.Dark
+            ? Windows.UI.Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1)    // #CBD5E1
+            : Windows.UI.Color.FromArgb(0xFF, 0x37, 0x41, 0x51));  // #374151
+        var btnBgHover = new SolidColorBrush(theme == TextEditorTheme.Dark
+            ? Windows.UI.Color.FromArgb(0xFF, 0x33, 0x41, 0x55)    // #334155
+            : Windows.UI.Color.FromArgb(0xFF, 0xD1, 0xD5, 0xDB));  // #D1D5DB
+        var btnBgPressed = new SolidColorBrush(theme == TextEditorTheme.Dark
+            ? Windows.UI.Color.FromArgb(0xFF, 0x47, 0x56, 0x69)    // #475569
+            : Windows.UI.Color.FromArgb(0xFF, 0xE5, 0xE7, 0xEB));  // #E5E7EB
+
+        foreach (var btn in new[] { PreviousButton, NextButton, CloseButton })
+        {
+            btn.Resources["ButtonForegroundPointerOver"] = btnFgHover;
+            btn.Resources["ButtonForegroundPressed"] = btnFgPressed;
+            btn.Resources["ButtonBackgroundPointerOver"] = btnBgHover;
+            btn.Resources["ButtonBackgroundPressed"] = btnBgPressed;
+        }
+
+        // Label TextBlocks are named elements — set directly
+        MatchCaseLabel.Foreground = fg;
+        WholeWordsLabel.Foreground = fg;
+        UseRegexLabel.Foreground = fg;
+
+        ResultsTextBlock.Foreground = results;
     }
 
     public void UpdateDocument(TextDocument? document)

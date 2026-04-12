@@ -6,10 +6,10 @@
              xmlns:controls="using:UnoEdit.Skia.Desktop.Controls">
   <Border x:Name="EditorBorder"
           Padding="1"
-          BorderBrush="{StaticResource UnoEditorBorderBrush}"
+          BorderBrush="{ThemeResource UnoEditorBorderBrush}"
           BorderThickness="{StaticResource UnoTextEditorBorderThickness}"
           CornerRadius="{StaticResource UnoTextEditorCornerRadius}"
-          Background="{StaticResource UnoEditorBackgroundBrush}">
+          Background="{ThemeResource UnoEditorBackgroundBrush}">
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
@@ -19,7 +19,7 @@
 
       <Grid x:Name="TitleBarGrid"
             Padding="12,10"
-            Background="{StaticResource UnoEditorTitleBarBackgroundBrush}">
+            Background="{ThemeResource UnoEditorTitleBarBackgroundBrush}">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
@@ -27,13 +27,13 @@
 
         <TextBlock x:Name="TitleTextBlock"
                    Text="TextEditor"
-                   Foreground="{StaticResource UnoEditorTitleBarForegroundBrush}"
+                   Foreground="{ThemeResource UnoEditorTitleBarForegroundBrush}"
                    FontSize="{StaticResource UnoEditorTextFontSize}"
                    FontWeight="SemiBold" />
         <TextBlock x:Name="SummaryTextBlock"
                    Grid.Column="1"
                    FontFamily="Consolas"
-                   Foreground="{StaticResource UnoEditorSummaryForegroundBrush}"
+                   Foreground="{ThemeResource UnoEditorSummaryForegroundBrush}"
                    FontSize="12" />
       </Grid>
 

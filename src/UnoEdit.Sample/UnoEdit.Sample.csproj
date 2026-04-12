@@ -44,6 +44,7 @@
     See: https://github.com/unoplatform/uno.ui.runtimetests.engine
   -->
   <ItemGroup>
+    <PackageReference Include="DevToolsUno" />
     <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
     <PackageReference Include="MSTest.TestFramework" />
   </ItemGroup>

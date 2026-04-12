@@ -5,6 +5,9 @@ using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
 using System.IO;
 
+using DevToolsUno;
+using DevToolsUno.Diagnostics;
+
 namespace UnoEdit.Skia.Desktop;
 
 public partial class App : Application
@@ -57,6 +60,7 @@ public partial class App : Application
     }
 
     protected Window? MainWindow { get; private set; }
+    private IDisposable? _devTools;
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -64,7 +68,6 @@ public partial class App : Application
 #if DEBUG
         MainWindow.UseStudio();
 #endif
-
 
         // Do not repeat app initialization when the Window already has content,
         // just ensure that the window is active
@@ -78,6 +81,21 @@ public partial class App : Application
 
             rootFrame.NavigationFailed += OnNavigationFailed;
         }
+#if DEBUG
+        // AttachDevTools requires the window to have a FrameworkElement content root,
+        // so it must be called after MainWindow.Content is set.
+        _devTools = MainWindow.AttachDevTools(new DevToolsOptions
+        {
+            LaunchView = DevToolsViewKind.VisualTree,
+            ShowAsChildWindow = false,
+        });
+
+        MainWindow.Closed += (_, _) =>
+        {
+            _devTools?.Dispose();
+            _devTools = null;
+        };
+#endif
 
         if (rootFrame.Content == null)
         {

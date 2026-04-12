@@ -815,6 +815,15 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
         try
         {
             RefreshViewportCore();
+            // A re-entrant ModelTokensChanged callback (fired synchronously by ForceTokenization
+            // inside HighlightLine) may have set _pendingFullRebuild while we were executing the
+            // line loop above.  Run one additional pass — still inside the re-entrant guard — to
+            // pick up the fresh tokenization results without scheduling a separate UI cycle.
+            if (_pendingFullRebuild)
+            {
+                LogFlash("re-run: re-entrant highlight invalidation pending");
+                RefreshViewportCore();
+            }
         }
         finally
         {
@@ -1003,6 +1012,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             } catch {
                 /* ignore errors during highlighting */
             }
+            LogFlash($"line={lineNumber} highlightedLine={(highlightedLine == null ? "null" : $"{highlightedLine.Sections.Count} sections")}");
 
             // Collect reference segments for this line, converted to line-relative visual-column offsets
             // so HighlightedTextBlock can compare them against visual run positions directly.

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using TextMateSharp.Grammars;
@@ -17,6 +18,10 @@ namespace ICSharpCode.AvalonEdit.TextMate
 	/// </summary>
 	public sealed class TextMateLineHighlighter : IHighlightedLineSource, IModelTokensChangedListener
 	{
+		static readonly bool s_debugTM =
+			string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_TM"), "1", StringComparison.Ordinal);
+		static void LogTM(string msg) { if (s_debugTM) Console.WriteLine($"[TM] {msg}"); }
+
 		readonly Registry registry;
 		readonly IRegistryOptions registryOptions;
 		readonly Action<Exception> exceptionHandler;
@@ -130,9 +135,11 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			DocumentLine line = document.GetLineByNumber(lineNumber);
 			List<TMToken> tokens = model.GetLineTokens(modelLineIndex);
 			if (tokens == null || tokens.Count == 0) {
+				LogTM($"HighlightLine lineNumber={lineNumber} tokens={(tokens == null ? "null" : "empty")}");
 				return null;
 			}
 
+			LogTM($"HighlightLine lineNumber={lineNumber} tokenCount={tokens.Count}");
 			var highlightedLine = new HighlightedLine(document, line);
 			int lineLength = line.Length;
 
@@ -156,6 +163,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 				});
 			}
 
+			LogTM($"HighlightLine lineNumber={lineNumber} sectionCount={highlightedLine.Sections.Count}");
 			if (highlightedLine.Sections.Count == 0) {
 				return null;
 			}
@@ -276,6 +284,8 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		public void ModelTokensChanged(ModelTokensChangedEvent e)
 		{
+			var t = Thread.CurrentThread;
+			LogTM($"ModelTokensChanged thread={t.ManagedThreadId} name={t.Name} isBackground={t.IsBackground}");
 			RaiseHighlightingInvalidated();
 		}
 

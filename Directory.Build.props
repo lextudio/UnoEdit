@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup>
+    <PackageReference Include="GitVersion.MsBuild" Version="5.13.1" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

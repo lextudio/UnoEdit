@@ -6,8 +6,10 @@ using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
+#if !WINDOWS_APP_SDK
 using Uno.UI.Xaml;
 using LinuxImeBridge = UnoEdit.Skia.Desktop.Controls.Platform.Linux.LinuxImeBridge;
+#endif
 using Windows.Foundation;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -58,7 +60,9 @@ public sealed partial class TextView
 
     // Platform-specific bridges (at most one is non-null at runtime).
     private Win32ImeBridge? _win32ImeBridge;
+#if !WINDOWS_APP_SDK
     private LinuxImeBridge? _linuxImeBridge;
+#endif
 
     // -----------------------------------------------------------------------
     // Linux X11: coordinate translation for IBus candidate window placement
@@ -249,10 +253,12 @@ public sealed partial class TextView
                 win32.CaretRect = rect;
                 win32.PositionImeWindow();
             }
+#if !WINDOWS_APP_SDK
             else if (_linuxImeBridge is { IsAvailable: true } linux)
             {
                 linux.UpdateCursorLocation(ConvertToScreenCoordinates(rect));
             }
+#endif
         }
     }
 
@@ -272,7 +278,9 @@ public sealed partial class TextView
         }
         else
         {
+#if !WINDOWS_APP_SDK
             _linuxImeBridge?.FocusIn();
+#endif
         }
     }
 
@@ -294,6 +302,7 @@ public sealed partial class TextView
         return false;
     }
 
+#if !WINDOWS_APP_SDK
     /// <summary>
     /// Forwards a key to the Linux IBus bridge before normal UnoEdit processing.
     /// Returns true if IBus consumed the key (caller should suppress normal handling).
@@ -329,6 +338,7 @@ public sealed partial class TextView
         uint state = GetX11ModifierState(shiftPressed, controlPressed);
         return bridge.ProcessKeyEvent(keyval, 0, state);
     }
+#endif
 
     // -----------------------------------------------------------------------
     // Loaded / Unloaded — shared entry point, runtime dispatch
@@ -346,10 +356,12 @@ public sealed partial class TextView
             LogWin32Ime("OnPlatformInputLoaded: Windows.");
             EnsureWin32ImeBridge();
         }
+#if !WINDOWS_APP_SDK
         else if (s_isLinux)
         {
             EnsureLinuxImeBridge();
         }
+#endif
 
         UpdatePlatformInputBridge();
     }
@@ -367,8 +379,10 @@ public sealed partial class TextView
             LogWin32Ime("OnPlatformInputUnloaded: disposing bridges.");
             _win32ImeBridge?.Dispose();
             _win32ImeBridge = null;
+#if !WINDOWS_APP_SDK
             _linuxImeBridge?.Dispose();
             _linuxImeBridge = null;
+#endif
         }
     }
 
@@ -499,6 +513,7 @@ public sealed partial class TextView
         LogWin32Ime("EnsureWin32ImeBridge: callbacks wired.");
     }
 
+#if !WINDOWS_APP_SDK
     private void EnsureLinuxImeBridge()
     {
         if (_linuxImeBridge is not null)
@@ -518,6 +533,7 @@ public sealed partial class TextView
 
         _linuxImeBridge.FocusIn();
     }
+#endif
 
     // -----------------------------------------------------------------------
     // Composition document management (Windows / Linux)
@@ -670,6 +686,17 @@ public sealed partial class TextView
             return nint.Zero;
         }
 
+#if WINDOWS_APP_SDK
+        // WinUI 3: use WinRT interop to obtain the HWND directly from the Window object.
+        try
+        {
+            return (nint)WinRT.Interop.WindowNative.GetWindowHandle(window);
+        }
+        catch
+        {
+            return nint.Zero;
+        }
+#else
         object? nativeWindow = WindowHelper.GetNativeWindow(window);
         if (nativeWindow is null)
         {
@@ -788,6 +815,7 @@ public sealed partial class TextView
 
         LogMacIme($"Native window type {nativeTypeName} did not expose a readable Handle property.");
         return nint.Zero;
+#endif // !WINDOWS_APP_SDK
     }
 
     // -----------------------------------------------------------------------

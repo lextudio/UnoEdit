@@ -1,11 +1,14 @@
 <Solution>
-  <Folder Name="/samples/" />
   <Folder Name="/src/UnoEdit.Sample/">
     <Project Path="src/UnoEdit.Sample/UnoEdit.Sample.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/UnoEdit/UnoEdit.csproj" />
     <Project Path="src/UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
+    <Project Path="src/UnoEdit.WinUI/UnoEdit.WinUI.csproj" />
+  </Folder>
+  <Folder Name="/src/UnoEdit.WinUI.Sample/">
+    <Project Path="src/UnoEdit.WinUI.Sample/UnoEdit.WinUI.Sample.csproj" />
   </Folder>
   <Folder Name="/src/UnoEdit.Tests/">
     <Project Path="src/UnoEdit.Tests/UnoEdit.Tests.csproj" />

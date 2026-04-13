@@ -1,0 +1,292 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Enforce Windows App SDK: consumers must be WinUI 3 projects -->
+    <DefineConstants>$(DefineConstants);WINDOWS_APP_SDK</DefineConstants>
+    <!-- Pin Microsoft.Windows.SDK.NET.Ref so the build works with SDK 10 global.json -->
+    <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
+    <RootNamespace>ICSharpCode.AvalonEdit</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1574;1591;8632</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Windows App SDK: WinUI 3 host types -->
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
+    <!-- Logging glue required by GlobalUsings.cs -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="GlobalUsings.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Compatibility shims — let WPF-named types resolve to WinUI API surface
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\UnoEdit\Compatibility\WpfTypeAliases.cs" Link="Compatibility\WpfTypeAliases.cs" />
+    <Compile Include="..\UnoEdit\Compatibility\CollectionExtensions.cs" Link="Compatibility\CollectionExtensions.cs" />
+    <Compile Include="..\UnoEdit\Compatibility\ExtensionMethods.cs" Link="Compatibility\ExtensionMethods.cs" />
+    <Compile Include="..\UnoEdit\Compatibility\InputShims.cs" Link="Compatibility\InputShims.cs" />
+    <Compile Include="..\UnoEdit\Compatibility\SystemWindowsCompatibility.cs" Link="Compatibility\SystemWindowsCompatibility.cs" />
+    <Compile Include="..\UnoEdit\Compatibility\WeakEventManagerBase.cs" Link="Compatibility\WeakEventManagerBase.cs" />
+    <Compile Include="..\UnoEdit\Compatibility\XmlExtensionMethods.cs" Link="Compatibility\XmlExtensionMethods.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Root-level AvalonEdit files
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\UnoEdit\AvalonEditCommands.cs" Link="AvalonEditCommands.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorOptions.cs" Link="TextEditorOptions.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorWeakEventManager.cs" Link="TextEditorWeakEventManager.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextViewPosition.cs" Link="TextViewPosition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\TextEditorComponent.cs" Link="TextEditorComponent.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Document model — all upstream, no WPF deps
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Document\**\*.cs">
+      <Link>Document\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Utils — mix of upstream links and UnoEdit forks
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Boxes.cs" Link="Utils\Boxes.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CallbackOnDispose.cs" Link="Utils\CallbackOnDispose.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CharRope.cs" Link="Utils\CharRope.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\CompressingTreeList.cs" Link="Utils\CompressingTreeList.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Constants.cs" Link="Utils\Constants.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\DelayedEvents.cs" Link="Utils\DelayedEvents.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Deque.cs" Link="Utils\Deque.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Empty.cs" Link="Utils\Empty.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\FileReader.cs" Link="Utils\FileReader.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\IFreezable.cs" Link="Utils\IFreezable.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ImmutableStack.cs" Link="Utils\ImmutableStack.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\NullSafeCollection.cs" Link="Utils\NullSafeCollection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ObserveAddRemoveCollection.cs" Link="Utils\ObserveAddRemoveCollection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PixelSnapHelpers.cs" Link="Utils\PixelSnapHelpers.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PlainRichTextWriter.cs" Link="Utils\PlainRichTextWriter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RichTextWriter.cs" Link="Utils\RichTextWriter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\Rope.cs" Link="Utils\Rope.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeNode.cs" Link="Utils\RopeNode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeTextReader.cs" Link="Utils\RopeTextReader.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
+    <Compile Include="..\UnoEdit\Utils\PropertyChangedWeakEventManager.cs" Link="Utils\PropertyChangedWeakEventManager.cs" />
+    <Compile Include="..\UnoEdit\Utils\DocumentPrinter.cs" Link="Utils\DocumentPrinter.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Indentation — all upstream, pure algorithm code
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Indentation\**\*.cs">
+      <Link>Indentation\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Editing — interfaces/enums/POCOs + UnoEdit forks
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\IReadOnlySectionProvider.cs" Link="Editing\IReadOnlySectionProvider.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\MouseSelectionMode.cs" Link="Editing\MouseSelectionMode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\SelectionSegment.cs" Link="Editing\SelectionSegment.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\DragDropException.cs" Link="Editing\DragDropException.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\NoReadOnlySections.cs" Link="Editing\NoReadOnlySections.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\TextSegmentReadOnlySectionProvider.cs" Link="Editing\TextSegmentReadOnlySectionProvider.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\AbstractMargin.cs" Link="Editing\AbstractMargin.cs" />
+    <Compile Include="..\UnoEdit\Editing\TextEventArgs.cs" Link="Editing\TextEventArgs.cs" />
+    <Compile Include="..\UnoEdit\Editing\Caret.uno.cs" Link="Editing\Caret.cs" />
+    <Compile Include="..\UnoEdit\Editing\DottedLineMargin.cs" Link="Editing\DottedLineMargin.cs" />
+    <Compile Include="..\UnoEdit\Editing\Selection.cs" Link="Editing\Selection.cs" />
+    <Compile Include="..\UnoEdit\Editing\CaretWeakEventHandler.cs" Link="Editing\CaretWeakEventHandler.cs" />
+    <Compile Include="..\UnoEdit\Editing\InputHandlers.cs" Link="Editing\InputHandlers.cs" />
+    <Compile Include="..\UnoEdit\Editing\LineNumberMargin.cs" Link="Editing\LineNumberMargin.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Folding
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\NewFolding.cs" Link="Folding\NewFolding.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\XmlFoldingStrategy.cs" Link="Folding\XmlFoldingStrategy.cs" />
+    <Compile Include="..\UnoEdit\Folding\FoldingSection.cs" Link="Folding\FoldingSection.cs" />
+    <Compile Include="..\UnoEdit\Folding\FoldingManager.cs" Link="Folding\FoldingManager.cs" />
+    <Compile Include="..\UnoEdit\Folding\BraceFoldingStrategy.cs" Link="Folding\BraceFoldingStrategy.cs" />
+    <Compile Include="..\UnoEdit\Folding\FoldingMargin.cs" Link="Folding\FoldingMargin.cs" />
+    <Compile Include="..\UnoEdit\Folding\FoldingElementGenerator.cs" Link="Folding\FoldingElementGenerator.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Snippets
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Snippets\IActiveElement.cs" Link="Snippets\IActiveElement.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Snippets\SnippetEventArgs.cs" Link="Snippets\SnippetEventArgs.cs" />
+    <Compile Include="..\UnoEdit\Snippets\SnippetTypes.cs" Link="Snippets\SnippetTypes.cs" />
+    <Compile Include="..\UnoEdit\Snippets\InsertionContext.cs" Link="Snippets\InsertionContext.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Search — logic-only (no WPF UI)
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\ISearchStrategy.cs" Link="Search\ISearchStrategy.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\RegexSearchStrategy.cs" Link="Search\RegexSearchStrategy.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\SearchStrategyFactory.cs" Link="Search\SearchStrategyFactory.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\Localization.cs" Link="Search\Localization.cs" />
+    <Compile Include="..\UnoEdit\Search\SearchCommands.cs" Link="Search\SearchCommands.cs" />
+    <Compile Include="..\UnoEdit\Search\SearchInputHandler.cs" Link="Search\SearchInputHandler.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Rendering — data model + UnoEdit forks (no WPF TextFormatting)
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\CollapsedLineSection.cs" Link="Rendering\CollapsedLineSection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\HeightTree.cs" Link="Rendering\HeightTree.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\HeightTreeLineNode.cs" Link="Rendering\HeightTreeLineNode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\HeightTreeNode.cs" Link="Rendering\HeightTreeNode.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLinesInvalidException.cs" Link="Rendering\VisualLinesInvalidException.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualYPosition.cs" Link="Rendering\VisualYPosition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineConstructionStartEventArgs.cs" Link="Rendering\VisualLineConstructionStartEventArgs.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\TextViewWeakEventManager.cs" Link="Rendering\TextViewWeakEventManager.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLine.cs" Link="Rendering\VisualLine.cs" />
+    <Compile Include="..\UnoEdit\Rendering\VisualLine.uno.cs" Link="Rendering\VisualLine.uno.cs" />
+    <Compile Include="..\UnoEdit\Rendering\LayerPosition.cs" Link="Rendering\LayerPosition.cs" />
+    <Compile Include="..\UnoEdit\Rendering\ITextRunConstructionContext.cs" Link="Rendering\ITextRunConstructionContext.cs" />
+    <Compile Include="..\UnoEdit\Rendering\IVisualLineTransformer.cs" Link="Rendering\IVisualLineTransformer.cs" />
+    <Compile Include="..\UnoEdit\Rendering\ITextViewConnect.cs" Link="Rendering\ITextViewConnect.cs" />
+    <Compile Include="..\UnoEdit\Rendering\IBackgroundRenderer.cs" Link="Rendering\IBackgroundRenderer.cs" />
+    <Compile Include="..\UnoEdit\Rendering\VisualLineElementGenerator.cs" Link="Rendering\VisualLineElementGenerator.cs" />
+    <Compile Include="..\UnoEdit\Rendering\ColorizingTransformer.cs" Link="Rendering\ColorizingTransformer.cs" />
+    <Compile Include="..\UnoEdit\Rendering\DocumentColorizingTransformer.cs" Link="Rendering\DocumentColorizingTransformer.cs" />
+    <Compile Include="..\UnoEdit\Rendering\TextView.cs" Link="Rendering\TextView.cs" />
+    <Compile Include="..\UnoEdit\Rendering\VisualLineText.cs" Link="Rendering\VisualLineText.cs" />
+    <Compile Include="..\UnoEdit\Rendering\VisualLineElementTextRunProperties.cs" Link="Rendering\VisualLineElementTextRunProperties.cs" />
+    <Compile Include="..\UnoEdit\Rendering\VisualLineElement.cs" Link="Rendering\VisualLineElement.cs" />
+    <Compile Include="..\UnoEdit\Rendering\ReferenceSegment.cs" Link="Rendering\ReferenceSegment.cs" />
+    <Compile Include="..\UnoEdit\Rendering\IReferenceSegmentSource.cs" Link="Rendering\IReferenceSegmentSource.cs" />
+    <Compile Include="..\UnoEdit\Rendering\TabColumnHelper.cs" Link="Rendering\TabColumnHelper.cs" />
+    <Compile Include="..\UnoEdit\Rendering\VisibleLineMapper.cs" Link="Rendering\VisibleLineMapper.cs" />
+    <Compile Include="..\UnoEdit\Rendering\EditorTextMetrics.cs" Link="Rendering\EditorTextMetrics.cs" />
+    <Compile Include="..\UnoEdit\Rendering\TextLineViewModel.cs" Link="Rendering\TextLineViewModel.cs" />
+    <Compile Include="..\UnoEdit\Rendering\DefaultTextRunTypographyProperties.cs" Link="Rendering\DefaultTextRunTypographyProperties.cs" />
+    <Compile Include="..\UnoEdit\Rendering\BackgroundGeometryBuilder.cs" Link="Rendering\BackgroundGeometryBuilder.cs" />
+    <Compile Include="..\UnoEdit\Rendering\FormattedTextTypes.cs" Link="Rendering\FormattedTextTypes.cs" />
+    <Compile Include="..\UnoEdit\Rendering\VisualLineLinkText.cs" Link="Rendering\VisualLineLinkText.cs" />
+    <Compile Include="..\UnoEdit\Rendering\LinkElementGenerator.cs" Link="Rendering\LinkElementGenerator.cs" />
+    <Compile Include="..\UnoEdit\Rendering\MouseHoverLogic.cs" Link="Rendering\MouseHoverLogic.cs" />
+    <!-- Win32ImeBridge and TextView.PlatformInput belong to UnoEdit.Skia.Desktop.Controls.TextView
+         (the Uno XAML control class) — they are NOT part of the WinUI 3 library surface. -->
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Highlighting — UnoEdit forks (WPF deps removed) + upstream portables
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\UnoEdit\Highlighting\HighlightingBrush.cs" Link="Highlighting\HighlightingBrush.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\HighlightingColor.cs" Link="Highlighting\HighlightingColor.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\HighlightedLine.cs" Link="Highlighting\HighlightedLine.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\RichText.cs" Link="Highlighting\RichText.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\Xshd\V2Loader.cs" Link="Highlighting\Xshd\V2Loader.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\Resources\Resources.cs" Link="Highlighting\Resources\Resources.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\IHighlightedLineSource.cs" Link="Highlighting\IHighlightedLineSource.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\HighlightingColorizer.cs" Link="Highlighting\HighlightingColorizer.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\HighlightedInlineBuilder.cs" Link="Highlighting\HighlightedInlineBuilder.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\RichTextColorizer.cs" Link="Highlighting\RichTextColorizer.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\HtmlClipboard.cs" Link="Highlighting\HtmlClipboard.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\Xshd\HighlightingLoader.cs" Link="Highlighting\Xshd\HighlightingLoader.cs" />
+    <Compile Include="..\UnoEdit\Highlighting\Xshd\SaveXshdVisitor.cs" Link="Highlighting\Xshd\SaveXshdVisitor.cs" />
+    <!-- Upstream portables -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionTypeConverter.cs" Link="Highlighting\HighlightingDefinitionTypeConverter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\DocumentHighlighter.cs" Link="Highlighting\DocumentHighlighter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HtmlRichTextWriter.cs" Link="Highlighting\HtmlRichTextWriter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightedSection.cs" Link="Highlighting\HighlightedSection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingDefinitionInvalidException.cs" Link="Highlighting\HighlightingDefinitionInvalidException.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingEngine.cs" Link="Highlighting\HighlightingEngine.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HtmlOptions.cs" Link="Highlighting\HtmlOptions.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingManager.cs" Link="Highlighting\HighlightingManager.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRule.cs" Link="Highlighting\HighlightingRule.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingRuleSet.cs" Link="Highlighting\HighlightingRuleSet.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingSpan.cs" Link="Highlighting\HighlightingSpan.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlighter.cs" Link="Highlighting\IHighlighter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinition.cs" Link="Highlighting\IHighlightingDefinition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\IHighlightingDefinitionReferenceResolver.cs" Link="Highlighting\IHighlightingDefinitionReferenceResolver.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextModel.cs" Link="Highlighting\RichTextModel.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextModelWriter.cs" Link="Highlighting\RichTextModelWriter.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\IXshdVisitor.cs" Link="Highlighting\Xshd\IXshdVisitor.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XmlHighlightingDefinition.cs" Link="Highlighting\Xshd\XmlHighlightingDefinition.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdColor.cs" Link="Highlighting\Xshd\XshdColor.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdElement.cs" Link="Highlighting\Xshd\XshdElement.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdImport.cs" Link="Highlighting\Xshd\XshdImport.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdKeywords.cs" Link="Highlighting\Xshd\XshdKeywords.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdProperty.cs" Link="Highlighting\Xshd\XshdProperty.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdReference.cs" Link="Highlighting\Xshd\XshdReference.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdRule.cs" Link="Highlighting\Xshd\XshdRule.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdRuleSet.cs" Link="Highlighting\Xshd\XshdRuleSet.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdSpan.cs" Link="Highlighting\Xshd\XshdSpan.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdSyntaxDefinition.cs" Link="Highlighting\Xshd\XshdSyntaxDefinition.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Embedded xshd resources — same logical names as UnoEdit package
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSharp-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CSharp-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XmlDoc.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.XmlDoc.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\JavaScript-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.JavaScript-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\HTML-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.HTML-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSS-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CSS-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CPP-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CPP-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Java-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.Java-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Python-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.Python-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XML-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.XML-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\TSQL-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.TSQL-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\VB-Mode.xshd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.VB-Mode.xshd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV2.xsd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV2.xsd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV1.xsd" LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       CodeCompletion — interfaces only (no Uno XAML controls)
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\UnoEdit\CodeCompletion\ICompletionData.cs" Link="CodeCompletion\ICompletionData.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\IOverloadProvider.cs" Link="CodeCompletion\IOverloadProvider.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\ICaretAnchorProvider.cs" Link="CodeCompletion\ICaretAnchorProvider.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\CompletionWindowPlacement.cs" Link="CodeCompletion\CompletionWindowPlacement.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Misc — themes, automation
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Compile Include="..\UnoEdit\Themes\TextEditorTheme.cs" Link="Themes\TextEditorTheme.cs" />
+    <Compile Include="..\UnoEdit\TextEditorAutomationPeer.cs" Link="TextEditorAutomationPeer.cs" />
+  </ItemGroup>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       WinUI XAML control surface (minimal host control)
+       ═══════════════════════════════════════════════════════════════ -->
+  <ItemGroup>
+    <Page Include="Controls\TextEditor.xaml" />
+    <Compile Include="Controls\TextEditor.xaml.cs">
+      <DependentUpon>TextEditor.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>

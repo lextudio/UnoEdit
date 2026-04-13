@@ -101,7 +101,7 @@ namespace System.Windows.Input
 		public string Name { get; }
 		public Type OwnerType { get; }
 		public InputGestureCollection InputGestures { get; }
-		private readonly List<CommandBinding> _bindings = [];
+		private readonly List<CommandBinding> _bindings = new List<CommandBinding>();
 
 		public RoutedCommand(string name, Type ownerType)
 		{

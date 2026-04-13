@@ -154,7 +154,23 @@ namespace System.Windows
 	/// Extends Uno's <see cref="Microsoft.UI.Xaml.FrameworkPropertyMetadata"/> with the WPF
 	/// constructors that Uno omits (1-arg callback, 2-arg default+callback).
 	/// Uno's type is not sealed, so inheritance works cleanly.
+	///
+	/// For Windows App SDK builds (WinUI 3), FrameworkPropertyMetadata does not exist as a
+	/// platform type, so this shim inherits from PropertyMetadata directly instead.
 	/// </summary>
+#if WINDOWS_APP_SDK
+	public class FrameworkPropertyMetadata : PropertyMetadata
+	{
+		public FrameworkPropertyMetadata(PropertyChangedCallback propertyChangedCallback)
+			: base(null, propertyChangedCallback) { }
+
+		public FrameworkPropertyMetadata(object defaultValue, PropertyChangedCallback propertyChangedCallback)
+			: base(defaultValue, propertyChangedCallback) { }
+
+		public FrameworkPropertyMetadata(object defaultValue)
+			: base(defaultValue) { }
+	}
+#else
 	public class FrameworkPropertyMetadata : Microsoft.UI.Xaml.FrameworkPropertyMetadata
 	{
 		/// <summary>WPF-compat: creates metadata with only a property-changed callback (no default value).</summary>
@@ -173,9 +189,10 @@ namespace System.Windows
 			: base(defaultValue, options) { }
 
 		public FrameworkPropertyMetadata(object defaultValue, FrameworkPropertyMetadataOptions options,
-		                                  PropertyChangedCallback propertyChangedCallback)
+										  PropertyChangedCallback propertyChangedCallback)
 			: base(defaultValue, options, propertyChangedCallback) { }
 	}
+#endif
 
 	public class PresentationSource
 	{

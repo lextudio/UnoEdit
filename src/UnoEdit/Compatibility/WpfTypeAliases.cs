@@ -16,10 +16,12 @@ global using UIElement                         = Microsoft.UI.Xaml.UIElement;
 global using FrameworkElement                  = Microsoft.UI.Xaml.FrameworkElement;
 global using DependencyPropertyChangedEventArgs = Microsoft.UI.Xaml.DependencyPropertyChangedEventArgs;
 global using PropertyChangedCallback           = Microsoft.UI.Xaml.PropertyChangedCallback;
+#if !WINDOWS_APP_SDK
 global using FrameworkPropertyMetadataOptions  = Microsoft.UI.Xaml.FrameworkPropertyMetadataOptions;
 // Note: FrameworkPropertyMetadata is NOT aliased here because Uno's version is missing
 // WPF constructors (1-arg callback, 2-arg default+callback). A shim subclass in
 // Compatibility/SystemWindowsCompatibility.cs fills those gaps instead.
+#endif
 
 // System.Windows geometry / media types
 global using Rect                              = Windows.Foundation.Rect;

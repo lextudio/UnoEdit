@@ -39,7 +39,16 @@ namespace LeXtudio.UI.Text.Core
                 return new Win32TextInputAdapter();
             }
 
-            // macOS and Linux adapters will be added in later phases.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return new MacOSTextInputAdapter();
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                return new LinuxIbusTextInputAdapter();
+            }
+
             return new NullTextInputAdapter();
         }
     }

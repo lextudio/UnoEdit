@@ -8,5 +8,36 @@
     <Company>LeXtudio</Company>
     <Version>1.0.0</Version>
     <Description>Core cross-platform text/IME primitives used by editor integrations.</Description>
+    <PackageId>LeXtudio.UI.Text.Core</PackageId>
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <MacImeDylibPath Condition="Exists('$(MSBuildThisFileDirectory)..\UnoEdit\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib')">$(MSBuildThisFileDirectory)..\UnoEdit\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib</MacImeDylibPath>
+    <MacImeDylibPath Condition="'$(MacImeDylibPath)' == '' and Exists('$(MSBuildThisFileDirectory)..\UnoEdit.Sample\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib')">$(MSBuildThisFileDirectory)..\UnoEdit.Sample\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib</MacImeDylibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="buildTransitive/LeXtudio.UI.Text.Core.targets" Pack="true" PackagePath="buildTransitive/LeXtudio.UI.Text.Core.targets" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MacImeDylibPath)' != ''">
+    <None Include="$(MacImeDylibPath)" Pack="true" PackagePath="runtimes/osx/native/libUnoEditMacInput.dylib" />
+    <None Include="$(MacImeDylibPath)" Pack="true" PackagePath="runtimes/osx-x64/native/libUnoEditMacInput.dylib" />
+    <None Include="$(MacImeDylibPath)" Pack="true" PackagePath="runtimes/osx-arm64/native/libUnoEditMacInput.dylib" />
+  </ItemGroup>
+
+  <Target Name="EnsureMacNativeBridgeForPack" BeforeTargets="Pack">
+    <Message Importance="high" Text="[LeXtudio.UI.Text.Core] macOS native bridge path: $(MacImeDylibPath)" Condition="'$(MacImeDylibPath)' != ''" />
+    <Error
+      Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and '$(MacImeDylibPath)' == ''"
+      Text="macOS packaging requires libUnoEditMacInput.dylib. Build src/UnoEdit/UnoEdit.csproj (or src/UnoEdit.Sample/UnoEdit.Sample.csproj) first so the dylib exists." />
+  </Target>
 </Project>

@@ -26,8 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Exclude the resource dictionary from XAML compilation (it has no x:Class) -->
+    <!-- Keep UnoEditorResources as loose XAML loaded at runtime from OnLaunched. -->
     <Page Remove="UnoEditorResources.xaml" />
-    <Content Include="UnoEditorResources.xaml" />
+    <Content Include="UnoEditorResources.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

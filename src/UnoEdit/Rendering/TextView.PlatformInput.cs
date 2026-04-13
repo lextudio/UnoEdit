@@ -6,6 +6,9 @@ using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
+#if WINDOWS_APP_SDK
+using Windows.UI.Text.Core;
+#endif
 #if !WINDOWS_APP_SDK
 using Uno.UI.Xaml;
 using LinuxImeBridge = UnoEdit.Skia.Desktop.Controls.Platform.Linux.LinuxImeBridge;
@@ -59,6 +62,9 @@ public sealed partial class TextView
     private int _compositionLength;
 
     // Platform-specific bridges (at most one is non-null at runtime).
+#if WINDOWS_APP_SDK
+    private CoreTextEditContext? _coreTextEditContext;
+#endif
     private Win32ImeBridge? _win32ImeBridge;
 #if !WINDOWS_APP_SDK
     private LinuxImeBridge? _linuxImeBridge;
@@ -225,6 +231,8 @@ public sealed partial class TextView
             LogWin32Ime("InitializePlatformInputBridge: Windows detected, registering Loaded/Unloaded.");
             Loaded += OnPlatformInputLoaded;
             Unloaded += OnPlatformInputUnloaded;
+            GotFocus += OnPlatformInputGotFocus;
+            LostFocus += OnPlatformInputLostFocus;
         }
         else if (s_isLinux)
         {
@@ -247,6 +255,21 @@ public sealed partial class TextView
         else
         {
             Rect rect = CalculatePlatformInputCaretRect();
+#if WINDOWS_APP_SDK
+            if (_coreTextEditContext is not null)
+            {
+                try
+                {
+                    _coreTextEditContext.NotifyLayoutChanged();
+                    _coreTextEditContext.NotifySelectionChanged(ToCoreTextRange(SelectionStartOffset, SelectionEndOffset));
+                }
+                catch (Exception ex)
+                {
+                    LogWin32Ime($"CoreText notify failed: {ex.Message}");
+                }
+            }
+            else
+#endif
             if (_win32ImeBridge is { } win32)
             {
                 LogWin32Ime($"UpdatePlatformInputBridge: caretRect={rect.X:F1},{rect.Y:F1} {rect.Width:F1}x{rect.Height:F1}");
@@ -278,6 +301,20 @@ public sealed partial class TextView
         }
         else
         {
+#if WINDOWS_APP_SDK
+            if (_coreTextEditContext is not null)
+            {
+                try
+                {
+                    _coreTextEditContext.NotifyFocusEnter();
+                }
+                catch (Exception ex)
+                {
+                    LogWin32Ime($"CoreText NotifyFocusEnter failed: {ex.Message}");
+                }
+                return;
+            }
+#endif
 #if !WINDOWS_APP_SDK
             _linuxImeBridge?.FocusIn();
 #endif
@@ -354,7 +391,14 @@ public sealed partial class TextView
         else if (s_isWindows)
         {
             LogWin32Ime("OnPlatformInputLoaded: Windows.");
+#if WINDOWS_APP_SDK
+            if (!EnsureCoreTextEditContext())
+            {
+                EnsureWin32ImeBridge();
+            }
+#else
             EnsureWin32ImeBridge();
+#endif
         }
 #if !WINDOWS_APP_SDK
         else if (s_isLinux)
@@ -377,6 +421,9 @@ public sealed partial class TextView
         else
         {
             LogWin32Ime("OnPlatformInputUnloaded: disposing bridges.");
+#if WINDOWS_APP_SDK
+            DisposeCoreTextEditContext();
+#endif
             _win32ImeBridge?.Dispose();
             _win32ImeBridge = null;
 #if !WINDOWS_APP_SDK
@@ -384,6 +431,40 @@ public sealed partial class TextView
             _linuxImeBridge = null;
 #endif
         }
+    }
+
+    private void OnPlatformInputGotFocus(object sender, RoutedEventArgs e)
+    {
+#if WINDOWS_APP_SDK
+        if (_coreTextEditContext is not null)
+        {
+            try
+            {
+                _coreTextEditContext.NotifyFocusEnter();
+            }
+            catch (Exception ex)
+            {
+                LogWin32Ime($"CoreText focus enter failed: {ex.Message}");
+            }
+        }
+#endif
+    }
+
+    private void OnPlatformInputLostFocus(object sender, RoutedEventArgs e)
+    {
+#if WINDOWS_APP_SDK
+        if (_coreTextEditContext is not null)
+        {
+            try
+            {
+                _coreTextEditContext.NotifyFocusLeave();
+            }
+            catch (Exception ex)
+            {
+                LogWin32Ime($"CoreText focus leave failed: {ex.Message}");
+            }
+        }
+#endif
     }
 
     // -----------------------------------------------------------------------
@@ -492,6 +573,13 @@ public sealed partial class TextView
         }
 
         nint hwnd = TryGetNativeWindowHandle(Window.Current);
+#if WINDOWS_APP_SDK
+        if (hwnd == nint.Zero)
+        {
+            // WinUI 3 apps do not populate Window.Current; use the process main window handle.
+            hwnd = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+        }
+#endif
         LogWin32Ime($"EnsureWin32ImeBridge: hwnd=0x{hwnd:X}");
         if (hwnd == nint.Zero)
         {
@@ -512,6 +600,232 @@ public sealed partial class TextView
         _win32ImeBridge.TextCommitted += text => HandleCompositionCommit(text);
         LogWin32Ime("EnsureWin32ImeBridge: callbacks wired.");
     }
+
+#if WINDOWS_APP_SDK
+    private bool EnsureCoreTextEditContext()
+    {
+        if (_coreTextEditContext is not null)
+        {
+            return true;
+        }
+
+        try
+        {
+            CoreTextServicesManager manager = CoreTextServicesManager.GetForCurrentView();
+            _coreTextEditContext = manager.CreateEditContext();
+            _coreTextEditContext.InputScope = CoreTextInputScope.Text;
+
+            _coreTextEditContext.TextRequested += CoreTextEditContext_TextRequested;
+            _coreTextEditContext.SelectionRequested += CoreTextEditContext_SelectionRequested;
+            _coreTextEditContext.TextUpdating += CoreTextEditContext_TextUpdating;
+            _coreTextEditContext.SelectionUpdating += CoreTextEditContext_SelectionUpdating;
+            _coreTextEditContext.LayoutRequested += CoreTextEditContext_LayoutRequested;
+            _coreTextEditContext.CompositionStarted += CoreTextEditContext_CompositionStarted;
+            _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
+            _coreTextEditContext.FocusRemoved += CoreTextEditContext_FocusRemoved;
+
+            LogWin32Ime("EnsureCoreTextEditContext: initialized.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LogWin32Ime($"EnsureCoreTextEditContext failed: {ex.Message}");
+            _coreTextEditContext = null;
+            return false;
+        }
+    }
+
+    private void DisposeCoreTextEditContext()
+    {
+        if (_coreTextEditContext is null)
+        {
+            return;
+        }
+
+        _coreTextEditContext.TextRequested -= CoreTextEditContext_TextRequested;
+        _coreTextEditContext.SelectionRequested -= CoreTextEditContext_SelectionRequested;
+        _coreTextEditContext.TextUpdating -= CoreTextEditContext_TextUpdating;
+        _coreTextEditContext.SelectionUpdating -= CoreTextEditContext_SelectionUpdating;
+        _coreTextEditContext.LayoutRequested -= CoreTextEditContext_LayoutRequested;
+        _coreTextEditContext.CompositionStarted -= CoreTextEditContext_CompositionStarted;
+        _coreTextEditContext.CompositionCompleted -= CoreTextEditContext_CompositionCompleted;
+        _coreTextEditContext.FocusRemoved -= CoreTextEditContext_FocusRemoved;
+        _coreTextEditContext = null;
+    }
+
+    private void CoreTextEditContext_TextRequested(CoreTextEditContext sender, CoreTextTextRequestedEventArgs args)
+    {
+        CoreTextTextRequest request = args.Request;
+        if (_document is null)
+        {
+            request.Text = string.Empty;
+            return;
+        }
+
+        int textLength = _document.TextLength;
+        int start = Math.Clamp(request.Range.StartCaretPosition, 0, textLength);
+        int end = Math.Clamp(request.Range.EndCaretPosition, start, textLength);
+        request.Text = _document.GetText(start, end - start);
+        LogWin32Ime($"CoreText TextRequested range=[{start},{end}) len={end - start}");
+    }
+
+    private void CoreTextEditContext_SelectionRequested(CoreTextEditContext sender, CoreTextSelectionRequestedEventArgs args)
+    {
+        args.Request.Selection = ToCoreTextRange(SelectionStartOffset, SelectionEndOffset);
+        LogWin32Ime($"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset}");
+    }
+
+    private void CoreTextEditContext_TextUpdating(CoreTextEditContext sender, CoreTextTextUpdatingEventArgs args)
+    {
+        if (_document is null || IsReadOnly)
+        {
+            return;
+        }
+
+        int textLength = _document.TextLength;
+        int start = Math.Clamp(args.Range.StartCaretPosition, 0, textLength);
+        int end = Math.Clamp(args.Range.EndCaretPosition, start, textLength);
+        int removeLength = end - start;
+        LogWin32Ime($"CoreText TextUpdating range=[{start},{end}) remove={removeLength} textLen={(args.Text ?? string.Empty).Length}");
+
+        if (!CanDelete(start, removeLength))
+        {
+            return;
+        }
+
+        string text = args.Text ?? string.Empty;
+        if (!string.IsNullOrEmpty(text))
+        {
+            RaiseTextEntering(text);
+        }
+
+        BatchRefresh(() =>
+        {
+            using (_document.RunUpdate())
+            {
+                if (removeLength > 0)
+                {
+                    _document.Remove(start, removeLength);
+                }
+
+                if (!string.IsNullOrEmpty(text))
+                {
+                    _document.Insert(start, text);
+                }
+            }
+
+            int newTextLength = _document.TextLength;
+            int newSelStart = Math.Clamp(args.NewSelection.StartCaretPosition, 0, newTextLength);
+            int newSelEnd = Math.Clamp(args.NewSelection.EndCaretPosition, 0, newTextLength);
+            _selectionAnchorOffset = newSelStart;
+            SelectionStartOffset = Math.Min(newSelStart, newSelEnd);
+            SelectionEndOffset = Math.Max(newSelStart, newSelEnd);
+            CurrentOffset = newSelEnd;
+            _desiredColumn = _document.GetLocation(CurrentOffset).Column;
+        });
+
+        if (!string.IsNullOrEmpty(text))
+        {
+            RaiseTextEntered(text);
+        }
+
+        UpdatePlatformInputBridge();
+    }
+
+    private void CoreTextEditContext_SelectionUpdating(CoreTextEditContext sender, CoreTextSelectionUpdatingEventArgs args)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        int textLength = _document.TextLength;
+        int start = Math.Clamp(args.Selection.StartCaretPosition, 0, textLength);
+        int end = Math.Clamp(args.Selection.EndCaretPosition, 0, textLength);
+        LogWin32Ime($"CoreText SelectionUpdating sel=[{start},{end}] docLen={textLength}");
+
+        BatchRefresh(() =>
+        {
+            _selectionAnchorOffset = start;
+            SelectionStartOffset = Math.Min(start, end);
+            SelectionEndOffset = Math.Max(start, end);
+            CurrentOffset = end;
+            _desiredColumn = _document.GetLocation(CurrentOffset).Column;
+        });
+
+        UpdatePlatformInputBridge();
+    }
+
+    private void CoreTextEditContext_LayoutRequested(CoreTextEditContext sender, CoreTextLayoutRequestedEventArgs args)
+    {
+        var request = args.Request;
+        if (request is null)
+        {
+            return;
+        }
+
+        Rect caretRect = CalculatePlatformInputCaretRect();
+        Rect controlRect = GetElementRectInWindow(RootBorder);
+        double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
+
+        Rect textBounds = ScaleRect(caretRect, scale);
+        Rect bounds = ScaleRect(controlRect, scale);
+
+        request.LayoutBounds.TextBounds = textBounds;
+        request.LayoutBounds.ControlBounds = bounds;
+
+        LogWin32Ime(
+            $"CoreText LayoutRequested caret=({caretRect.X:F1},{caretRect.Y:F1},{caretRect.Width:F1},{caretRect.Height:F1}) " +
+            $"control=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) scale={scale:F2} " +
+            $"textBounds=({textBounds.X:F1},{textBounds.Y:F1},{textBounds.Width:F1},{textBounds.Height:F1}) " +
+            $"controlBounds=({bounds.X:F1},{bounds.Y:F1},{bounds.Width:F1},{bounds.Height:F1})");
+    }
+
+    private void CoreTextEditContext_CompositionStarted(CoreTextEditContext sender, CoreTextCompositionStartedEventArgs args)
+    {
+        HandleCompositionStart();
+    }
+
+    private void CoreTextEditContext_CompositionCompleted(CoreTextEditContext sender, CoreTextCompositionCompletedEventArgs args)
+    {
+        HandleCompositionEnd();
+    }
+
+    private void CoreTextEditContext_FocusRemoved(CoreTextEditContext sender, object args)
+    {
+        try
+        {
+            if (FocusState != FocusState.Unfocused)
+            {
+                Focus(FocusState.Unfocused);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static CoreTextRange ToCoreTextRange(int startOffset, int endOffset)
+    {
+        return new CoreTextRange
+        {
+            StartCaretPosition = Math.Min(startOffset, endOffset),
+            EndCaretPosition = Math.Max(startOffset, endOffset),
+        };
+    }
+
+    private static Rect ScaleRect(Rect rect, double scale)
+    {
+        return new Rect(rect.X * scale, rect.Y * scale, rect.Width * scale, rect.Height * scale);
+    }
+
+    private static Rect GetElementRectInWindow(FrameworkElement element)
+    {
+        GeneralTransform transform = element.TransformToVisual(null);
+        Point point = transform.TransformPoint(new Point(0, 0));
+        return new Rect(point.X, point.Y, element.ActualWidth, element.ActualHeight);
+    }
+#endif
 
 #if !WINDOWS_APP_SDK
     private void EnsureLinuxImeBridge()

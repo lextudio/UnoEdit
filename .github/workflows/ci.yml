@@ -26,7 +26,7 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore UnoEdit.slnx
       - name: Run unit tests
-        run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop"
+        run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" UnoEdit.slnx
 
   runtime-tests:
     # RuntimeTests run inside the Skia Desktop app via Uno.UI.RuntimeTests.Engine.

@@ -60,21 +60,33 @@ namespace LeXtudio.UI.Text.Core
         /// adapter can start listening for IME events.
         /// </summary>
         /// <param name="windowHandle">The native window handle (HWND, NSWindow*, X11 window id).</param>
+        /// <param name="displayHandle">The native display handle (X11 Display* on Linux, 0 on other platforms).</param>
         /// <returns><c>true</c> if the adapter attached successfully.</returns>
-        public bool Attach(nint windowHandle) => _adapter.Attach(windowHandle, this);
+        public bool Attach(nint windowHandle, nint displayHandle = 0) => _adapter.Attach(windowHandle, displayHandle, this);
 
         /// <summary>
         /// Notify the platform that the caret rectangle has changed so the IME
         /// candidate window can be repositioned.
         /// </summary>
-        public void NotifyCaretRectChanged(double x, double y, double width, double height)
-            => _adapter.NotifyCaretRectChanged(x, y, width, height);
+        public void NotifyCaretRectChanged(double x, double y, double width, double height, double scale = 1.0)
+            => _adapter.NotifyCaretRectChanged(x, y, width, height, scale);
 
         /// <summary>Notify the platform that this context has received keyboard focus.</summary>
         public void NotifyFocusEnter() => _adapter.NotifyFocusEnter();
 
         /// <summary>Notify the platform that this context has lost keyboard focus.</summary>
         public void NotifyFocusLeave() => _adapter.NotifyFocusLeave();
+
+        /// <summary>
+        /// Forward a key event to the platform IME for processing.
+        /// Returns <c>true</c> if the IME consumed the key (caller should suppress normal handling).
+        /// </summary>
+        /// <param name="virtualKey">The virtual key code (cast from <c>Windows.System.VirtualKey</c>).</param>
+        /// <param name="shiftPressed">Whether the Shift modifier is active.</param>
+        /// <param name="controlPressed">Whether the Control modifier is active.</param>
+        /// <param name="unicodeKey">Optional Unicode character for keys that map to VirtualKey.None.</param>
+        public bool ProcessKeyEvent(int virtualKey, bool shiftPressed, bool controlPressed, char? unicodeKey = null)
+            => _adapter.ProcessKeyEvent(virtualKey, shiftPressed, controlPressed, unicodeKey);
 
         /// <inheritdoc />
         public void Dispose() => _adapter.Dispose();

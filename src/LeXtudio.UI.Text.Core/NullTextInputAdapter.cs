@@ -9,10 +9,10 @@ namespace LeXtudio.UI.Text.Core
     internal sealed class NullTextInputAdapter : IPlatformTextInputAdapter
     {
         /// <inheritdoc />
-        public bool Attach(nint windowHandle, CoreTextEditContext context) => false;
+        public bool Attach(nint windowHandle, nint displayHandle, CoreTextEditContext context) => false;
 
         /// <inheritdoc />
-        public void NotifyCaretRectChanged(double x, double y, double width, double height) { }
+        public void NotifyCaretRectChanged(double x, double y, double width, double height, double scale) { }
 
         /// <inheritdoc />
         public void NotifyFocusEnter() { }

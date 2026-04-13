@@ -39,6 +39,49 @@ internal sealed class LinuxIBusConnection : IDisposable
     public void FocusOut() => CallVoidMethod("FocusOut");
     public void Reset() => CallVoidMethod("Reset");
 
+    /// <summary>
+    /// Forwards a key event to IBus via the ProcessKeyEvent D-Bus method.
+    /// Returns (handled, reply) where handled indicates IBus consumed the key.
+    /// </summary>
+    public (bool handled, LinuxDBusMessage? reply) ProcessKeyEvent(uint keyval, uint keycode, uint state)
+    {
+        if (_conn == null || _inputContextPath == null)
+        {
+            return (false, null);
+        }
+
+        uint serial = _conn.NextSerial();
+        byte[] msg = LinuxDBusWriter.BuildMethodCall(
+            serial,
+            "org.freedesktop.IBus",
+            _inputContextPath,
+            "org.freedesktop.IBus.InputContext",
+            "ProcessKeyEvent",
+            "uuu",
+            bw =>
+            {
+                bw.WriteUInt32(keyval);
+                bw.WriteUInt32(keycode);
+                bw.WriteUInt32(state);
+            });
+
+        LinuxDBusMessage? reply = _conn.SendAndWaitReply(msg, serial, 200);
+        if (reply != null && reply.Type == LinuxDBusConstants.MethodReturn && reply.Body.Length > 0)
+        {
+            try
+            {
+                var r = new LinuxDBusReader(reply.Body, 0);
+                bool handled = r.ReadBool();
+                return (handled, reply);
+            }
+            catch
+            {
+            }
+        }
+
+        return (false, reply);
+    }
+
     public void SetCursorLocation(int x, int y, int w, int h)
     {
         if (_conn == null || _inputContextPath == null)

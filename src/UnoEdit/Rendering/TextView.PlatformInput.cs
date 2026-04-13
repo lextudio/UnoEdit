@@ -434,7 +434,8 @@ public sealed partial class TextView
         }
 
         Rect rect = CalculatePlatformInputCaretRect();
-        _platformTextContext.NotifyCaretRectChanged(rect.X, rect.Y, rect.Width, rect.Height);
+        double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
+        _platformTextContext.NotifyCaretRectChanged(rect.X, rect.Y, rect.Width, rect.Height, scale);
     }
 
     partial void FocusPlatformInputBridge()
@@ -445,7 +446,27 @@ public sealed partial class TextView
 
     private partial bool ShouldDeferToPlatformTextInput(bool controlPressed)
     {
+        // Linux: IME integration is via explicit TryForwardKeyToPlatformIme calls
+        // in OnRootKeyDown, NOT via full deferral. Non-IME keys must fall through
+        // to EditingCommandHandler / CaretNavigationCommandHandler.
+        // Only macOS uses full deferral (all keys go through the native AppKit bridge).
         return false;
+    }
+
+    /// <summary>
+    /// Forwards a key event to the platform IME (IBus on Linux).
+    /// Returns true if the IME consumed the key (caller should suppress normal handling).
+    /// </summary>
+    private bool TryForwardKeyToPlatformIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed, char? unicodeKey = null)
+    {
+        if (_platformTextContext is null)
+        {
+            return false;
+        }
+
+        bool handled = _platformTextContext.ProcessKeyEvent((int)key, shiftPressed, controlPressed, unicodeKey);
+        LogPlatformIme($"ProcessKeyEvent key={key} shift={shiftPressed} ctrl={controlPressed} -> handled={handled}");
+        return handled;
     }
 
     private void OnPlatformInputLoaded(object sender, RoutedEventArgs e)
@@ -476,7 +497,17 @@ public sealed partial class TextView
             return;
         }
 
-        nint windowHandle = TryGetNativeWindowHandle(Window.Current);
+        nint windowHandle = nint.Zero;
+        nint displayHandle = nint.Zero;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            TryGetX11Handles(out displayHandle, out windowHandle);
+        }
+
+        if (windowHandle == nint.Zero)
+        {
+            windowHandle = TryGetNativeWindowHandle(Window.Current);
+        }
 
         CoreTextServicesManager manager = CoreTextServicesManager.GetForCurrentView();
         _platformTextContext = manager.CreateEditContext();
@@ -488,8 +519,57 @@ public sealed partial class TextView
         _platformTextContext.FocusRemoved += OnPlatformFocusRemoved;
         _platformTextContext.CommandReceived += OnPlatformCommandReceived;
 
-        bool attached = _platformTextContext.Attach(windowHandle);
-        LogPlatformIme($"Attach platform text context handle=0x{windowHandle:X} attached={attached}");
+        bool attached = _platformTextContext.Attach(windowHandle, displayHandle);
+        LogPlatformIme($"Attach platform text context handle=0x{windowHandle:X} display=0x{displayHandle:X} attached={attached}");
+
+        // The editor may already have focus when Loaded fires, so GotFocus
+        // won't re-fire.  Ensure IBus knows we have focus.
+        if (attached)
+        {
+            _platformTextContext.NotifyFocusEnter();
+        }
+    }
+
+    /// <summary>
+    /// Resolve the X11 display and window handles from Uno internals via reflection.
+    /// Path: X11XamlRootHost.GetHostFromWindow(Window.Current) → .RootX11Window → .Display/.Window
+    /// </summary>
+    private static void TryGetX11Handles(out nint display, out nint window)
+    {
+        display = nint.Zero;
+        window = nint.Zero;
+
+        try
+        {
+            var currentWindow = Window.Current;
+            if (currentWindow is null) return;
+
+            var hostType = Type.GetType("Uno.WinUI.Runtime.Skia.X11.X11XamlRootHost, Uno.UI.Runtime.Skia.X11");
+            if (hostType is null) return;
+
+            var getHost = hostType.GetMethod("GetHostFromWindow", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            var host = getHost?.Invoke(null, new object?[] { currentWindow });
+            if (host is null) return;
+
+            var rootX11WindowProp = hostType.GetProperty("RootX11Window", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var x11Window = rootX11WindowProp?.GetValue(host);
+            if (x11Window is null) return;
+
+            var windowType = x11Window.GetType();
+            var displayProp = windowType.GetProperty("Display", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            var windowProp = windowType.GetProperty("Window", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            object? displayVal = displayProp?.GetValue(x11Window);
+            if (displayVal is nint dp) display = dp;
+            else if (displayVal is IntPtr dip) display = dip;
+
+            object? windowVal = windowProp?.GetValue(x11Window);
+            if (windowVal is nint wp) window = wp;
+            else if (windowVal is IntPtr wip) window = wip;
+        }
+        catch
+        {
+        }
     }
 
     private void DisposePlatformTextContext()
@@ -512,6 +592,7 @@ public sealed partial class TextView
     private void OnPlatformTextRequested(object? sender, CoreTextTextRequestedEventArgs e)
     {
         string text = e.Request.Text ?? string.Empty;
+        LogPlatformIme($"OnPlatformTextRequested: text='{text}'");
         if (!string.IsNullOrEmpty(text))
         {
             HandleCompositionCommit(text);
@@ -520,11 +601,13 @@ public sealed partial class TextView
 
     private void OnPlatformTextUpdating(object? sender, CoreTextTextUpdatingEventArgs e)
     {
+        LogPlatformIme($"OnPlatformTextUpdating: text='{e.NewText}'");
         HandleCompositionUpdate(e.NewText ?? string.Empty);
     }
 
     private void OnPlatformCompositionStarted(object? sender, EventArgs e)
     {
+        LogPlatformIme("OnPlatformCompositionStarted");
         HandleCompositionStart();
     }
 

@@ -48,7 +48,7 @@ namespace LeXtudio.UI.Text.Core
         private delegate nint WndProcDelegate(nint hwnd, int msg, nint wParam, nint lParam);
 
         /// <inheritdoc />
-        public bool Attach(nint windowHandle, CoreTextEditContext context)
+        public bool Attach(nint windowHandle, nint displayHandle, CoreTextEditContext context)
         {
             if (windowHandle == nint.Zero)
             {
@@ -83,7 +83,7 @@ namespace LeXtudio.UI.Text.Core
         }
 
         /// <inheritdoc />
-        public void NotifyCaretRectChanged(double x, double y, double width, double height)
+        public void NotifyCaretRectChanged(double x, double y, double width, double height, double scale)
         {
             _caretX = x;
             _caretY = y;

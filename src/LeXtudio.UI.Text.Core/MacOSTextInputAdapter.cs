@@ -30,7 +30,7 @@ namespace LeXtudio.UI.Text.Core
         }
 
         /// <inheritdoc />
-        public bool Attach(nint windowHandle, CoreTextEditContext context)
+        public bool Attach(nint windowHandle, nint displayHandle, CoreTextEditContext context)
         {
             if (windowHandle == nint.Zero)
             {
@@ -82,7 +82,7 @@ namespace LeXtudio.UI.Text.Core
         }
 
         /// <inheritdoc />
-        public void NotifyCaretRectChanged(double x, double y, double width, double height)
+        public void NotifyCaretRectChanged(double x, double y, double width, double height, double scale)
         {
             if (_bridgeHandle == nint.Zero)
             {

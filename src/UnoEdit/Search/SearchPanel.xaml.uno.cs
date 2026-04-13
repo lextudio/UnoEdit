@@ -11,7 +11,7 @@ namespace UnoEdit.Skia.Desktop.Controls;
 
 public sealed partial class SearchPanel : UserControl
 {
-    private TextEditor? _editor;
+    private ISearchPanelHost? _editor;
     private TextDocument? _attachedDocument;
     private List<ISearchResult> _results = new();
     private int _selectedResultIndex = -1;
@@ -35,7 +35,7 @@ public sealed partial class SearchPanel : UserControl
         set => SearchTextBox.Text = value ?? string.Empty;
     }
 
-    public void Attach(TextEditor editor)
+    public void Attach(ISearchPanelHost editor)
     {
         _editor = editor;
     }
@@ -424,15 +424,15 @@ public sealed partial class SearchPanel : UserControl
         if (textArea == null)
             throw new ArgumentNullException(nameof(textArea));
 
-        // Prefer TextEditor, which already owns a SearchPanel instance.
-        if (textArea is TextEditor editor)
-            return editor.SearchPanel;
+        // Prefer ISearchPanelHost (both Uno and WinUI TextEditor implement it).
+        if (textArea is ISearchPanelHost searchHost)
+            return searchHost.SearchPanel;
 
         // If called with a TextArea, try to navigate back to owning editor via Parent chain.
         if (textArea is FrameworkElement fe) {
             var current = fe;
             while (current != null) {
-                if (current is TextEditor hostEditor)
+                if (current is ISearchPanelHost hostEditor)
                     return hostEditor.SearchPanel;
                 current = current.Parent as FrameworkElement;
             }

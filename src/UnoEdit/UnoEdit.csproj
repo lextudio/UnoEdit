@@ -37,6 +37,7 @@
     <Compile Include="Editing\SelectionMouseHandler.uno.cs" />
     <Compile Include="Editing\CaretNavigationCommandHandler.uno.cs" />
     <Compile Include="Editing\EditingCommandHandler.uno.cs" />
+    <Compile Include="Search\ISearchPanelHost.cs" />
     <Compile Include="Search\SearchPanel.xaml.uno.cs" />
     <Compile Include="Rendering\TextView.xaml.uno.cs" />
     <Compile Include="Rendering\TextView.PlatformInput.cs" />

@@ -1,12 +1,14 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -14,47 +16,22 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using UnoEdit.Skia.Desktop.Controls;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.System;
-using Windows.UI.Core;
+using Windows.Foundation;
 
 namespace UnoEdit.WinUI.Controls;
 
 /// <summary>
-/// WinUI 3 TextEditor control providing the same public API as the Uno TextEditor.
-/// Backed by a native WinUI <see cref="TextBox"/> for editing; all document-level
-/// operations (undo, folding, highlighting, search, load/save) are routed through
-/// the <see cref="TextDocument"/> model.
+/// WinUI 3 TextEditor — thin wrapper around the ported UnoEdit rendering pipeline.
+/// Delegates all editing and rendering to an inner <see cref="TextArea"/> and
+/// <see cref="SearchPanel"/>.
 /// </summary>
-public sealed partial class TextEditor : UserControl
+public sealed partial class TextEditor : UserControl, ISearchPanelHost
 {
-    // Dependency properties
+    // ── Dependency Properties ────────────────────────────────────────────────
+
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(nameof(Document), typeof(TextDocument), typeof(TextEditor),
             new PropertyMetadata(null, OnDocumentChanged));
-
-    public static readonly DependencyProperty ThemeProperty =
-        DependencyProperty.Register(nameof(Theme), typeof(TextEditorTheme), typeof(TextEditor),
-            new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
-
-    public static readonly DependencyProperty IsReadOnlyProperty =
-        DependencyProperty.Register(nameof(IsReadOnly), typeof(bool), typeof(TextEditor),
-            new PropertyMetadata(false, OnIsReadOnlyChanged));
-
-    public static readonly DependencyProperty IsModifiedProperty =
-        DependencyProperty.Register(nameof(IsModified), typeof(bool), typeof(TextEditor),
-            new PropertyMetadata(false));
-
-    public static readonly DependencyProperty ShowLineNumbersProperty =
-        DependencyProperty.Register(nameof(ShowLineNumbers), typeof(bool), typeof(TextEditor),
-            new PropertyMetadata(true));
-
-    public static readonly DependencyProperty WordWrapProperty =
-        DependencyProperty.Register(nameof(WordWrap), typeof(bool), typeof(TextEditor),
-            new PropertyMetadata(false, OnWordWrapChanged));
-
-    public static readonly DependencyProperty SyntaxHighlightingProperty =
-        DependencyProperty.Register(nameof(SyntaxHighlighting), typeof(IHighlightingDefinition),
-            typeof(TextEditor), new PropertyMetadata(null));
 
     public static readonly DependencyProperty CurrentOffsetProperty =
         DependencyProperty.Register(nameof(CurrentOffset), typeof(int), typeof(TextEditor),
@@ -62,46 +39,105 @@ public sealed partial class TextEditor : UserControl
 
     public static readonly DependencyProperty SelectionStartOffsetProperty =
         DependencyProperty.Register(nameof(SelectionStartOffset), typeof(int), typeof(TextEditor),
-            new PropertyMetadata(0));
+            new PropertyMetadata(0, OnSelectionRangeChanged));
 
     public static readonly DependencyProperty SelectionEndOffsetProperty =
         DependencyProperty.Register(nameof(SelectionEndOffset), typeof(int), typeof(TextEditor),
-            new PropertyMetadata(0));
+            new PropertyMetadata(0, OnSelectionRangeChanged));
 
-    public static readonly DependencyProperty EncodingProperty =
-        DependencyProperty.Register(nameof(Encoding), typeof(Encoding), typeof(TextEditor),
-            new PropertyMetadata(Encoding.UTF8));
+    public static readonly DependencyProperty ThemeProperty =
+        DependencyProperty.Register(nameof(Theme), typeof(TextEditorTheme), typeof(TextEditor),
+            new PropertyMetadata(TextEditorTheme.Dark, OnThemeChanged));
 
     public static readonly DependencyProperty OptionsProperty =
         DependencyProperty.Register(nameof(Options), typeof(TextEditorOptions), typeof(TextEditor),
             new PropertyMetadata(new TextEditorOptions(), OnOptionsChanged));
 
+    public static readonly DependencyProperty IsReadOnlyProperty =
+        DependencyProperty.Register(nameof(IsReadOnly), typeof(bool), typeof(TextEditor),
+            new PropertyMetadata(false, OnIsReadOnlyChanged));
+
+    public static readonly DependencyProperty IsModifiedProperty =
+        DependencyProperty.Register(nameof(IsModified), typeof(bool), typeof(TextEditor),
+            new PropertyMetadata(false, OnIsModifiedChanged));
+
+    public static readonly DependencyProperty ShowLineNumbersProperty =
+        DependencyProperty.Register(nameof(ShowLineNumbers), typeof(bool), typeof(TextEditor),
+            new PropertyMetadata(true, OnShowLineNumbersChanged));
+
+    public static readonly DependencyProperty WordWrapProperty =
+        DependencyProperty.Register(nameof(WordWrap), typeof(bool), typeof(TextEditor),
+            new PropertyMetadata(false, OnWordWrapChanged));
+
+    public static readonly DependencyProperty SyntaxHighlightingProperty =
+        DependencyProperty.Register(nameof(SyntaxHighlighting), typeof(IHighlightingDefinition),
+            typeof(TextEditor), new PropertyMetadata(null, OnSyntaxHighlightingChanged));
+
+    public static readonly DependencyProperty EncodingProperty =
+        DependencyProperty.Register(nameof(Encoding), typeof(Encoding), typeof(TextEditor),
+            new PropertyMetadata(Encoding.UTF8));
+
+    public static readonly DependencyProperty LineNumbersForegroundProperty =
+        DependencyProperty.Register(nameof(LineNumbersForeground), typeof(Brush), typeof(TextEditor),
+            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
+
+    public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
+        DependencyProperty.Register(nameof(HorizontalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
+            new PropertyMetadata(ScrollBarVisibility.Auto));
+
+    public static readonly DependencyProperty VerticalScrollBarVisibilityProperty =
+        DependencyProperty.Register(nameof(VerticalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
+            new PropertyMetadata(ScrollBarVisibility.Auto));
+
+    private TextDocument? _attachedDocument;
+
     public TextEditor()
     {
         this.InitializeComponent();
-        _textArea = new TextAreaProxy();
-        Loaded += OnLoaded;
+        PART_SearchPanel.Attach(this);
+        PART_TextArea.CaretOffsetChanged  += OnTextAreaCaretOffsetChanged;
+        PART_TextArea.SelectionChanged    += OnTextAreaSelectionChanged;
+        PART_TextArea.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
+        KeyDown += OnEditorKeyDown;
+        ApplyThemeToChrome();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        ApplyTheme(Theme ?? TextEditorTheme.Dark);
-        if (Document == null)
-            Document = new TextDocument();
-    }
+    // ── Public Properties ────────────────────────────────────────────────────
 
-    // Public properties
-
-    public TextDocument Document
+    public TextDocument? Document
     {
-        get => (TextDocument)GetValue(DocumentProperty);
+        get => (TextDocument?)GetValue(DocumentProperty);
         set => SetValue(DocumentProperty, value);
+    }
+
+    public int CurrentOffset
+    {
+        get => (int)GetValue(CurrentOffsetProperty);
+        set => SetValue(CurrentOffsetProperty, value);
+    }
+
+    public int SelectionStartOffset
+    {
+        get => (int)GetValue(SelectionStartOffsetProperty);
+        set => SetValue(SelectionStartOffsetProperty, value);
+    }
+
+    public int SelectionEndOffset
+    {
+        get => (int)GetValue(SelectionEndOffsetProperty);
+        set => SetValue(SelectionEndOffsetProperty, value);
     }
 
     public TextEditorTheme Theme
     {
         get => (TextEditorTheme)GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
+    }
+
+    public TextEditorOptions Options
+    {
+        get => (TextEditorOptions)GetValue(OptionsProperty);
+        set => SetValue(OptionsProperty, value);
     }
 
     public bool IsReadOnly
@@ -128,28 +164,10 @@ public sealed partial class TextEditor : UserControl
         set => SetValue(WordWrapProperty, value);
     }
 
-    public IHighlightingDefinition SyntaxHighlighting
+    public IHighlightingDefinition? SyntaxHighlighting
     {
-        get => (IHighlightingDefinition)GetValue(SyntaxHighlightingProperty);
+        get => (IHighlightingDefinition?)GetValue(SyntaxHighlightingProperty);
         set => SetValue(SyntaxHighlightingProperty, value);
-    }
-
-    public int CurrentOffset
-    {
-        get => (int)GetValue(CurrentOffsetProperty);
-        set => SetValue(CurrentOffsetProperty, value);
-    }
-
-    public int SelectionStartOffset
-    {
-        get => (int)GetValue(SelectionStartOffsetProperty);
-        set => SetValue(SelectionStartOffsetProperty, value);
-    }
-
-    public int SelectionEndOffset
-    {
-        get => (int)GetValue(SelectionEndOffsetProperty);
-        set => SetValue(SelectionEndOffsetProperty, value);
     }
 
     public Encoding Encoding
@@ -158,10 +176,22 @@ public sealed partial class TextEditor : UserControl
         set => SetValue(EncodingProperty, value);
     }
 
-    public TextEditorOptions Options
+    public Brush? LineNumbersForeground
     {
-        get => (TextEditorOptions)GetValue(OptionsProperty);
-        set => SetValue(OptionsProperty, value);
+        get => (Brush?)GetValue(LineNumbersForegroundProperty);
+        set => SetValue(LineNumbersForegroundProperty, value);
+    }
+
+    public ScrollBarVisibility HorizontalScrollBarVisibility
+    {
+        get => (ScrollBarVisibility)GetValue(HorizontalScrollBarVisibilityProperty);
+        set => SetValue(HorizontalScrollBarVisibilityProperty, value);
+    }
+
+    public ScrollBarVisibility VerticalScrollBarVisibility
+    {
+        get => (ScrollBarVisibility)GetValue(VerticalScrollBarVisibilityProperty);
+        set => SetValue(VerticalScrollBarVisibilityProperty, value);
     }
 
     public string Text
@@ -169,12 +199,12 @@ public sealed partial class TextEditor : UserControl
         get => Document?.Text ?? string.Empty;
         set
         {
-            var doc = EnsureDocument();
-            doc.Text = value ?? string.Empty;
+            var document = EnsureDocument();
+            document.Text = value ?? string.Empty;
             CurrentOffset = 0;
             SelectionStartOffset = 0;
             SelectionEndOffset = 0;
-            doc.UndoStack.ClearAll();
+            document.UndoStack.ClearAll();
         }
     }
 
@@ -200,45 +230,76 @@ public sealed partial class TextEditor : UserControl
     {
         get
         {
-            if (Document == null || SelectionLength == 0) return string.Empty;
+            if (Document is null || SelectionLength == 0) return string.Empty;
             int start = Math.Min(SelectionStartOffset, SelectionEndOffset);
             return Document.GetText(start, SelectionLength);
         }
         set
         {
-            if (value == null) throw new ArgumentNullException(nameof(value));
-            var doc = EnsureDocument();
+            if (value is null) throw new ArgumentNullException(nameof(value));
+            var document = EnsureDocument();
             int start = SelectionStart;
-            doc.Replace(start, SelectionLength, value);
+            document.Replace(start, SelectionLength, value);
             Select(start, value.Length);
         }
     }
 
     public int LineCount => Document?.LineCount ?? 1;
-    public bool CanUndo   => Document?.UndoStack.CanUndo ?? false;
-    public bool CanRedo   => Document?.UndoStack.CanRedo ?? false;
-    public bool IsSearchPanelOpen => PART_SearchBar?.Visibility == Visibility.Visible;
+    public bool CanUndo  => Document?.UndoStack.CanUndo ?? false;
+    public bool CanRedo  => Document?.UndoStack.CanRedo ?? false;
+    public bool IsSearchPanelOpen => PART_SearchPanel.IsOpen;
 
-    /// <summary>Text-input event proxy (TextEntered / TextEntering) matching the Uno TextArea API.</summary>
-    public TextAreaProxy TextArea => _textArea;
+    /// <summary>Provides direct access to the inner <see cref="UnoEdit.Skia.Desktop.Controls.TextArea"/>.</summary>
+    public TextArea TextArea => PART_TextArea;
 
-    /// <summary>Folding manager — operations apply to the <see cref="Document"/>.</summary>
-    public FoldingManager FoldingManager { get; set; }
+    /// <summary>Provides direct access to the inner <see cref="UnoEdit.Skia.Desktop.Controls.SearchPanel"/>.</summary>
+    public SearchPanel SearchPanel => PART_SearchPanel;
 
-    /// <summary>Per-line syntax-highlighting source (stored; applied by consuming code).</summary>
-    public IHighlightedLineSource HighlightedLineSource { get; set; }
+    public IReferenceSegmentSource? ReferenceSegmentSource
+    {
+        get => PART_TextArea.ReferenceSegmentSource;
+        set => PART_TextArea.ReferenceSegmentSource = value;
+    }
 
-    // Events
-    public event EventHandler DocumentChanged;
-    public event EventHandler TextChanged;
-    public event PropertyChangedEventHandler OptionChanged;
+    public FoldingManager? FoldingManager
+    {
+        get => PART_TextArea.FoldingManager;
+        set => PART_TextArea.FoldingManager = value;
+    }
 
-    // Operations
+    public IHighlightedLineSource? HighlightedLineSource
+    {
+        get => PART_TextArea.HighlightedLineSource;
+        set => PART_TextArea.HighlightedLineSource = value;
+    }
+
+    // Scroll metrics (delegated to inner ScrollViewer via reflection, matching Uno version)
+    public double HorizontalOffset   => GetScrollViewerMetric("HorizontalOffset");
+    public double VerticalOffset     => GetScrollViewerMetric("VerticalOffset");
+    public double ExtentHeight       => GetScrollViewerMetric("ExtentHeight");
+    public double ExtentWidth        => GetScrollViewerMetric("ExtentWidth");
+    public double ViewportHeight     => GetScrollViewerMetric("ViewportHeight", ActualHeight);
+    public double ViewportWidth      => GetScrollViewerMetric("ViewportWidth", ActualWidth);
+
+    // ── Events ───────────────────────────────────────────────────────────────
+
+    public event EventHandler? DocumentChanged;
+    public event EventHandler? TextChanged;
+    public event PropertyChangedEventHandler? OptionChanged;
+    public event EventHandler<ReferenceSegment>? NavigationRequested;
+
+    // Mouse-hover stubs (API compatibility)
+    public event EventHandler? MouseHover;
+    public event EventHandler? MouseHoverStopped;
+    public event EventHandler? PreviewMouseHover;
+    public event EventHandler? PreviewMouseHoverStopped;
+
+    // ── Operations ───────────────────────────────────────────────────────────
 
     public void Select(int start, int length)
     {
-        var doc = Document;
-        int docLen = doc?.TextLength ?? 0;
+        var document = Document;
+        int docLen = document?.TextLength ?? 0;
         if (start < 0 || start > docLen) throw new ArgumentOutOfRangeException(nameof(start));
         if (length < 0 || start + length > docLen) throw new ArgumentOutOfRangeException(nameof(length));
         SetSelection(start, start + length);
@@ -246,50 +307,27 @@ public sealed partial class TextEditor : UserControl
 
     public void SetSelection(int startOffset, int endOffset)
     {
-        if (Document == null) return;
+        if (Document is null) return;
         int len = Document.TextLength;
         SelectionStartOffset = Math.Clamp(Math.Min(startOffset, endOffset), 0, len);
         SelectionEndOffset   = Math.Clamp(Math.Max(startOffset, endOffset), 0, len);
         CurrentOffset        = SelectionEndOffset;
-        if (PART_EditBox != null && !_updatingEditBox)
-        {
-            _updatingEditBox = true;
-            try
-            {
-                PART_EditBox.SelectionStart  = SelectionStartOffset;
-                PART_EditBox.SelectionLength = SelectionEndOffset - SelectionStartOffset;
-            }
-            finally { _updatingEditBox = false; }
-        }
     }
 
-    public void ScrollToLine(int lineNumber)
-    {
-        if (Document == null || lineNumber < 1 || lineNumber > Document.LineCount) return;
-        var line = Document.GetLineByNumber(lineNumber);
-        ScrollToOffset(line.Offset);
-    }
-
+    public void ScrollToLine(int lineNumber)   => PART_TextArea.ScrollToLine(lineNumber);
     public void ScrollToOffset(int offset)
     {
-        if (Document == null) return;
+        if (Document is null) return;
         CurrentOffset = Math.Clamp(offset, 0, Document.TextLength);
     }
 
-    public void AppendText(string text)
-    {
-        var doc = EnsureDocument();
-        doc.Insert(doc.TextLength, text ?? string.Empty);
-    }
-
+    public void AppendText(string text) => EnsureDocument().Insert(EnsureDocument().TextLength, text ?? string.Empty);
     public void Clear() => Text = string.Empty;
-
-    public void BeginChange()          => EnsureDocument().BeginUpdate();
+    public void BeginChange()              => EnsureDocument().BeginUpdate();
     public IDisposable DeclareChangeBlock() => EnsureDocument().RunUpdate();
-    public void EndChange()            => EnsureDocument().EndUpdate();
-
-    public void Undo()   { if (CanUndo) Document.UndoStack.Undo(); }
-    public void Redo()   { if (CanRedo) Document.UndoStack.Redo(); }
+    public void EndChange()                => EnsureDocument().EndUpdate();
+    public void Undo() { if (CanUndo) Document!.UndoStack.Undo(); }
+    public void Redo() { if (CanRedo) Document!.UndoStack.Redo(); }
     public void SelectAll() => Select(0, Document?.TextLength ?? 0);
 
     public void Copy()
@@ -313,30 +351,16 @@ public sealed partial class TextEditor : UserControl
         if (IsReadOnly) return;
         if (SelectionLength > 0) { DeleteSelection(); return; }
         var doc = Document;
-        if (doc == null) return;
+        if (doc is null) return;
         int offset = Math.Clamp(CurrentOffset, 0, doc.TextLength);
         if (offset < doc.TextLength) { doc.Remove(offset, 1); Select(offset, 0); }
     }
 
-    public async void Paste()
-    {
-        if (IsReadOnly) return;
-        var view = Clipboard.GetContent();
-        if (view.Contains(StandardDataFormats.Text))
-        {
-            string text = await view.GetTextAsync();
-            if (text == null) return;
-            var doc = EnsureDocument();
-            if (SelectionLength > 0)
-                doc.Replace(SelectionStart, SelectionLength, text);
-            else
-                doc.Insert(CurrentOffset, text);
-        }
-    }
+    public void Paste() => _ = PasteAsync();
 
     public void Load(Stream stream)
     {
-        if (stream == null) throw new ArgumentNullException(nameof(stream));
+        if (stream is null) throw new ArgumentNullException(nameof(stream));
         using var reader = new StreamReader(stream, Encoding ?? Encoding.UTF8, true, 1024, leaveOpen: true);
         Text = reader.ReadToEnd();
         Encoding = reader.CurrentEncoding;
@@ -345,315 +369,305 @@ public sealed partial class TextEditor : UserControl
 
     public void Load(string fileName)
     {
-        if (fileName == null) throw new ArgumentNullException(nameof(fileName));
+        if (fileName is null) throw new ArgumentNullException(nameof(fileName));
         using var fs = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
         Load(fs);
     }
 
     public void Save(Stream stream)
     {
-        if (stream == null) throw new ArgumentNullException(nameof(stream));
+        if (stream is null) throw new ArgumentNullException(nameof(stream));
         using var writer = new StreamWriter(stream, Encoding ?? Encoding.UTF8, 1024, leaveOpen: true);
-        writer.Write(Document?.Text ?? string.Empty);
+        if (Document is not null) Document.WriteTextTo(writer);
+        else writer.Write(string.Empty);
         writer.Flush();
         Document?.UndoStack.MarkAsOriginalFile();
     }
 
     public void Save(string fileName)
     {
-        if (fileName == null) throw new ArgumentNullException(nameof(fileName));
+        if (fileName is null) throw new ArgumentNullException(nameof(fileName));
         using var fs = new FileStream(fileName, FileMode.Create, FileAccess.Write, FileShare.None);
         Save(fs);
     }
 
     // Search
+    public void OpenSearchPanel(string? initialText = null) => PART_SearchPanel.Open(initialText);
+    public void CloseSearchPanel()   => PART_SearchPanel.Close();
+    public void FindNext()           { if (!IsSearchPanelOpen) PART_SearchPanel.Open(); PART_SearchPanel.FindNext(); }
+    public void FindPrevious()       { if (!IsSearchPanelOpen) PART_SearchPanel.Open(); PART_SearchPanel.FindPrevious(); }
 
-    public void OpenSearchPanel(string initialText = null)
+    // Scroll helpers
+    public void LineUp()    => ScrollCaretByLines(-1, false);
+    public void LineDown()  => ScrollCaretByLines(1, false);
+    public void LineLeft()  => ScrollHorizontalBy(-32);
+    public void LineRight() => ScrollHorizontalBy(32);
+    public void PageUp()    => ScrollCaretByLines(-GetApproxPageLineCount(), true);
+    public void PageDown()  => ScrollCaretByLines(GetApproxPageLineCount(), true);
+    public void PageLeft()  => ScrollHorizontalBy(-(ViewportWidth > 0 ? ViewportWidth : 240));
+    public void PageRight() => ScrollHorizontalBy(ViewportWidth > 0 ? ViewportWidth : 240);
+    public void ScrollTo(int line, int column) => ScrollToLine(line);
+    public void ScrollToEnd()   { if (Document is null) return; CurrentOffset = Document.TextLength; ScrollToOffset(CurrentOffset); }
+    public void ScrollToHome()  { CurrentOffset = 0; ScrollToOffset(0); }
+    public void ScrollToHorizontalOffset(double offset) => TryChangeView(offset, null, true);
+    public void ScrollToVerticalOffset(double offset)   => TryChangeView(null, offset, true);
+
+    public TextViewPosition? GetPositionFromPoint(Point point)
     {
-        PART_SearchBar.Visibility = Visibility.Visible;
-        if (initialText != null)
-            PART_SearchBox.Text = initialText;
-        PART_SearchBox.Focus(FocusState.Programmatic);
-        PART_SearchBox.SelectAll();
-        RunSearch();
+        var document = Document;
+        if (document is null) return null;
+        var textView = GetInnerTextView();
+        if (textView is null) return null;
+        var method = textView.GetType().GetMethod("GetOffsetFromViewPoint", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (method is null) return null;
+        var offsetObj = method.Invoke(textView, new object[] { point.X, point.Y });
+        if (offsetObj is not int offset) return null;
+        offset = Math.Clamp(offset, 0, document.TextLength);
+        var location = document.GetLocation(offset);
+        return new TextViewPosition(location.Line, location.Column);
     }
 
-    public void CloseSearchPanel()
-    {
-        PART_SearchBar.Visibility = Visibility.Collapsed;
-        PART_EditBox.Focus(FocusState.Programmatic);
-        _searchMatches.Clear();
-        _searchIndex = -1;
-        PART_SearchStatus.Text = string.Empty;
-    }
+    public new void OnApplyTemplate() => base.OnApplyTemplate();
 
-    public void FindNext()
-    {
-        if (!IsSearchPanelOpen) { OpenSearchPanel(); return; }
-        if (_searchMatches.Count == 0) return;
-        _searchIndex = (_searchIndex + 1) % _searchMatches.Count;
-        MoveToMatch(_searchIndex);
-    }
-
-    public void FindPrevious()
-    {
-        if (!IsSearchPanelOpen) { OpenSearchPanel(); return; }
-        if (_searchMatches.Count == 0) return;
-        _searchIndex = (_searchIndex - 1 + _searchMatches.Count) % _searchMatches.Count;
-        MoveToMatch(_searchIndex);
-    }
-
-    // Private
-
-    private readonly TextAreaProxy _textArea;
-    private bool _updatingEditBox;
-    private bool _updatingDocument;
-    private string _previousEditBoxText = string.Empty;
-    private readonly List<int> _searchMatches = new List<int>();
-    private int _searchIndex = -1;
+    // ── DP Callbacks ─────────────────────────────────────────────────────────
 
     private static void OnDocumentChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var editor = (TextEditor)d;
-        if (e.OldValue is TextDocument old)
-        {
-            old.Changed -= editor.OnDocumentTextChanged;
-            old.UndoStack.PropertyChanged -= editor.OnUndoStackChanged;
-        }
-        if (e.NewValue is TextDocument newDoc)
-        {
-            newDoc.Changed += editor.OnDocumentTextChanged;
-            newDoc.UndoStack.PropertyChanged += editor.OnUndoStackChanged;
-            editor.SyncEditBoxFromDocument();
-        }
+        editor.AttachDocument(e.OldValue as TextDocument, e.NewValue as TextDocument);
+        editor.PART_TextArea.Document = e.NewValue as TextDocument;
+        editor.PART_SearchPanel.UpdateDocument(e.NewValue as TextDocument);
         editor.DocumentChanged?.Invoke(editor, EventArgs.Empty);
         editor.TextChanged?.Invoke(editor, EventArgs.Empty);
     }
 
     private static void OnThemeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        => ((TextEditor)d).ApplyTheme(e.NewValue as TextEditorTheme ?? TextEditorTheme.Dark);
+    {
+        var editor = (TextEditor)d;
+        var theme = (e.NewValue as TextEditorTheme) ?? TextEditorTheme.Dark;
+        editor.PART_TextArea.Theme = theme;
+        editor.PART_SearchPanel.UpdateTheme(theme);
+        editor.ApplyThemeToChrome();
+    }
+
+    private static void OnOptionsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var editor = (TextEditor)d;
+        editor.PART_TextArea.Options = (e.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+        editor.OptionChanged?.Invoke(editor, new PropertyChangedEventArgs(null));
+    }
 
     private static void OnIsReadOnlyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        => ((TextEditor)d).PART_TextArea.IsReadOnly = (bool)e.NewValue;
+
+    private static void OnIsModifiedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var editor = (TextEditor)d;
-        if (editor.PART_EditBox != null)
-            editor.PART_EditBox.IsReadOnly = (bool)e.NewValue;
+        var document = editor.Document;
+        if (document is null) return;
+        if ((bool)e.NewValue) { if (document.UndoStack.IsOriginalFile) document.UndoStack.DiscardOriginalFileMarker(); }
+        else document.UndoStack.MarkAsOriginalFile();
     }
 
+    private static void OnShowLineNumbersChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        => ((TextEditor)d).PART_TextArea.ShowLineNumbers = (bool)e.NewValue;
+
     private static void OnWordWrapChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        var editor = (TextEditor)d;
-        if (editor.PART_EditBox != null)
-            editor.PART_EditBox.TextWrapping = (bool)e.NewValue ? TextWrapping.Wrap : TextWrapping.NoWrap;
-    }
+        => ((TextEditor)d).PART_TextArea.WordWrap = (bool)e.NewValue;
+
+    private static void OnLineNumbersForegroundChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        => ((TextEditor)d).PART_TextArea.LineNumbersForeground = e.NewValue as Brush;
+
+    private static void OnSyntaxHighlightingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        => ((TextEditor)d).PART_TextArea.SyntaxHighlighting = e.NewValue as IHighlightingDefinition;
 
     private static void OnCurrentOffsetChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var editor = (TextEditor)d;
-        if (editor.PART_EditBox != null && !editor._updatingEditBox)
-        {
-            editor._updatingEditBox = true;
-            try
-            {
-                int offset = Math.Clamp((int)e.NewValue, 0, editor.PART_EditBox.Text.Length);
-                editor.PART_EditBox.SelectionStart  = offset;
-                editor.PART_EditBox.SelectionLength = 0;
-            }
-            finally { editor._updatingEditBox = false; }
-        }
+        if (editor.PART_TextArea.CurrentOffset != (int)e.NewValue)
+            editor.PART_TextArea.CurrentOffset = (int)e.NewValue;
     }
 
-    private static void OnOptionsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        => ((TextEditor)d).OptionChanged?.Invoke(d, new PropertyChangedEventArgs(null));
-
-    private void OnDocumentTextChanged(object sender, EventArgs e)
+    private static void OnSelectionRangeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        SyncEditBoxFromDocument();
-        SyncIsModified();
+        var editor = (TextEditor)d;
+        if (editor.PART_TextArea.SelectionStartOffset != editor.SelectionStartOffset)
+            editor.PART_TextArea.SelectionStartOffset = editor.SelectionStartOffset;
+        if (editor.PART_TextArea.SelectionEndOffset != editor.SelectionEndOffset)
+            editor.PART_TextArea.SelectionEndOffset = editor.SelectionEndOffset;
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    private void AttachDocument(TextDocument? oldDoc, TextDocument? newDoc)
+    {
+        if (oldDoc is not null)
+        {
+            oldDoc.TextChanged -= OnDocumentTextChanged;
+            oldDoc.UndoStack.PropertyChanged -= OnUndoStackPropertyChanged;
+        }
+        _attachedDocument = newDoc;
+        if (newDoc is not null)
+        {
+            newDoc.TextChanged += OnDocumentTextChanged;
+            newDoc.UndoStack.PropertyChanged += OnUndoStackPropertyChanged;
+        }
+        SyncIsModifiedFromDocument();
+    }
+
+    private void OnDocumentTextChanged(object? sender, EventArgs e)
+    {
+        PART_SearchPanel.RefreshSearch();
         TextChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnUndoStackChanged(object sender, PropertyChangedEventArgs e)
+    private void OnUndoStackPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is null or nameof(ICSharpCode.AvalonEdit.Document.UndoStack.IsOriginalFile))
-            SyncIsModified();
+            SyncIsModifiedFromDocument();
     }
 
-    private void SyncEditBoxFromDocument()
+    private void OnTextAreaCaretOffsetChanged(object? sender, EventArgs e)
     {
-        if (_updatingDocument || PART_EditBox == null || Document == null) return;
-        _updatingEditBox = true;
-        try
+        if (CurrentOffset != PART_TextArea.CurrentOffset)
+            CurrentOffset = PART_TextArea.CurrentOffset;
+    }
+
+    private void OnTextAreaSelectionChanged(object? sender, EventArgs e)
+    {
+        if (SelectionStartOffset != PART_TextArea.SelectionStartOffset)
+            SelectionStartOffset = PART_TextArea.SelectionStartOffset;
+        if (SelectionEndOffset != PART_TextArea.SelectionEndOffset)
+            SelectionEndOffset = PART_TextArea.SelectionEndOffset;
+    }
+
+    private void ApplyThemeToChrome()
+    {
+        var t = Theme ?? TextEditorTheme.Dark;
+        EditorBorder.Background  = new SolidColorBrush(t.EditorBackground);
+        EditorBorder.BorderBrush = new SolidColorBrush(t.BorderColor);
+    }
+
+    private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        bool ctrl  = IsControlPressed();
+        bool shift = IsShiftPressed();
+
+        if (ctrl && e.Key == Windows.System.VirtualKey.F)
         {
-            string newText = Document.Text;
-            if (PART_EditBox.Text != newText)
-            {
-                int sel = PART_EditBox.SelectionStart;
-                PART_EditBox.Text = newText;
-                PART_EditBox.SelectionStart = Math.Clamp(sel, 0, newText.Length);
-            }
-            _previousEditBoxText = newText;
-        }
-        finally { _updatingEditBox = false; }
-    }
-
-    private void SyncIsModified()
-    {
-        bool modified = Document != null && !Document.UndoStack.IsOriginalFile;
-        if ((bool)GetValue(IsModifiedProperty) != modified)
-            SetValue(IsModifiedProperty, modified);
-    }
-
-    private void OnEditBoxTextChanged(object sender, TextChangedEventArgs e)
-    {
-        if (_updatingEditBox || Document == null) return;
-        string newText = PART_EditBox.Text;
-        string oldText = _previousEditBoxText;
-
-        // Detect single-char insertion and fire TextArea proxy events.
-        if (newText.Length == oldText.Length + 1)
-        {
-            int pos = PART_EditBox.SelectionStart;
-            if (pos > 0)
-            {
-                string ch = newText[pos - 1].ToString();
-                _textArea.NotifyTextEntering(ch);
-                _textArea.NotifyTextEntered(ch);
-            }
-        }
-        _previousEditBoxText = newText;
-
-        _updatingDocument = true;
-        try { Document.Text = newText; }
-        finally { _updatingDocument = false; }
-
-        TextChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void OnEditBoxSelectionChanged(object sender, RoutedEventArgs e)
-    {
-        if (_updatingEditBox) return;
-        int start  = PART_EditBox.SelectionStart;
-        int length = PART_EditBox.SelectionLength;
-        _updatingEditBox = true;
-        try
-        {
-            CurrentOffset        = start + length;
-            SelectionStartOffset = start;
-            SelectionEndOffset   = start + length;
-        }
-        finally { _updatingEditBox = false; }
-    }
-
-    private void OnEditBoxKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        bool ctrl  = IsKeyDown(VirtualKey.Control);
-        bool shift = IsKeyDown(VirtualKey.Shift);
-
-        if (ctrl && e.Key == VirtualKey.F)
-        {
-            string sel = SelectedText;
-            OpenSearchPanel(sel.Contains('\n') ? null : (sel.Length > 0 ? sel : null));
+            OpenSearchPanel(GetSelectedTextOrNull());
             e.Handled = true;
+            return;
         }
-        else if (e.Key == VirtualKey.F3)
+        if (e.Key == Windows.System.VirtualKey.F3)
         {
             if (shift) FindPrevious(); else FindNext();
             e.Handled = true;
+            return;
         }
-        else if (e.Key == VirtualKey.Escape && IsSearchPanelOpen)
+        if (e.Key == Windows.System.VirtualKey.Escape && IsSearchPanelOpen)
         {
             CloseSearchPanel();
             e.Handled = true;
         }
     }
 
-    private void OnSearchTextChanged(object sender, TextChangedEventArgs e) => RunSearch();
-
-    private void OnSearchBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    private string? GetSelectedTextOrNull()
     {
-        if (e.Key == VirtualKey.Enter)   { FindNext();      e.Handled = true; }
-        else if (e.Key == VirtualKey.Escape) { CloseSearchPanel(); e.Handled = true; }
-    }
-
-    private void OnFindNextClick(object sender, RoutedEventArgs e)  => FindNext();
-    private void OnFindPrevClick(object sender, RoutedEventArgs e) => FindPrevious();
-    private void OnCloseSearchClick(object sender, RoutedEventArgs e) => CloseSearchPanel();
-
-    private void RunSearch()
-    {
-        _searchMatches.Clear();
-        _searchIndex = -1;
-        string query = PART_SearchBox.Text;
-        string text  = Document?.Text ?? string.Empty;
-
-        if (string.IsNullOrEmpty(query) || string.IsNullOrEmpty(text))
-        {
-            PART_SearchStatus.Text = string.Empty;
-            return;
-        }
-
-        int pos = 0;
-        while ((pos = text.IndexOf(query, pos, StringComparison.OrdinalIgnoreCase)) >= 0)
-        {
-            _searchMatches.Add(pos);
-            pos += query.Length;
-        }
-
-        if (_searchMatches.Count == 0)
-            PART_SearchStatus.Text = "No results";
-        else
-        {
-            _searchIndex = 0;
-            MoveToMatch(0);
-        }
-    }
-
-    private void MoveToMatch(int index)
-    {
-        if (index < 0 || index >= _searchMatches.Count) return;
-        int start = _searchMatches[index];
-        string query = PART_SearchBox.Text;
-        _updatingEditBox = true;
-        try
-        {
-            PART_EditBox.SelectionStart  = start;
-            PART_EditBox.SelectionLength = query.Length;
-            PART_EditBox.Focus(FocusState.Programmatic);
-        }
-        finally { _updatingEditBox = false; }
-        PART_SearchStatus.Text = $"{index + 1} / {_searchMatches.Count}";
-    }
-
-    private void ApplyTheme(TextEditorTheme t)
-    {
-        if (PART_EditBox == null || EditorBorder == null) return;
-        var editorBg = new SolidColorBrush(t.EditorBackground);
-        var fg       = new SolidColorBrush(t.DefaultForeground);
-        var border   = new SolidColorBrush(t.BorderColor);
-        PART_EditBox.Background = editorBg;
-        PART_EditBox.Foreground = fg;
-        EditorBorder.Background  = editorBg;
-        EditorBorder.BorderBrush = border;
-        PART_SearchBar.Background  = new SolidColorBrush(t.GutterBackground);
-        PART_SearchBar.BorderBrush = border;
+        if (Document is null || SelectionStartOffset == SelectionEndOffset) return null;
+        int start = Math.Min(SelectionStartOffset, SelectionEndOffset);
+        int end   = Math.Max(SelectionStartOffset, SelectionEndOffset);
+        if (end <= start) return null;
+        string text = Document.GetText(start, end - start);
+        return text.Contains('\n') ? null : text;
     }
 
     private void DeleteSelection()
     {
-        var doc = Document;
-        if (doc == null) return;
-        int start = Math.Min(SelectionStartOffset, SelectionEndOffset);
-        doc.Remove(start, SelectionLength);
+        if (SelectionLength == 0 || Document is null) return;
+        int start = SelectionStart;
+        Document.Remove(start, SelectionLength);
         Select(start, 0);
     }
 
     private TextDocument EnsureDocument()
     {
-        if (Document == null) Document = new TextDocument();
+        if (Document is null) Document = new TextDocument();
         return Document;
     }
 
-    private static bool IsKeyDown(VirtualKey key)
-        => InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(CoreVirtualKeyStates.Down);
+    private void SyncIsModifiedFromDocument()
+    {
+        bool isModified = Document is not null && !Document.UndoStack.IsOriginalFile;
+        if (IsModified != isModified) SetValue(IsModifiedProperty, isModified);
+    }
+
+    private async Task PasteAsync()
+    {
+        var view = Clipboard.GetContent();
+        if (view is null || !view.Contains(StandardDataFormats.Text)) return;
+        string text = await view.GetTextAsync();
+        if (string.IsNullOrEmpty(text)) return;
+        SelectedText = text;
+        CurrentOffset = SelectionStart + text.Length;
+        Select(CurrentOffset, 0);
+    }
+
+    private int GetApproxPageLineCount()
+    {
+        double lineHeight = FontSize > 0 ? FontSize * 1.4 : 20.0;
+        return Math.Max(1, (int)Math.Round((ViewportHeight > 0 ? ViewportHeight : ActualHeight) / lineHeight));
+    }
+
+    private void ScrollCaretByLines(int lineDelta, bool moveCaret)
+    {
+        if (Document is null) return;
+        var current = Document.GetLocation(Math.Clamp(CurrentOffset, 0, Document.TextLength));
+        int targetLine = Math.Clamp(current.Line + lineDelta, 1, Document.LineCount);
+        if (moveCaret) CurrentOffset = Document.GetOffset(targetLine, current.Column);
+        ScrollToLine(targetLine);
+    }
+
+    private void ScrollHorizontalBy(double delta) => ScrollToHorizontalOffset(Math.Max(0, HorizontalOffset + delta));
+
+    private object? GetInnerTextView()
+    {
+        var prop = PART_TextArea.GetType().GetProperty("PART_TextView", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        return prop?.GetValue(PART_TextArea);
+    }
+
+    private object? GetInnerScrollViewer()
+    {
+        var tv = GetInnerTextView();
+        if (tv is null) return null;
+        var prop = tv.GetType().GetProperty("TextScrollViewer", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        return prop?.GetValue(tv);
+    }
+
+    private double GetScrollViewerMetric(string name, double fallback = 0)
+    {
+        var sv = GetInnerScrollViewer();
+        var v  = sv?.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public)?.GetValue(sv);
+        return v is double d ? d : fallback;
+    }
+
+    private void TryChangeView(double? horizontalOffset, double? verticalOffset, bool disableAnimation)
+    {
+        var sv = GetInnerScrollViewer();
+        var m  = sv?.GetType().GetMethod("ChangeView", BindingFlags.Instance | BindingFlags.Public);
+        m?.Invoke(sv, new object[] { horizontalOffset, verticalOffset, null, disableAnimation });
+    }
+
+    private static bool IsShiftPressed()
+        => InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+    private static bool IsControlPressed()
+    {
+        var flags = Windows.UI.Core.CoreVirtualKeyStates.Down;
+        return InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(flags)
+            || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftControl).HasFlag(flags);
+    }
 }
+
+

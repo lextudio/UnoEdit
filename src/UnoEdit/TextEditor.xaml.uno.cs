@@ -14,7 +14,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
-public sealed partial class TextEditor : UserControl
+public sealed partial class TextEditor : UserControl, ISearchPanelHost
 {
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(

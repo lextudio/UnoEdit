@@ -1,0 +1,62 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Thickness x:Key="UnoTextEditorBorderThickness">1</Thickness>
+    <CornerRadius x:Key="UnoTextEditorCornerRadius">10</CornerRadius>
+    <CornerRadius x:Key="UnoSearchPanelCornerRadius">8</CornerRadius>
+    <Thickness x:Key="UnoSearchPanelMargin">12,12,12,0</Thickness>
+    <Thickness x:Key="UnoSearchPanelPadding">10</Thickness>
+    <x:Double x:Key="UnoEditorLineHeight">22</x:Double>
+    <x:Double x:Key="UnoEditorTextFontSize">13</x:Double>
+    <x:Double x:Key="UnoEditorGlyphFontSize">10</x:Double>
+    <x:Double x:Key="UnoEditorOverlayHeight">16</x:Double>
+    <x:Double x:Key="UnoEditorCaretWidth">2</x:Double>
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="UnoEditorBackgroundBrush" Color="#0F172A" />
+            <SolidColorBrush x:Key="UnoEditorBorderBrush" Color="#334155" />
+            <SolidColorBrush x:Key="UnoEditorTitleBarBackgroundBrush" Color="#0F172A" />
+            <SolidColorBrush x:Key="UnoEditorTitleBarForegroundBrush" Color="#E5E7EB" />
+            <SolidColorBrush x:Key="UnoEditorSummaryForegroundBrush" Color="#94A3B8" />
+            <SolidColorBrush x:Key="UnoEditorGutterForegroundBrush" Color="#64748B" />
+            <SolidColorBrush x:Key="UnoSearchPanelBackgroundBrush" Color="#172033" />
+            <SolidColorBrush x:Key="UnoSearchPanelBorderBrush" Color="#334155" />
+            <SolidColorBrush x:Key="UnoSearchPanelResultsBrush" Color="#94A3B8" />
+            <Color x:Key="UnoSearchLabelColor">#E5E7EB</Color>
+            <Color x:Key="UnoSearchBoxBorderColor">#94A3B8</Color>
+            <Color x:Key="UnoSearchBoxFillColor">#22334155</Color>
+            <Color x:Key="UnoSearchBoxCheckedFillColor">#3394A3B8</Color>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="UnoEditorBackgroundBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="UnoEditorBorderBrush" Color="#D1D5DB" />
+            <SolidColorBrush x:Key="UnoEditorTitleBarBackgroundBrush" Color="#F9FAFB" />
+            <SolidColorBrush x:Key="UnoEditorTitleBarForegroundBrush" Color="#111827" />
+            <SolidColorBrush x:Key="UnoEditorSummaryForegroundBrush" Color="#6E7681" />
+            <SolidColorBrush x:Key="UnoEditorGutterForegroundBrush" Color="#6E7681" />
+            <SolidColorBrush x:Key="UnoSearchPanelBackgroundBrush" Color="#F3F4F6" />
+            <SolidColorBrush x:Key="UnoSearchPanelBorderBrush" Color="#D1D5DB" />
+            <SolidColorBrush x:Key="UnoSearchPanelResultsBrush" Color="#6E7681" />
+            <Color x:Key="UnoSearchLabelColor">#111827</Color>
+            <Color x:Key="UnoSearchBoxBorderColor">#6E7681</Color>
+            <Color x:Key="UnoSearchBoxFillColor">#00000000</Color>
+            <Color x:Key="UnoSearchBoxCheckedFillColor">#220969DA</Color>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <Style x:Key="UnoSearchActionButtonStyle" TargetType="Button">
+        <Setter Property="MinWidth" Value="44" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Foreground" Value="{ThemeResource UnoEditorTitleBarForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="UnoSearchOptionCheckBoxStyle" TargetType="CheckBox">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,2,0,0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Padding" Value="6,0,0,0" />
+    </Style>
+</ResourceDictionary>

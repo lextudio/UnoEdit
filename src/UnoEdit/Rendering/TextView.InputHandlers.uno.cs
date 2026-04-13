@@ -61,11 +61,13 @@ public sealed partial class TextView
 
         // Linux: forward the key to IBus synchronously before UnoEdit processes it.
         // If IBus handles the key (e.g. for IME composition), suppress normal processing.
+#if !WINDOWS_APP_SDK
         if (TryHandleWithLinuxIme(e.Key, controlPressed, extendSelection, unicodeKey))
         {
             e.Handled = true;
             return;
         }
+#endif
 
         // For VirtualKey.None with a printable UnicodeKey, insert the character directly.
         if (e.Key == Windows.System.VirtualKey.None && unicodeKey.HasValue && !char.IsControl(unicodeKey.Value) && !controlPressed)

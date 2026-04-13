@@ -25,7 +25,6 @@
 
   <ItemGroup>
     <Compile Include="GlobalUsings.cs" />
-    <Compile Include="Controls\TextAreaProxy.cs" />
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -117,6 +116,14 @@
     <Compile Include="..\UnoEdit\Editing\CaretWeakEventHandler.cs" Link="Editing\CaretWeakEventHandler.cs" />
     <Compile Include="..\UnoEdit\Editing\InputHandlers.cs" Link="Editing\InputHandlers.cs" />
     <Compile Include="..\UnoEdit\Editing\LineNumberMargin.cs" Link="Editing\LineNumberMargin.cs" />
+    <!-- Editing XAML controls -->
+    <Compile Include="..\UnoEdit\Editing\TextArea.xaml.uno.cs" Link="Editing\TextArea.xaml.cs">
+      <DependentUpon>TextArea.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="..\UnoEdit\Editing\SelectionMouseHandler.uno.cs" Link="Editing\SelectionMouseHandler.cs" />
+    <Compile Include="..\UnoEdit\Editing\CaretNavigationCommandHandler.uno.cs" Link="Editing\CaretNavigationCommandHandler.cs" />
+    <Compile Include="..\UnoEdit\Editing\EditingCommandHandler.uno.cs" Link="Editing\EditingCommandHandler.cs" />
+    <Page Include="..\UnoEdit\Editing\TextArea.xaml" Link="Editing\TextArea.xaml" />
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -152,6 +159,12 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\Localization.cs" Link="Search\Localization.cs" />
     <Compile Include="..\UnoEdit\Search\SearchCommands.cs" Link="Search\SearchCommands.cs" />
     <Compile Include="..\UnoEdit\Search\SearchInputHandler.cs" Link="Search\SearchInputHandler.cs" />
+    <Compile Include="..\UnoEdit\Search\ISearchPanelHost.cs" Link="Search\ISearchPanelHost.cs" />
+    <!-- Search XAML control -->
+    <Compile Include="..\UnoEdit\Search\SearchPanel.xaml.uno.cs" Link="Search\SearchPanel.xaml.cs">
+      <DependentUpon>SearchPanel.xaml</DependentUpon>
+    </Compile>
+    <Page Include="..\UnoEdit\Search\SearchPanel.xaml" Link="Search\SearchPanel.xaml" />
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -192,8 +205,19 @@
     <Compile Include="..\UnoEdit\Rendering\VisualLineLinkText.cs" Link="Rendering\VisualLineLinkText.cs" />
     <Compile Include="..\UnoEdit\Rendering\LinkElementGenerator.cs" Link="Rendering\LinkElementGenerator.cs" />
     <Compile Include="..\UnoEdit\Rendering\MouseHoverLogic.cs" Link="Rendering\MouseHoverLogic.cs" />
-    <!-- Win32ImeBridge and TextView.PlatformInput belong to UnoEdit.Skia.Desktop.Controls.TextView
-         (the Uno XAML control class) — they are NOT part of the WinUI 3 library surface. -->
+    <!-- Rendering XAML control pipeline -->
+    <Compile Include="..\UnoEdit\Rendering\HighlightedTextBlock.xaml.uno.cs" Link="Rendering\HighlightedTextBlock.xaml.cs">
+      <DependentUpon>HighlightedTextBlock.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="..\UnoEdit\Rendering\TextView.xaml.uno.cs" Link="Rendering\TextView.xaml.cs">
+      <DependentUpon>TextView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="..\UnoEdit\Rendering\TextView.EditOperations.uno.cs" Link="Rendering\TextView.EditOperations.cs" />
+    <Compile Include="..\UnoEdit\Rendering\TextView.InputHandlers.uno.cs" Link="Rendering\TextView.InputHandlers.cs" />
+    <Compile Include="..\UnoEdit\Rendering\TextView.PlatformInput.cs" Link="Rendering\TextView.PlatformInput.cs" />
+    <Compile Include="..\UnoEdit\Rendering\Win32ImeBridge.cs" Link="Rendering\Win32ImeBridge.cs" />
+    <Page Include="..\UnoEdit\Rendering\HighlightedTextBlock.xaml" Link="Rendering\HighlightedTextBlock.xaml" />
+    <Page Include="..\UnoEdit\Rendering\TextView.xaml" Link="Rendering\TextView.xaml" />
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -271,6 +295,13 @@
     <Compile Include="..\UnoEdit\CodeCompletion\IOverloadProvider.cs" Link="CodeCompletion\IOverloadProvider.cs" />
     <Compile Include="..\UnoEdit\CodeCompletion\ICaretAnchorProvider.cs" Link="CodeCompletion\ICaretAnchorProvider.cs" />
     <Compile Include="..\UnoEdit\CodeCompletion\CompletionWindowPlacement.cs" Link="CodeCompletion\CompletionWindowPlacement.cs" />
+    <!-- Full completion windows -->
+    <Compile Include="..\UnoEdit\CodeCompletion\CompletionListBox.cs" Link="CodeCompletion\CompletionListBox.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\CompletionList.cs" Link="CodeCompletion\CompletionList.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\CompletionWindowBase.cs" Link="CodeCompletion\CompletionWindowBase.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\CompletionWindow.cs" Link="CodeCompletion\CompletionWindow.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\InsightWindow.cs" Link="CodeCompletion\InsightWindow.cs" />
+    <Compile Include="..\UnoEdit\CodeCompletion\OverloadViewer.cs" Link="CodeCompletion\OverloadViewer.cs" />
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════
@@ -279,6 +310,10 @@
   <ItemGroup>
     <Compile Include="..\UnoEdit\Themes\TextEditorTheme.cs" Link="Themes\TextEditorTheme.cs" />
     <Compile Include="..\UnoEdit\TextEditorAutomationPeer.cs" Link="TextEditorAutomationPeer.cs" />
+    <!-- generic.xaml: shipped as content (XBF embedding for theme resources) -->
+    <Content Include="..\UnoEdit\Themes\generic.xaml" Link="Themes\generic.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════

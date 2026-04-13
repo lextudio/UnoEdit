@@ -1,10 +1,12 @@
 using System;
+using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using System.Windows.Input;
 using UnoEdit.Skia.Desktop.Controls;
 using UnoEdit.WinUI.Controls;
 using Windows.Graphics;
@@ -17,6 +19,7 @@ public sealed partial class MainWindow : Window
     private readonly FoldingManager _foldingManager;
     private readonly BraceFoldingStrategy _foldingStrategy = new();
     private bool _isDarkTheme = true;
+    private CompletionWindow? _completionWindow;
 
     public MainWindow()
     {
@@ -105,60 +108,33 @@ public sealed partial class MainWindow : Window
 
     // --- TextArea proxy events (mirrors the Uno sample) ---
 
-    private void OnTextAreaTextEntered(object sender, TextAreaTextInputEventArgs e)
+    private void OnTextAreaTextEntered(object? sender, TextCompositionEventArgs e)
     {
         if (e?.Text == ".")
             ShowCompletion();
     }
 
-    private void OnTextAreaTextEntering(object sender, TextAreaTextInputEventArgs e)
+    private void OnTextAreaTextEntering(object? sender, TextCompositionEventArgs e)
     {
-        // Placeholder — no CompletionWindow to dismiss in the WinUI sample.
+        if (_completionWindow is not null && e?.Text?.Length > 0)
+        {
+            if (!char.IsLetterOrDigit(e.Text[0]) && e.Text[0] != '_')
+                _completionWindow.Close();
+        }
     }
 
-    // --- Completion (MenuFlyout — CompletionWindow requires the Uno renderer) ---
+    // --- Completion ---
 
     private void ShowCompletion()
     {
-        try
-        {
-            var doc = Editor.Document;
-            if (doc == null) return;
-
-            int caret = Editor.CurrentOffset;
-            int start = caret;
-            string text = doc.Text ?? string.Empty;
-            while (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] == '_'))
-                start--;
-
-            var flyout = new MenuFlyout();
-            var items = new[]
-            {
-                ("Describe()", "Return a description string"),
-                ("Bootstrap", "Sample class name"),
-                ("DescribeAsync()", "Async variant"),
-            };
-
-            foreach (var (label, desc) in items)
-            {
-                var item = new MenuFlyoutItem { Text = $"{label}  \u2014  {desc}" };
-                int capturedStart = start;
-                int capturedLen = Math.Clamp(caret - start, 0, doc.TextLength - start);
-                string capturedLabel = label;
-                item.Click += (_, _) =>
-                {
-                    doc.Replace(capturedStart, capturedLen, capturedLabel);
-                    Editor.SetSelection(capturedStart, capturedStart + capturedLabel.Length);
-                };
-                flyout.Items.Add(item);
-            }
-
-            flyout.ShowAt(Editor);
-        }
-        catch
-        {
-            // Best-effort sample completion; swallow to keep the sample running.
-        }
+        _completionWindow?.Close();
+        _completionWindow = new CompletionWindow(Editor.TextArea);
+        var data = _completionWindow.CompletionList.CompletionData;
+        data.Add(new SampleCompletionData("Describe()", "Return a description string"));
+        data.Add(new SampleCompletionData("Bootstrap", "Sample class name"));
+        data.Add(new SampleCompletionData("DescribeAsync()", "Async variant"));
+        _completionWindow.Show();
+        _completionWindow.Closed += (_, _) => _completionWindow = null;
     }
 
     // --- Helpers ---

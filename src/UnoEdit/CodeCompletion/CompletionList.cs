@@ -170,7 +170,7 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 				case Windows.System.VirtualKey.Tab:
 				case Windows.System.VirtualKey.Enter:
 					e.Handled = true;
-					RequestInsertion(e);
+					RequestInsertion(EventArgs.Empty);
 					break;
 			}
 		}

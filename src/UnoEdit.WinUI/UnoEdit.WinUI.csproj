@@ -216,7 +216,6 @@
     <Compile Include="..\UnoEdit\Rendering\TextView.EditOperations.uno.cs" Link="Rendering\TextView.EditOperations.cs" />
     <Compile Include="..\UnoEdit\Rendering\TextView.InputHandlers.uno.cs" Link="Rendering\TextView.InputHandlers.cs" />
     <Compile Include="..\UnoEdit\Rendering\TextView.PlatformInput.cs" Link="Rendering\TextView.PlatformInput.cs" />
-    <Compile Include="..\UnoEdit\Rendering\Win32ImeBridge.cs" Link="Rendering\Win32ImeBridge.cs" />
     <Page Include="..\UnoEdit\Rendering\HighlightedTextBlock.xaml" Link="Rendering\HighlightedTextBlock.xaml" />
     <Page Include="..\UnoEdit\Rendering\TextView.xaml" Link="Rendering\TextView.xaml" />
   </ItemGroup>

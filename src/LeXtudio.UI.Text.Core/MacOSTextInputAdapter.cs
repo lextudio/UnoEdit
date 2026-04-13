@@ -199,11 +199,18 @@ namespace LeXtudio.UI.Text.Core
                 return;
             }
 
-            // AppKit notifies end-of-composition through command callbacks in some IME flows.
-            if (string.Equals(command, "insertNewline:", StringComparison.Ordinal)
-                || string.Equals(command, "cancelOperation:", StringComparison.Ordinal))
+            // Forward the command to the consumer via CommandReceived.
+            var args = new CoreTextCommandReceivedEventArgs(command);
+            adapter._context.RaiseCommandReceived(args);
+
+            // If the consumer didn't handle it, apply default composition logic.
+            if (!args.Handled)
             {
-                adapter._context.RaiseCompositionCompleted();
+                if (string.Equals(command, "insertNewline:", StringComparison.Ordinal)
+                    || string.Equals(command, "cancelOperation:", StringComparison.Ordinal))
+                {
+                    adapter._context.RaiseCompositionCompleted();
+                }
             }
         }
 

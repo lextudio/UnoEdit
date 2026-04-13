@@ -50,6 +50,9 @@ namespace LeXtudio.UI.Text.Core
         /// <summary>Occurs when focus is removed from the text context.</summary>
         public event EventHandler? FocusRemoved;
 
+        /// <summary>Occurs when a platform command is received (e.g. AppKit selectors like "deleteBackward:").</summary>
+        public event EventHandler<CoreTextCommandReceivedEventArgs>? CommandReceived;
+
         // ----- Lifecycle (called by the host application) -----
 
         /// <summary>
@@ -101,5 +104,8 @@ namespace LeXtudio.UI.Text.Core
 
         /// <summary>Raise the <see cref="FocusRemoved"/> event.</summary>
         public void RaiseFocusRemoved() => FocusRemoved?.Invoke(this, EventArgs.Empty);
+
+        /// <summary>Raise the <see cref="CommandReceived"/> event.</summary>
+        public void RaiseCommandReceived(CoreTextCommandReceivedEventArgs e) => CommandReceived?.Invoke(this, e);
     }
 }

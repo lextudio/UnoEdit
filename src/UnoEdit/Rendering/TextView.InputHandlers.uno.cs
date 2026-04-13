@@ -49,7 +49,7 @@ public sealed partial class TextView
         // macOS: defer all key handling to the native AppKit bridge.
         if (ShouldDeferToPlatformTextInput(controlPressed))
         {
-            LogMacIme($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
+            LogPlatformIme($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
             e.Handled = true;
             return;
         }
@@ -58,16 +58,6 @@ public sealed partial class TextView
         // but stores the real character from XLookupString in the internal UnicodeKey property.
         // Recover it here so the character can be forwarded to IBus and/or inserted.
         char? unicodeKey = s_unicodeKeyProperty?.GetValue(e) as char?;
-
-        // Linux: forward the key to IBus synchronously before UnoEdit processes it.
-        // If IBus handles the key (e.g. for IME composition), suppress normal processing.
-#if !WINDOWS_APP_SDK
-        if (TryHandleWithLinuxIme(e.Key, controlPressed, extendSelection, unicodeKey))
-        {
-            e.Handled = true;
-            return;
-        }
-#endif
 
         // For VirtualKey.None with a printable UnicodeKey, insert the character directly.
         if (e.Key == Windows.System.VirtualKey.None && unicodeKey.HasValue && !char.IsControl(unicodeKey.Value) && !controlPressed)

@@ -18,9 +18,14 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
+    <TextCoreMacInputSource>$(MSBuildProjectDirectory)/Native/MacOS/UnoEditMacInput.mm</TextCoreMacInputSource>
+    <TextCoreMacInputOutput>$(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</TextCoreMacInputOutput>
+    <GetCopyToOutputDirectoryItemsDependsOn>$(GetCopyToOutputDirectoryItemsDependsOn);AddTextCoreMacBridgeToCopyItems</GetCopyToOutputDirectoryItemsDependsOn>
+  </PropertyGroup>
+
   <PropertyGroup>
-    <MacImeDylibPath Condition="Exists('$(MSBuildThisFileDirectory)..\UnoEdit\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib')">$(MSBuildThisFileDirectory)..\UnoEdit\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib</MacImeDylibPath>
-    <MacImeDylibPath Condition="'$(MacImeDylibPath)' == '' and Exists('$(MSBuildThisFileDirectory)..\UnoEdit.Sample\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib')">$(MSBuildThisFileDirectory)..\UnoEdit.Sample\bin\$(Configuration)\$(TargetFramework)\libUnoEditMacInput.dylib</MacImeDylibPath>
+    <MacImeDylibPath Condition="Exists('$(TextCoreMacInputOutput)')">$(TextCoreMacInputOutput)</MacImeDylibPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,6 +43,24 @@
     <Message Importance="high" Text="[LeXtudio.UI.Text.Core] macOS native bridge path: $(MacImeDylibPath)" Condition="'$(MacImeDylibPath)' != ''" />
     <Error
       Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and '$(MacImeDylibPath)' == ''"
-      Text="macOS packaging requires libUnoEditMacInput.dylib. Build src/UnoEdit/UnoEdit.csproj (or src/UnoEdit.Sample/UnoEdit.Sample.csproj) first so the dylib exists." />
+      Text="macOS packaging requires libUnoEditMacInput.dylib. Build src/LeXtudio.UI.Text.Core/LeXtudio.UI.Text.Core.csproj first so the dylib is produced." />
+  </Target>
+
+  <Target Name="BuildTextCoreMacInputBridge"
+          AfterTargets="Build"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(TextCoreMacInputSource)')">
+    <Message Importance="high" Text="[LeXtudio.UI.Text.Core] Building native macOS IME bridge: $(TextCoreMacInputOutput)" />
+    <Exec Command="xcrun clang++ -dynamiclib -fobjc-arc -framework AppKit -framework Foundation -o &quot;$(TextCoreMacInputOutput)&quot; &quot;$(TextCoreMacInputSource)&quot;" />
+  </Target>
+
+  <Target Name="AddTextCoreMacBridgeToCopyItems"
+          DependsOnTargets="BuildTextCoreMacInputBridge"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(TextCoreMacInputOutput)')">
+    <ItemGroup>
+      <ContentWithTargetPath Include="$(TextCoreMacInputOutput)">
+        <TargetPath>libUnoEditMacInput.dylib</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </ContentWithTargetPath>
+    </ItemGroup>
   </Target>
 </Project>

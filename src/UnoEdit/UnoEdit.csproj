@@ -281,30 +281,19 @@
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
 
-  <!-- Platform-specific IME bridges used by the library-owned TextView input surface. -->
   <ItemGroup>
-    <Compile Include="Rendering\Win32ImeBridge.cs" />
-    <Compile Include="Platforms\Linux\DBus\DBusConstants.cs" />
-    <Compile Include="Platforms\Linux\DBus\DBusMessage.cs" />
-    <Compile Include="Platforms\Linux\DBus\DBusReader.cs" />
-    <Compile Include="Platforms\Linux\DBus\DBusWriter.cs" />
-    <Compile Include="Platforms\Linux\DBus\DBusConnection.cs" />
-    <Compile Include="Platforms\Linux\IBus\IBusConnection.cs" />
-    <Compile Include="Platforms\Linux\LinuxImeBridge.cs" />
+    <ProjectReference Include="..\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
-    <UnoEditMacInputSource>$(MSBuildProjectDirectory)/Platforms/MacOS/Native/UnoEditMacInput.mm</UnoEditMacInputSource>
-    <UnoEditMacInputOutput>$(MSBuildProjectDirectory)/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</UnoEditMacInputOutput>
+    <TextCoreMacInputOutput>$(MSBuildProjectDirectory)/../LeXtudio.UI.Text.Core/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</TextCoreMacInputOutput>
   </PropertyGroup>
 
-  <Target Name="BuildUnoEditMacInputBridge"
+  <Target Name="CopyTextCoreMacInputBridge"
           AfterTargets="Build"
-          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(UnoEditMacInputSource)')">
-    <Message Importance="high" Text="Building native macOS IME bridge: $(UnoEditMacInputOutput)" />
-    <Exec Command="xcrun clang++ -dynamiclib -fobjc-arc -framework AppKit -framework Foundation -o &quot;$(UnoEditMacInputOutput)&quot; &quot;$(UnoEditMacInputSource)&quot;" />
-    <ItemGroup>
-      <NativeLibrary Include="$(UnoEditMacInputOutput)" />
-    </ItemGroup>
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(TextCoreMacInputOutput)')">
+    <Copy SourceFiles="$(TextCoreMacInputOutput)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="[UnoEdit macOS IME] Copied Text.Core native bridge to $(OutputPath)" />
   </Target>
+
 </Project>

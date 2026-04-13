@@ -43,6 +43,7 @@
     <Compile Include="Rendering\TextView.PlatformInput.cs" />
     <Compile Include="Rendering\TextView.EditOperations.uno.cs" />
     <Compile Include="Rendering\TextView.InputHandlers.uno.cs" />
+    <Compile Include="Logging\PlatformImeLogger.cs" />
     <Compile Include="Rendering\EditorTextMetrics.cs" />
     <Compile Include="Rendering\TextLineViewModel.cs" />
     <Compile Include="Rendering\HighlightedTextBlock.xaml.uno.cs" />

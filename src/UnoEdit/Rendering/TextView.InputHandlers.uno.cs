@@ -3,6 +3,7 @@ using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using UnoEdit.Logging;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -49,7 +50,7 @@ public sealed partial class TextView
         // macOS: defer all key handling to the native AppKit bridge.
         if (ShouldDeferToPlatformTextInput(controlPressed))
         {
-            LogPlatformIme($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
+            PlatformImeLogger.Log($"KeyDown deferred to native bridge. Key={e.Key}, controlPressed={controlPressed}, shiftPressed={extendSelection}");
             e.Handled = true;
             return;
         }

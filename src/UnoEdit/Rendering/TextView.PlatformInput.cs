@@ -10,13 +10,12 @@ using LeXtudio.UI.Text.Core;
 using Uno.UI.Xaml;
 #endif
 using Windows.Foundation;
+using UnoEdit.Logging;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
 public sealed partial class TextView
 {
-    private static readonly bool s_debugPlatformIme =
-        string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_PLATFORM_IME"), "1", StringComparison.Ordinal);
 
     // Composition state tracked in the document.
     private bool _isComposing;
@@ -36,22 +35,6 @@ public sealed partial class TextView
     /// </summary>
     private int _coreTextOffsetDelta;
     private bool _coreTextDeltaEstablished;
-
-    private static readonly string? s_platformImeLogPath =
-        s_debugPlatformIme ? Path.Combine(Path.GetTempPath(), "unoedit_platform_ime.log") : null;
-
-    private static void LogPlatformIme(string message)
-    {
-        if (s_debugPlatformIme && s_platformImeLogPath is not null)
-        {
-            try
-            {
-                File.AppendAllText(s_platformImeLogPath,
-                    $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
-            }
-            catch { }
-        }
-    }
 
     partial void InitializePlatformInputBridge()
     {
@@ -75,7 +58,7 @@ public sealed partial class TextView
         }
         catch (Exception ex)
         {
-            LogPlatformIme($"CoreText notify failed: {ex.Message}");
+            PlatformImeLogger.Log($"CoreText notify failed: {ex.Message}");
         }
     }
 
@@ -89,7 +72,7 @@ public sealed partial class TextView
             }
             catch (Exception ex)
             {
-                LogPlatformIme($"CoreText NotifyFocusEnter failed: {ex.Message}");
+                PlatformImeLogger.Log($"CoreText NotifyFocusEnter failed: {ex.Message}");
             }
         }
     }
@@ -120,7 +103,7 @@ public sealed partial class TextView
             }
             catch (Exception ex)
             {
-                LogPlatformIme($"CoreText focus enter failed: {ex.Message}");
+                PlatformImeLogger.Log($"CoreText focus enter failed: {ex.Message}");
             }
         }
     }
@@ -135,7 +118,7 @@ public sealed partial class TextView
             }
             catch (Exception ex)
             {
-                LogPlatformIme($"CoreText focus leave failed: {ex.Message}");
+                PlatformImeLogger.Log($"CoreText focus leave failed: {ex.Message}");
             }
         }
     }
@@ -162,12 +145,12 @@ public sealed partial class TextView
             _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
             _coreTextEditContext.FocusRemoved += CoreTextEditContext_FocusRemoved;
 
-            LogPlatformIme("EnsureCoreTextEditContext: initialized.");
+            PlatformImeLogger.Log("EnsureCoreTextEditContext: initialized.");
             return true;
         }
         catch (Exception ex)
         {
-            LogPlatformIme($"EnsureCoreTextEditContext failed: {ex.Message}");
+            PlatformImeLogger.Log($"EnsureCoreTextEditContext failed: {ex.Message}");
             _coreTextEditContext = null;
             return false;
         }
@@ -204,13 +187,13 @@ public sealed partial class TextView
         int start = Math.Clamp(request.Range.StartCaretPosition, 0, textLength);
         int end = Math.Clamp(request.Range.EndCaretPosition, start, textLength);
         request.Text = _document.GetText(start, end - start);
-        LogPlatformIme($"CoreText TextRequested range=[{start},{end}) len={end - start}");
+        PlatformImeLogger.Log($"CoreText TextRequested range=[{start},{end}) len={end - start}");
     }
 
     private void CoreTextEditContext_SelectionRequested(CoreTextEditContext sender, CoreTextSelectionRequestedEventArgs args)
     {
         args.Request.Selection = ToCoreTextRange(SelectionStartOffset, SelectionEndOffset);
-        LogPlatformIme($"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset}");
+        PlatformImeLogger.Log($"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset}");
     }
 
     private void CoreTextEditContext_TextUpdating(CoreTextEditContext sender, CoreTextTextUpdatingEventArgs args)
@@ -238,7 +221,7 @@ public sealed partial class TextView
             _coreTextDeltaEstablished = true;
             if (_coreTextOffsetDelta != 0)
             {
-                LogPlatformIme(
+                PlatformImeLogger.Log(
                     $"CoreText TextUpdating DELTA established: coreTextStart={rawStart} editorCompStart={_compositionStartOffset} delta={_coreTextOffsetDelta}");
             }
         }
@@ -247,7 +230,7 @@ public sealed partial class TextView
         int end = Math.Clamp(rawEnd + _coreTextOffsetDelta, start, textLength);
         int removeLength = end - start;
         string inText = args.Text ?? string.Empty;
-        LogPlatformIme(
+        PlatformImeLogger.Log(
             $"CoreText TextUpdating range=[{rawStart},{rawEnd})+delta({_coreTextOffsetDelta})=[{start},{end}) remove={removeLength} " +
             $"newText='{inText}'(len={inText.Length}) newSel=[{rawNewSelStart},{rawNewSelEnd}]+delta=[{rawNewSelStart + _coreTextOffsetDelta},{rawNewSelEnd + _coreTextOffsetDelta}] " +
             $"BEFORE: docLen={textLength} current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
@@ -289,7 +272,7 @@ public sealed partial class TextView
             _desiredColumn = _document.GetLocation(CurrentOffset).Column;
         });
 
-        LogPlatformIme(
+        PlatformImeLogger.Log(
             $"CoreText TextUpdating AFTER: docLen={_document.TextLength} current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset}");
 
         if (!string.IsNullOrEmpty(text))
@@ -310,7 +293,7 @@ public sealed partial class TextView
         int textLength = _document.TextLength;
         int start = Math.Clamp(args.Selection.StartCaretPosition + _coreTextOffsetDelta, 0, textLength);
         int end = Math.Clamp(args.Selection.EndCaretPosition + _coreTextOffsetDelta, 0, textLength);
-        LogPlatformIme($"CoreText SelectionUpdating raw=[{args.Selection.StartCaretPosition},{args.Selection.EndCaretPosition}]+delta({_coreTextOffsetDelta})=[{start},{end}] docLen={textLength}");
+        PlatformImeLogger.Log($"CoreText SelectionUpdating raw=[{args.Selection.StartCaretPosition},{args.Selection.EndCaretPosition}]+delta({_coreTextOffsetDelta})=[{start},{end}] docLen={textLength}");
 
         BatchRefresh(() =>
         {
@@ -342,14 +325,14 @@ public sealed partial class TextView
         request.LayoutBounds.TextBounds = textBounds;
         request.LayoutBounds.ControlBounds = bounds;
 
-        LogPlatformIme(
+        PlatformImeLogger.Log(
             $"CoreText LayoutRequested caret=({caretRect.X:F1},{caretRect.Y:F1},{caretRect.Width:F1},{caretRect.Height:F1}) " +
             $"control=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) scale={scale:F2}");
     }
 
     private void CoreTextEditContext_CompositionStarted(CoreTextEditContext sender, CoreTextCompositionStartedEventArgs args)
     {
-        LogPlatformIme(
+        PlatformImeLogger.Log(
             $"CoreText CompositionStarted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
             $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
         // Reset delta tracking — will be established on the first TextUpdating of this composition.
@@ -360,11 +343,11 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_CompositionCompleted(CoreTextEditContext sender, CoreTextCompositionCompletedEventArgs args)
     {
-        LogPlatformIme(
+        PlatformImeLogger.Log(
             $"CoreText CompositionCompleted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
             $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
         HandleCompositionEnd();
-        LogPlatformIme(
+        PlatformImeLogger.Log(
             $"CoreText CompositionCompleted AFTER: current={CurrentOffset} composing={_isComposing}");
     }
 
@@ -409,14 +392,6 @@ public sealed partial class TextView
     // -----------------------------------------------------------------------
 
     private CoreTextEditContext? _platformTextContext;
-
-    private static void LogPlatformIme(string message)
-    {
-        if (s_debugPlatformIme)
-        {
-            Console.WriteLine($"[UnoEdit Platform IME] {message}");
-        }
-    }
 
     partial void InitializePlatformInputBridge()
     {
@@ -465,7 +440,7 @@ public sealed partial class TextView
         }
 
         bool handled = _platformTextContext.ProcessKeyEvent((int)key, shiftPressed, controlPressed, unicodeKey);
-        LogPlatformIme($"ProcessKeyEvent key={key} shift={shiftPressed} ctrl={controlPressed} -> handled={handled}");
+        PlatformImeLogger.Log($"ProcessKeyEvent key={key} shift={shiftPressed} ctrl={controlPressed} -> handled={handled}");
         return handled;
     }
 
@@ -520,7 +495,7 @@ public sealed partial class TextView
         _platformTextContext.CommandReceived += OnPlatformCommandReceived;
 
         bool attached = _platformTextContext.Attach(windowHandle, displayHandle);
-        LogPlatformIme($"Attach platform text context handle=0x{windowHandle:X} display=0x{displayHandle:X} attached={attached}");
+        PlatformImeLogger.Log($"Attach platform text context handle=0x{windowHandle:X} display=0x{displayHandle:X} attached={attached}");
 
         // The editor may already have focus when Loaded fires, so GotFocus
         // won't re-fire.  Ensure IBus knows we have focus.
@@ -592,7 +567,7 @@ public sealed partial class TextView
     private void OnPlatformTextRequested(object? sender, CoreTextTextRequestedEventArgs e)
     {
         string text = e.Request.Text ?? string.Empty;
-        LogPlatformIme($"OnPlatformTextRequested: text='{text}'");
+        PlatformImeLogger.Log($"OnPlatformTextRequested: text='{text}'");
         if (!string.IsNullOrEmpty(text))
         {
             HandleCompositionCommit(text);
@@ -601,13 +576,13 @@ public sealed partial class TextView
 
     private void OnPlatformTextUpdating(object? sender, CoreTextTextUpdatingEventArgs e)
     {
-        LogPlatformIme($"OnPlatformTextUpdating: text='{e.NewText}'");
+        PlatformImeLogger.Log($"OnPlatformTextUpdating: text='{e.NewText}'");
         HandleCompositionUpdate(e.NewText ?? string.Empty);
     }
 
     private void OnPlatformCompositionStarted(object? sender, EventArgs e)
     {
-        LogPlatformIme("OnPlatformCompositionStarted");
+        PlatformImeLogger.Log("OnPlatformCompositionStarted");
         HandleCompositionStart();
     }
 
@@ -632,7 +607,7 @@ public sealed partial class TextView
 
     private void OnPlatformCommandReceived(object? sender, CoreTextCommandReceivedEventArgs e)
     {
-        LogPlatformIme($"CommandReceived: {e.Command}");
+        PlatformImeLogger.Log($"CommandReceived: {e.Command}");
         bool handled = e.Command switch
         {
             "deleteBackward:" => Backspace(),

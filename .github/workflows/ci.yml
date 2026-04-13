@@ -24,7 +24,7 @@ jobs:
       - name: Restore
         run: dotnet restore
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build -c Release --no-restore UnoEdit.slnx
       - name: Run unit tests
         run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop"
 

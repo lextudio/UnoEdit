@@ -64,6 +64,17 @@ public sealed partial class TextView
     // Platform-specific bridges (at most one is non-null at runtime).
 #if WINDOWS_APP_SDK
     private CoreTextEditContext? _coreTextEditContext;
+    /// <summary>True while inside a CoreText event handler, to suppress NotifyTextChanged re-entry.</summary>
+    private bool _insideCoreTextUpdate;
+    /// <summary>Last document length known to CoreText, used to detect external text changes.</summary>
+    private int _coreTextLastKnownDocLength;
+    /// <summary>
+    /// Offset delta to correct CoreText's unreliable internal position tracking.
+    /// Computed at the first TextUpdating of each composition as (our cursor – CoreText's range start).
+    /// Applied to all subsequent CoreText ranges/selections during that composition.
+    /// </summary>
+    private int _coreTextOffsetDelta;
+    private bool _coreTextDeltaEstablished;
 #endif
     private Win32ImeBridge? _win32ImeBridge;
 #if !WINDOWS_APP_SDK
@@ -260,8 +271,25 @@ public sealed partial class TextView
             {
                 try
                 {
+                    int currentDocLen = _document?.TextLength ?? 0;
+                    if (!_insideCoreTextUpdate && currentDocLen != _coreTextLastKnownDocLength)
+                    {
+                        // Text was modified outside CoreText (e.g. regular typing, paste, delete).
+                        // Notify CoreText so its internal ranges stay in sync.
+                        int oldLen = _coreTextLastKnownDocLength;
+                        _coreTextLastKnownDocLength = currentDocLen;
+                        LogWin32Ime($"CoreText NotifyTextChanged oldLen={oldLen} newLen={currentDocLen} sel=[{SelectionStartOffset},{SelectionEndOffset}]");
+                        _coreTextEditContext.NotifyTextChanged(
+                            new CoreTextRange { StartCaretPosition = 0, EndCaretPosition = oldLen },
+                            currentDocLen,
+                            ToCoreTextRange(SelectionStartOffset, SelectionEndOffset));
+                    }
+                    else
+                    {
+                        _coreTextEditContext.NotifySelectionChanged(ToCoreTextRange(SelectionStartOffset, SelectionEndOffset));
+                    }
+
                     _coreTextEditContext.NotifyLayoutChanged();
-                    _coreTextEditContext.NotifySelectionChanged(ToCoreTextRange(SelectionStartOffset, SelectionEndOffset));
                 }
                 catch (Exception ex)
                 {
@@ -624,7 +652,8 @@ public sealed partial class TextView
             _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
             _coreTextEditContext.FocusRemoved += CoreTextEditContext_FocusRemoved;
 
-            LogWin32Ime("EnsureCoreTextEditContext: initialized.");
+            _coreTextLastKnownDocLength = _document?.TextLength ?? 0;
+            LogWin32Ime($"EnsureCoreTextEditContext: initialized. docLen={_coreTextLastKnownDocLength}");
             return true;
         }
         catch (Exception ex)
@@ -672,7 +701,9 @@ public sealed partial class TextView
     private void CoreTextEditContext_SelectionRequested(CoreTextEditContext sender, CoreTextSelectionRequestedEventArgs args)
     {
         args.Request.Selection = ToCoreTextRange(SelectionStartOffset, SelectionEndOffset);
-        LogWin32Ime($"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset}");
+        LogWin32Ime(
+            $"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset} " +
+            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength}");
     }
 
     private void CoreTextEditContext_TextUpdating(CoreTextEditContext sender, CoreTextTextUpdatingEventArgs args)
@@ -682,11 +713,45 @@ public sealed partial class TextView
             return;
         }
 
+        _insideCoreTextUpdate = true;
+        try
+        {
+
         int textLength = _document.TextLength;
-        int start = Math.Clamp(args.Range.StartCaretPosition, 0, textLength);
-        int end = Math.Clamp(args.Range.EndCaretPosition, start, textLength);
+
+        // --- Delta correction --------------------------------------------------
+        // WinUI 3's NotifySelectionChanged does not reliably update CoreText's
+        // internal position tracking.  When the user navigates (arrow keys, mouse
+        // clicks) between compositions, CoreText's first TextUpdating range can
+        // be off by an arbitrary amount.  We detect this at the start of each
+        // composition and apply a correction delta to all ranges.
+        int rawStart = args.Range.StartCaretPosition;
+        int rawEnd = args.Range.EndCaretPosition;
+        int rawNewSelStart = args.NewSelection.StartCaretPosition;
+        int rawNewSelEnd = args.NewSelection.EndCaretPosition;
+
+        if (_isComposing && !_coreTextDeltaEstablished)
+        {
+            // First TextUpdating of this composition.
+            // CoreText's range start should equal our _compositionStartOffset.
+            _coreTextOffsetDelta = _compositionStartOffset - rawStart;
+            _coreTextDeltaEstablished = true;
+            if (_coreTextOffsetDelta != 0)
+            {
+                LogWin32Ime(
+                    $"CoreText TextUpdating DELTA established: coreTextStart={rawStart} editorCompStart={_compositionStartOffset} delta={_coreTextOffsetDelta}");
+            }
+        }
+
+        int start = Math.Clamp(rawStart + _coreTextOffsetDelta, 0, textLength);
+        int end = Math.Clamp(rawEnd + _coreTextOffsetDelta, start, textLength);
         int removeLength = end - start;
-        LogWin32Ime($"CoreText TextUpdating range=[{start},{end}) remove={removeLength} textLen={(args.Text ?? string.Empty).Length}");
+        string inText = args.Text ?? string.Empty;
+        LogWin32Ime(
+            $"CoreText TextUpdating range=[{rawStart},{rawEnd})+delta({_coreTextOffsetDelta})=[{start},{end}) remove={removeLength} newText='{inText}'(len={inText.Length}) " +
+            $"newSel=[{rawNewSelStart},{rawNewSelEnd}]+delta=[{rawNewSelStart + _coreTextOffsetDelta},{rawNewSelEnd + _coreTextOffsetDelta}] " +
+            $"BEFORE: docLen={textLength} current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
+            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength}");
 
         if (!CanDelete(start, removeLength))
         {
@@ -715,8 +780,8 @@ public sealed partial class TextView
             }
 
             int newTextLength = _document.TextLength;
-            int newSelStart = Math.Clamp(args.NewSelection.StartCaretPosition, 0, newTextLength);
-            int newSelEnd = Math.Clamp(args.NewSelection.EndCaretPosition, 0, newTextLength);
+            int newSelStart = Math.Clamp(rawNewSelStart + _coreTextOffsetDelta, 0, newTextLength);
+            int newSelEnd = Math.Clamp(rawNewSelEnd + _coreTextOffsetDelta, 0, newTextLength);
             _selectionAnchorOffset = newSelStart;
             SelectionStartOffset = Math.Min(newSelStart, newSelEnd);
             SelectionEndOffset = Math.Max(newSelStart, newSelEnd);
@@ -724,12 +789,21 @@ public sealed partial class TextView
             _desiredColumn = _document.GetLocation(CurrentOffset).Column;
         });
 
+        _coreTextLastKnownDocLength = _document.TextLength;
+        LogWin32Ime(
+            $"CoreText TextUpdating AFTER: docLen={_coreTextLastKnownDocLength} current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset}");
+
         if (!string.IsNullOrEmpty(text))
         {
             RaiseTextEntered(text);
         }
 
         UpdatePlatformInputBridge();
+        }
+        finally
+        {
+            _insideCoreTextUpdate = false;
+        }
     }
 
     private void CoreTextEditContext_SelectionUpdating(CoreTextEditContext sender, CoreTextSelectionUpdatingEventArgs args)
@@ -739,10 +813,13 @@ public sealed partial class TextView
             return;
         }
 
+        _insideCoreTextUpdate = true;
+        try
+        {
         int textLength = _document.TextLength;
-        int start = Math.Clamp(args.Selection.StartCaretPosition, 0, textLength);
-        int end = Math.Clamp(args.Selection.EndCaretPosition, 0, textLength);
-        LogWin32Ime($"CoreText SelectionUpdating sel=[{start},{end}] docLen={textLength}");
+        int start = Math.Clamp(args.Selection.StartCaretPosition + _coreTextOffsetDelta, 0, textLength);
+        int end = Math.Clamp(args.Selection.EndCaretPosition + _coreTextOffsetDelta, 0, textLength);
+        LogWin32Ime($"CoreText SelectionUpdating raw=[{args.Selection.StartCaretPosition},{args.Selection.EndCaretPosition}]+delta({_coreTextOffsetDelta})=[{start},{end}] docLen={textLength}");
 
         BatchRefresh(() =>
         {
@@ -754,6 +831,11 @@ public sealed partial class TextView
         });
 
         UpdatePlatformInputBridge();
+        }
+        finally
+        {
+            _insideCoreTextUpdate = false;
+        }
     }
 
     private void CoreTextEditContext_LayoutRequested(CoreTextEditContext sender, CoreTextLayoutRequestedEventArgs args)
@@ -768,8 +850,19 @@ public sealed partial class TextView
         Rect controlRect = GetElementRectInWindow(RootBorder);
         double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
 
+        // TransformToVisual(null) gives window-client-relative coords.
+        // CoreText LayoutBounds requires screen coordinates, so offset by
+        // the client-area origin on screen.
         Rect textBounds = ScaleRect(caretRect, scale);
         Rect bounds = ScaleRect(controlRect, scale);
+
+        if (TryGetClientOriginInScreenDips(out double originX, out double originY))
+        {
+            double dxPx = originX * scale;
+            double dyPx = originY * scale;
+            textBounds = OffsetRect(textBounds, dxPx, dyPx);
+            bounds = OffsetRect(bounds, dxPx, dyPx);
+        }
 
         request.LayoutBounds.TextBounds = textBounds;
         request.LayoutBounds.ControlBounds = bounds;
@@ -777,18 +870,30 @@ public sealed partial class TextView
         LogWin32Ime(
             $"CoreText LayoutRequested caret=({caretRect.X:F1},{caretRect.Y:F1},{caretRect.Width:F1},{caretRect.Height:F1}) " +
             $"control=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) scale={scale:F2} " +
-            $"textBounds=({textBounds.X:F1},{textBounds.Y:F1},{textBounds.Width:F1},{textBounds.Height:F1}) " +
-            $"controlBounds=({bounds.X:F1},{bounds.Y:F1},{bounds.Width:F1},{bounds.Height:F1})");
+            $"screenText=({textBounds.X:F1},{textBounds.Y:F1},{textBounds.Width:F1},{textBounds.Height:F1}) " +
+            $"screenControl=({bounds.X:F1},{bounds.Y:F1},{bounds.Width:F1},{bounds.Height:F1})");
     }
 
     private void CoreTextEditContext_CompositionStarted(CoreTextEditContext sender, CoreTextCompositionStartedEventArgs args)
     {
+        LogWin32Ime(
+            $"CoreText CompositionStarted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
+            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength}");
+        // Reset delta tracking — will be established on the first TextUpdating of this composition.
+        _coreTextDeltaEstablished = false;
+        _coreTextOffsetDelta = 0;
         HandleCompositionStart();
     }
 
     private void CoreTextEditContext_CompositionCompleted(CoreTextEditContext sender, CoreTextCompositionCompletedEventArgs args)
     {
+        LogWin32Ime(
+            $"CoreText CompositionCompleted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
+            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
         HandleCompositionEnd();
+        LogWin32Ime(
+            $"CoreText CompositionCompleted AFTER: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
+            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
     }
 
     private void CoreTextEditContext_FocusRemoved(CoreTextEditContext sender, object args)
@@ -825,6 +930,54 @@ public sealed partial class TextView
         Point point = transform.TransformPoint(new Point(0, 0));
         return new Rect(point.X, point.Y, element.ActualWidth, element.ActualHeight);
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ClientToScreen(nint hWnd, ref POINT lpPoint);
+
+    private static Rect OffsetRect(Rect rect, double dx, double dy)
+    {
+        return new Rect(rect.X + dx, rect.Y + dy, rect.Width, rect.Height);
+    }
+
+    /// <summary>
+    /// Returns the client-area origin of the HWND in screen DIPs, or null on failure.
+    /// </summary>
+    private bool TryGetClientOriginInScreenDips(out double screenX, out double screenY)
+    {
+        screenX = 0;
+        screenY = 0;
+
+        nint hwnd = TryGetNativeWindowHandle(Window.Current);
+        if (hwnd == nint.Zero)
+        {
+            hwnd = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+        }
+
+        if (hwnd == nint.Zero)
+        {
+            return false;
+        }
+
+        double dpiScale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
+        var pt = new POINT { X = 0, Y = 0 };
+        if (!ClientToScreen(hwnd, ref pt))
+        {
+            return false;
+        }
+
+        // ClientToScreen returns physical pixels; convert to DIPs.
+        screenX = pt.X / dpiScale;
+        screenY = pt.Y / dpiScale;
+        return true;
+    }
 #endif
 
 #if !WINDOWS_APP_SDK
@@ -855,7 +1008,7 @@ public sealed partial class TextView
 
     internal void HandleCompositionStart()
     {
-        LogWin32Ime($"HandleCompositionStart: offset={CurrentOffset}");
+        LogWin32Ime($"HandleCompositionStart: offset={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} docLen={_document?.TextLength ?? -1}");
         _compositionStartOffset = CurrentOffset;
         _compositionLength = 0;
         _isComposing = true;
@@ -900,7 +1053,7 @@ public sealed partial class TextView
 
     internal void HandleCompositionEnd()
     {
-        LogWin32Ime($"HandleCompositionEnd: isComposing={_isComposing} compositionLength={_compositionLength}");
+        LogWin32Ime($"HandleCompositionEnd: isComposing={_isComposing} compStart={_compositionStartOffset} compositionLength={_compositionLength} current={CurrentOffset} docLen={_document?.TextLength ?? -1}");
         if (_document is null || !_isComposing)
         {
             _isComposing = false;

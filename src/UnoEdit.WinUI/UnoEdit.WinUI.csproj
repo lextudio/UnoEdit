@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <Compile Include="GlobalUsings.cs" />
+    <Compile Include="..\\UnoEdit\\Logging\\PlatformImeLogger.cs" Link="Logging\\PlatformImeLogger.cs" />
   </ItemGroup>
 
   <!-- ═══════════════════════════════════════════════════════════════

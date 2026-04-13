@@ -1,5 +1,10 @@
 <Project>
+  <PropertyGroup>
+    <GitVersionPackageVersion>6.0.0</GitVersionPackageVersion>
+    <GitVersionFileExe Condition=" '$(GitVersionFileExe)' == '' ">dotnet --roll-forward Major "$([MSBuild]::EnsureTrailingSlash($(HOME))).nuget/packages/gitversion.msbuild/$(GitVersionPackageVersion)/tools/net8.0/gitversion.dll"</GitVersionFileExe>
+    <GitVersionAssemblyFile Condition=" '$(GitVersionAssemblyFile)' == '' ">$([MSBuild]::EnsureTrailingSlash($(HOME))).nuget/packages/gitversion.msbuild/$(GitVersionPackageVersion)/tools/net8.0/GitVersion.MsBuild.dll</GitVersionAssemblyFile>
+  </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="GitVersion.MsBuild" Version="5.13.1" PrivateAssets="All" />
+    <PackageReference Include="GitVersion.MsBuild" Version="$(GitVersionPackageVersion)" PrivateAssets="All" />
   </ItemGroup>
 </Project>

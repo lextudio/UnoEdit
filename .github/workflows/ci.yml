@@ -11,7 +11,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            solution: UnoEdit.slnx
+          - os: macos-latest
+            solution: UnoEdit.slnx
+          - os: windows-latest
+            solution: UnoEdit.Windows.slnx
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,11 +28,11 @@ jobs:
         with:
           dotnet-version: '10.x'
       - name: Restore
-        run: dotnet restore UnoEdit.slnx
+        run: dotnet restore ${{ matrix.solution }}
       - name: Build
-        run: dotnet build -c Release --no-restore UnoEdit.slnx
+        run: dotnet build -c Release --no-restore ${{ matrix.solution }}
       - name: Run unit tests
-        run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" UnoEdit.slnx
+        run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" ${{ matrix.solution }}
 
   runtime-tests:
     # RuntimeTests run inside the Skia Desktop app via Uno.UI.RuntimeTests.Engine.

@@ -22,7 +22,7 @@ jobs:
         with:
           dotnet-version: '10.x'
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore UnoEdit.slnx
       - name: Build
         run: dotnet build -c Release --no-restore UnoEdit.slnx
       - name: Run unit tests

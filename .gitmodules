@@ -1,3 +1,6 @@
 [submodule "avalonedit"]
 	path = avalonedit
 	url = https://github.com/lextudio/AvalonEdit.git
+[submodule "external/coretext"]
+	path = external/coretext
+	url = https://github.com/lextudio/TextCore.Uno.git

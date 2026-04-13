@@ -1,0 +1,12 @@
+<Project Sdk="Uno.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-desktop</TargetFramework>
+    <RootNamespace>LeXtudio.UI.Text.Core</RootNamespace>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>LeXtudio</Authors>
+    <Company>LeXtudio</Company>
+    <Version>1.0.0</Version>
+    <Description>Core cross-platform text/IME primitives used by editor integrations.</Description>
+  </PropertyGroup>
+</Project>

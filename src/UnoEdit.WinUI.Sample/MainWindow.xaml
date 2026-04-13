@@ -4,58 +4,63 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:editor="using:UnoEdit.WinUI.Controls"
     Title="UnoEdit WinUI 3 Sample">
-    <Grid RowSpacing="0">
+    <Grid Padding="20" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Toolbar -->
-        <Grid Grid.Row="0" Padding="12,8" Background="{ThemeResource LayerFillColorDefaultBrush}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel Spacing="2">
-                <TextBlock FontSize="20" FontWeight="SemiBold" Text="UnoEdit WinUI 3 Sample" />
-                <TextBlock FontSize="12" Opacity="0.7" Text="Backed by the UnoEdit document model — TextDocument, highlighting, folding." />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <ComboBox x:Name="SyntaxComboBox"
-                          MinWidth="140"
-                          PlaceholderText="Syntax highlighting"
-                          SelectionChanged="OnSyntaxChanged" />
-                <ToggleButton x:Name="ThemeButton"
-                              Content="☀ Light"
-                              Click="OnThemeButtonClick" />
-            </StackPanel>
-        </Grid>
+        <!-- Header: title + toolbar (matches Uno sample layout) -->
+        <StackPanel Spacing="4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock FontSize="28"
+                               FontWeight="SemiBold"
+                               Text="UnoEdit Desktop Bootstrap" />
+                    <TextBlock Opacity="0.72"
+                               Text="This host is using the portable UnoEdit document core from the ported AvalonEdit model." />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+                    <ComboBox x:Name="HighlighterComboBox"
+                              SelectionChanged="OnHighlighterChanged">
+                        <ComboBoxItem Content="XSHD" />
+                        <ComboBoxItem Content="None" />
+                    </ComboBox>
+                    <Button x:Name="FindButton"
+                            Content="Find"
+                            Click="OnFindClick" />
+                    <Button x:Name="CompleteButton"
+                            Content="Complete"
+                            Click="OnCompleteClick" />
+                    <ToggleButton x:Name="ThemeToggle"
+                                  Content="&#x2600; Light"
+                                  Click="OnThemeToggleClick" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
 
         <!-- Stats bar -->
         <Border Grid.Row="1"
-                Padding="12,4"
-                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-            <TextBlock x:Name="StatsText"
+                Padding="12"
+                CornerRadius="8"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+            <TextBlock x:Name="StatsTextBlock"
+                       AutomationProperties.AutomationId="StatsTextBlock"
                        FontFamily="Consolas"
-                       FontSize="12"
-                       Text="Ready" />
+                       TextWrapping="WrapWholeWords" />
         </Border>
 
-        <!-- Editor -->
+        <!-- Editor (no XAML event bindings — wired in code-behind) -->
         <editor:TextEditor x:Name="Editor"
-                           Grid.Row="2"
-                           TextChanged="OnEditorTextChanged" />
-
-        <!-- Status bar -->
-        <Border Grid.Row="3"
-                Padding="12,4"
-                Background="{ThemeResource LayerFillColorDefaultBrush}">
-            <TextBlock x:Name="StatusText"
-                       FontSize="12"
-                       Opacity="0.7"
-                       Text="UnoEdit document model running." />
-        </Border>
+                           AutomationProperties.AutomationId="MainEditor"
+                           Grid.Row="2" />
     </Grid>
 </Window>

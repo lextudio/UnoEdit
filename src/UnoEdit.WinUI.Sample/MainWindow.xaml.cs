@@ -1,12 +1,13 @@
 using System;
-using System.Linq;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
-using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using UnoEdit.Skia.Desktop.Controls;
+using UnoEdit.WinUI.Controls;
+using Windows.Graphics;
 
 namespace UnoEdit.WinUI.Sample;
 
@@ -14,107 +15,179 @@ public sealed partial class MainWindow : Window
 {
     private readonly TextDocument _document;
     private readonly FoldingManager _foldingManager;
-    private readonly BraceFoldingStrategy _folding = new();
-    private bool _isDark = true;
+    private readonly BraceFoldingStrategy _foldingStrategy = new();
+    private bool _isDarkTheme = true;
 
     public MainWindow()
     {
         this.InitializeComponent();
 
-        // Resize the window to something comfortable for an editor sample.
         if (AppWindow is AppWindow aw)
-            aw.Resize(new Windows.Graphics.SizeInt32(1100, 720));
+            aw.Resize(new SizeInt32(1100, 720));
 
-        // Build the initial document with sample C# text.
         _document = new TextDocument(BuildSampleText());
         _foldingManager = new FoldingManager(_document);
-        _document.Changed += OnDocumentChanged;
 
-        // Wire the editor control to the document model.
+        // Detect OS theme on startup.
+        if (Application.Current.RequestedTheme == ApplicationTheme.Light)
+        {
+            _isDarkTheme = false;
+            ThemeToggle.Content = "\U0001F319 Dark";
+        }
+
         Editor.Document = _document;
+        if (!_isDarkTheme)
+            Editor.Theme = TextEditorTheme.Light;
 
-        // Populate the syntax combo with all registered XSHD highlighters.
-        foreach (var def in HighlightingManager.Instance.HighlightingDefinitions.OrderBy(d => d.Name))
-            SyntaxComboBox.Items.Add(def.Name);
+        Editor.FoldingManager = _foldingManager;
 
-        // Select C# by default.
-        var csIndex = SyntaxComboBox.Items.IndexOf("C#");
-        if (csIndex >= 0)
-        {
-            SyntaxComboBox.SelectedIndex = csIndex;
-        }
-        else
-        {
-            // Fall back to first entry if C# is not registered.
-            if (SyntaxComboBox.Items.Count > 0)
-                SyntaxComboBox.SelectedIndex = 0;
-        }
+        // Set initial selection and apply highlighting now that Editor is ready.
+        HighlighterComboBox.SelectedIndex = 0;
+        ApplyHighlighter(0);
 
-        UpdateStats();
+        // Wire events in code-behind (not in XAML) to avoid XAML parser failures
+        // with non-standard event delegate types on the custom control.
+        Editor.TextArea.TextEntered += OnTextAreaTextEntered;
+        Editor.TextArea.TextEntering += OnTextAreaTextEntering;
+        _document.TextChanged += OnDocumentTextChanged;
+
+        UpdateFoldings();
+        StatsTextBlock.Text = BuildStats(_document);
     }
 
-    // ── Event handlers ────────────────────────────────────────────────────
-    private void OnDocumentChanged(object sender, DocumentChangeEventArgs e) => UpdateStats();
+    // --- Document events ---
 
-    private void OnEditorTextChanged(object sender, EventArgs e)
+    private void OnDocumentTextChanged(object sender, EventArgs e)
     {
-        _folding.UpdateFoldings(_foldingManager, _document);
-        UpdateStats();
+        UpdateFoldings();
+        StatsTextBlock.Text = BuildStats(_document);
     }
 
-    private void OnSyntaxChanged(object sender, SelectionChangedEventArgs e)
+    private void UpdateFoldings()
     {
-        if (SyntaxComboBox.SelectedItem is string name)
+        _foldingStrategy.UpdateFoldings(_foldingManager, _document);
+    }
+
+    // --- Toolbar handlers ---
+
+    private void OnHighlighterChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ApplyHighlighter(HighlighterComboBox.SelectedIndex);
+    }
+
+    private void ApplyHighlighter(int index)
+    {
+        if (Editor == null) return;
+        var def = HighlightingManager.Instance.GetDefinitionByExtension(".cs");
+        Editor.HighlightedLineSource = index switch
         {
-            Editor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition(name);
-            StatusText.Text = $"Syntax: {name}";
-        }
+            0 when def != null => new XshdHighlightedLineSource(def),
+            _ => null,
+        };
     }
 
-    private void OnThemeButtonClick(object sender, RoutedEventArgs e)
+    private void OnThemeToggleClick(object sender, RoutedEventArgs e)
     {
-        _isDark = !_isDark;
-        ThemeButton.Content = _isDark ? "☀ Light" : "🌙 Dark";
-        // Apply WinUI theme to the window content.
-        if (Content is FrameworkElement fe)
-            fe.RequestedTheme = _isDark ? ElementTheme.Dark : ElementTheme.Light;
-        StatusText.Text = $"Theme: {(_isDark ? "Dark" : "Light")}";
+        _isDarkTheme = !_isDarkTheme;
+        Editor.Theme = _isDarkTheme ? TextEditorTheme.Dark : TextEditorTheme.Light;
+        ThemeToggle.Content = _isDarkTheme ? "\u2600 Light" : "\U0001F319 Dark";
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
-    private void UpdateStats()
+    private void OnFindClick(object sender, RoutedEventArgs e)
     {
-        if (_document == null) return;
-        int lines = _document.LineCount;
-        int chars = _document.TextLength;
-        DocumentLine first = _document.GetLineByNumber(1);
-        DocumentLine last  = _document.GetLineByNumber(lines);
-        StatsText.Text = $"Lines: {lines}  |  Chars: {chars}" +
-                         $"  |  First-line len: {first.Length}" +
-                         $"  |  Last-line offset: {last.Offset}";
+        Editor.OpenSearchPanel();
     }
 
-    private static string BuildSampleText() => """
-        using System;
+    private void OnCompleteClick(object sender, RoutedEventArgs e)
+    {
+        ShowCompletion();
+    }
 
-        namespace Demo;
+    // --- TextArea proxy events (mirrors the Uno sample) ---
 
-        /// <summary>Sample class exercising the UnoEdit document model on WinUI 3.</summary>
-        public static class Bootstrap
+    private void OnTextAreaTextEntered(object sender, TextAreaTextInputEventArgs e)
+    {
+        if (e?.Text == ".")
+            ShowCompletion();
+    }
+
+    private void OnTextAreaTextEntering(object sender, TextAreaTextInputEventArgs e)
+    {
+        // Placeholder — no CompletionWindow to dismiss in the WinUI sample.
+    }
+
+    // --- Completion (MenuFlyout — CompletionWindow requires the Uno renderer) ---
+
+    private void ShowCompletion()
+    {
+        try
         {
-            public static string Describe()
+            var doc = Editor.Document;
+            if (doc == null) return;
+
+            int caret = Editor.CurrentOffset;
+            int start = caret;
+            string text = doc.Text ?? string.Empty;
+            while (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] == '_'))
+                start--;
+
+            var flyout = new MenuFlyout();
+            var items = new[]
             {
-                return "UnoEdit document core is running on WinUI 3.";
-            }
+                ("Describe()", "Return a description string"),
+                ("Bootstrap", "Sample class name"),
+                ("DescribeAsync()", "Async variant"),
+            };
 
-            public static void PrintInfo()
+            foreach (var (label, desc) in items)
             {
-                Console.WriteLine(Describe());
-                for (int i = 0; i < 5; i++)
+                var item = new MenuFlyoutItem { Text = $"{label}  \u2014  {desc}" };
+                int capturedStart = start;
+                int capturedLen = Math.Clamp(caret - start, 0, doc.TextLength - start);
+                string capturedLabel = label;
+                item.Click += (_, _) =>
                 {
-                    Console.WriteLine($"  Line {i}");
-                }
+                    doc.Replace(capturedStart, capturedLen, capturedLabel);
+                    Editor.SetSelection(capturedStart, capturedStart + capturedLabel.Length);
+                };
+                flyout.Items.Add(item);
             }
+
+            flyout.ShowAt(Editor);
         }
-        """;
+        catch
+        {
+            // Best-effort sample completion; swallow to keep the sample running.
+        }
+    }
+
+    // --- Helpers ---
+
+    private static string BuildSampleText()
+    {
+        return """
+using System;
+
+namespace Demo;
+
+public static class Bootstrap
+{
+    public static string Describe()
+    {
+        return "UnoEdit document core is running on WinUI 3.";
+    }
+}
+""";
+    }
+
+    private static string BuildStats(TextDocument document)
+    {
+        DocumentLine firstLine = document.GetLineByNumber(1);
+        DocumentLine lastLine = document.GetLineByNumber(document.LineCount);
+
+        return $"Length: {document.TextLength}\n" +
+               $"Lines: {document.LineCount}\n" +
+               $"First line length: {firstLine.Length}\n" +
+               $"Last line starts at offset: {lastLine.Offset}";
+    }
 }

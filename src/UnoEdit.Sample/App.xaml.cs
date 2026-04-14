@@ -29,7 +29,7 @@ public partial class App : Application
         try
         {
             // Try different URI formats that work with Uno Platform library resources
-            Uri themeUri = null;
+            Uri? themeUri = null;
 
             try
             {

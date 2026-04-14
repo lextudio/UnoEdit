@@ -13,7 +13,7 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
     /// </summary>
     internal sealed class SampleCompletionData : ICompletionData
     {
-        public System.Windows.Media.ImageSource Image => null;
+        public System.Windows.Media.ImageSource? Image => null;
 
         public string Text { get; }
 

@@ -14,7 +14,7 @@ namespace ICSharpCode.AvalonEdit.CodeCompletion
 	public interface ICompletionData
 	{
 		/// <summary>Gets the image displayed next to the entry.</summary>
-		ImageSource Image { get; }
+		ImageSource? Image { get; }
 
 		/// <summary>Gets the text used for filtering and insertion.</summary>
 		string Text { get; }

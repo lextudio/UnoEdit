@@ -210,7 +210,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 			endAnchor.MovementType = AnchorMovementType.BeforeInsertion;
 			endAnchor.SurviveDeletion = true;
 
-			context.RegisterActiveElement(this, new ReplaceableActiveElement(new AnchorSegment(startAnchor, endAnchor), Text ?? string.Empty));
+			context.RegisterActiveElement(this, new ReplaceableActiveElement(context, new AnchorSegment(startAnchor, endAnchor), Text ?? string.Empty));
 		}
 
 		/// <inheritdoc/>
@@ -275,25 +275,43 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		string Text { get; }
 
 		/// <summary>Raised when Text changes.</summary>
-		event EventHandler TextChanged;
+		event EventHandler? TextChanged;
 	}
 
 	sealed class ReplaceableActiveElement : IReplaceableActiveElement
 	{
 		readonly ISegment segment;
-		readonly string text;
+		private string text;
+		readonly InsertionContext context;
 
-		public ReplaceableActiveElement(ISegment segment, string text)
+		public ReplaceableActiveElement(InsertionContext context, ISegment segment, string text)
 		{
+			this.context = context ?? throw new ArgumentNullException(nameof(context));
 			this.segment = segment;
 			this.text = text ?? string.Empty;
+			this.context.Document.TextChanged += Document_TextChanged;
+		}
+
+		private void Document_TextChanged(object? sender, EventArgs e)
+		{
+			try {
+				var s = this.Segment;
+				if (s == null) return;
+				var newText = this.context.Document.GetText(s.Offset, s.Length);
+				if (newText != this.text) {
+					this.text = newText ?? string.Empty;
+					TextChanged?.Invoke(this, EventArgs.Empty);
+				}
+			} catch {
+				// ignore transient issues during editing
+			}
 		}
 
 		public string Text => text;
 		public bool IsEditable => true;
 		public ISegment Segment => segment;
-		public event EventHandler TextChanged;
+		public event EventHandler? TextChanged;
 		public void OnInsertionCompleted() { }
-		public void Deactivate(SnippetEventArgs e) { }
+		public void Deactivate(SnippetEventArgs e) { this.context.Document.TextChanged -= Document_TextChanged; }
 	}
 }

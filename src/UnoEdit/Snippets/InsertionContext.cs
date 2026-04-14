@@ -98,7 +98,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		}
 
 		/// <summary>Gets the active element for the given owner.</summary>
-		public IActiveElement GetActiveElement(SnippetElement owner)
+		public IActiveElement? GetActiveElement(SnippetElement owner)
 		{
 			if (owner == null)
 				throw new ArgumentNullException(nameof(owner));
@@ -112,7 +112,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		public void RaiseInsertionCompleted(EventArgs e) { InsertionCompleted?.Invoke(this, e); }
 
 		/// <summary>Raised when insertion is completed.</summary>
-		public event EventHandler InsertionCompleted;
+		public event EventHandler? InsertionCompleted;
 
 		/// <summary>Deactivates the insertion context.</summary>
 		public void Deactivate(SnippetEventArgs e)
@@ -124,7 +124,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		}
 
 		/// <summary>Raised when the context is deactivated.</summary>
-		public event EventHandler<SnippetEventArgs> Deactivated;
+		public event EventHandler<SnippetEventArgs>? Deactivated;
 
 		/// <summary>Links a main element to bound elements.</summary>
 		public void Link(ISegment mainElement, ISegment[] boundElements)
@@ -135,16 +135,16 @@ namespace ICSharpCode.AvalonEdit.Snippets
 
 			var text = Document.GetText(mainElement.Offset, mainElement.Length);
 			var mainSnippetElement = new SnippetReplaceableTextElement { Text = text };
-			RegisterActiveElement(mainSnippetElement, new ReplaceableSegmentElement(mainElement, text));
+			RegisterActiveElement(mainSnippetElement, new ReplaceableSegmentElement(this, mainElement, text));
 
 			foreach (var segment in boundElements) {
 				if (segment == null)
 					continue;
-				RegisterActiveElement(new SnippetBoundElement { TargetElement = mainSnippetElement }, new ReplaceableSegmentElement(segment, Document.GetText(segment.Offset, segment.Length)));
+				RegisterActiveElement(new SnippetBoundElement { TargetElement = mainSnippetElement }, new ReplaceableSegmentElement(this, segment, Document.GetText(segment.Offset, segment.Length)));
 			}
 		}
 
-		private static T GetValue<T>(object instance, string propertyName) where T : class
+		private static T? GetValue<T>(object instance, string propertyName) where T : class
 		{
 			if (instance == null)
 				return null;
@@ -188,20 +188,39 @@ namespace ICSharpCode.AvalonEdit.Snippets
 
 		private sealed class ReplaceableSegmentElement : IReplaceableActiveElement
 		{
-			private readonly string text;
+			private readonly InsertionContext context;
+			private readonly ISegment segment;
+			private string text;
 
-			public ReplaceableSegmentElement(ISegment segment, string text)
+			public ReplaceableSegmentElement(InsertionContext context, ISegment segment, string text)
 			{
-				Segment = segment;
+				this.context = context ?? throw new ArgumentNullException(nameof(context));
+				this.segment = segment;
 				this.text = text ?? string.Empty;
+				this.context.Document.TextChanged += Document_TextChanged;
+			}
+
+			private void Document_TextChanged(object? sender, EventArgs e)
+			{
+				try {
+					var s = this.Segment;
+					if (s == null) return;
+					var newText = this.context.Document.GetText(s.Offset, s.Length);
+					if (newText != this.text) {
+						this.text = newText ?? string.Empty;
+						TextChanged?.Invoke(this, EventArgs.Empty);
+					}
+				} catch {
+					// ignore transient read issues during edits
+				}
 			}
 
 			public string Text => text;
 			public bool IsEditable => true;
-			public ISegment Segment { get; }
-			public event EventHandler TextChanged;
+			public ISegment Segment => segment;
+			public event EventHandler? TextChanged;
 			public void OnInsertionCompleted() { }
-			public void Deactivate(SnippetEventArgs e) { }
+			public void Deactivate(SnippetEventArgs e) { this.context.Document.TextChanged -= Document_TextChanged; }
 		}
 	}
 }

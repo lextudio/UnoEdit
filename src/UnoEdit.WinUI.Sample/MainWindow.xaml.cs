@@ -60,7 +60,7 @@ public sealed partial class MainWindow : Window
 
     // --- Document events ---
 
-    private void OnDocumentTextChanged(object sender, EventArgs e)
+    private void OnDocumentTextChanged(object? sender, EventArgs e)
     {
         UpdateFoldings();
         StatsTextBlock.Text = BuildStats(_document);

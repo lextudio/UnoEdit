@@ -98,6 +98,8 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost
         PART_TextArea.CaretOffsetChanged  += OnTextAreaCaretOffsetChanged;
         PART_TextArea.SelectionChanged    += OnTextAreaSelectionChanged;
         PART_TextArea.NavigationRequested += (s, e) => NavigationRequested?.Invoke(this, e);
+        PART_TextArea.PointerEntered      += (s, e) => { PreviewMouseHover?.Invoke(this, EventArgs.Empty); MouseHover?.Invoke(this, EventArgs.Empty); };
+        PART_TextArea.PointerExited       += (s, e) => { PreviewMouseHoverStopped?.Invoke(this, EventArgs.Empty); MouseHoverStopped?.Invoke(this, EventArgs.Empty); };
         KeyDown += OnEditorKeyDown;
         ApplyThemeToChrome();
     }

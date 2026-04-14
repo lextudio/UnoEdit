@@ -10,16 +10,16 @@ namespace UnoEdit.Skia.Desktop;
 internal sealed class XshdHighlightedLineSource : IHighlightedLineSource
 {
     private readonly IHighlightingDefinition _definition;
-    private DocumentHighlighter _highlighter;
+    private DocumentHighlighter? _highlighter;
 
-    public event EventHandler HighlightingInvalidated;
+    public event EventHandler? HighlightingInvalidated;
 
     public XshdHighlightedLineSource(IHighlightingDefinition definition)
     {
         _definition = definition ?? throw new ArgumentNullException(nameof(definition));
     }
 
-    public void SetDocument(TextDocument document)
+    public void SetDocument(TextDocument? document)
     {
         _highlighter?.Dispose();
         _highlighter = null;
@@ -32,7 +32,9 @@ internal sealed class XshdHighlightedLineSource : IHighlightedLineSource
 
     public HighlightedLine HighlightLine(int lineNumber)
     {
-        return _highlighter?.HighlightLine(lineNumber);
+        if (_highlighter is null)
+            throw new InvalidOperationException("No document attached to highlighter.");
+        return _highlighter.HighlightLine(lineNumber);
     }
 
     public void Dispose()

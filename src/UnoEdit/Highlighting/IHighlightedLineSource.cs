@@ -13,7 +13,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		/// <summary>
 		/// Raised when highlighting state changes and the host should redraw affected lines.
 		/// </summary>
-		event EventHandler HighlightingInvalidated;
+		event EventHandler? HighlightingInvalidated;
 
 		/// <summary>
 		/// Attaches the source to a document. The source may dispose and rebuild internal state.

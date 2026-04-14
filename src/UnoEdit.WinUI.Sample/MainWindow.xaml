@@ -31,6 +31,7 @@
                             VerticalAlignment="Center">
                     <ComboBox x:Name="HighlighterComboBox"
                               SelectionChanged="OnHighlighterChanged">
+                        <ComboBoxItem Content="TextMate" />
                         <ComboBoxItem Content="XSHD" />
                         <ComboBoxItem Content="None" />
                     </ComboBox>

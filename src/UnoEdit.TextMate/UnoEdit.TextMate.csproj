@@ -1,6 +1,7 @@
 <Project Sdk="Uno.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0-desktop</TargetFramework>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <AssemblyName>UnoEdit.TextMate</AssemblyName>
     <RootNamespace>ICSharpCode.AvalonEdit.TextMate</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -15,6 +16,11 @@
   <ItemGroup>
     <PackageReference Include="TextMateSharp" Version="2.0.3" />
     <PackageReference Include="TextMateSharp.Grammars" Version="2.0.3" />
+  </ItemGroup>
+
+  <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
   </ItemGroup>
 
   <ItemGroup>

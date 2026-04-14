@@ -3,6 +3,8 @@ using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.TextMate;
+using TextMateSharp.Grammars;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -18,6 +20,8 @@ public sealed partial class MainWindow : Window
     private readonly TextDocument _document;
     private readonly FoldingManager _foldingManager;
     private readonly BraceFoldingStrategy _foldingStrategy = new();
+    private readonly TextMateLineHighlighter _textMateHighlighter;
+    private readonly RegistryOptions _textMateRegistryOptions;
     private bool _isDarkTheme = true;
     private CompletionWindow? _completionWindow;
 
@@ -31,10 +35,16 @@ public sealed partial class MainWindow : Window
         _document = new TextDocument(BuildSampleText());
         _foldingManager = new FoldingManager(_document);
 
-        // Detect OS theme on startup.
+        _textMateRegistryOptions = new RegistryOptions(ThemeName.DarkPlus);
+        _textMateHighlighter = new TextMateLineHighlighter(_textMateRegistryOptions);
+        _textMateHighlighter.SetGrammarByExtension(".cs");
+
+        // Detect OS theme on startup and configure TextMate theme.
         if (Application.Current.RequestedTheme == ApplicationTheme.Light)
         {
             _isDarkTheme = false;
+            _textMateRegistryOptions = new RegistryOptions(ThemeName.LightPlus);
+            _textMateHighlighter.SetTheme(ThemeName.LightPlus);
             ThemeToggle.Content = "\U0001F319 Dark";
         }
 
@@ -84,7 +94,8 @@ public sealed partial class MainWindow : Window
         var def = HighlightingManager.Instance.GetDefinitionByExtension(".cs");
         Editor.HighlightedLineSource = index switch
         {
-            0 when def != null => new XshdHighlightedLineSource(def),
+            0 => _textMateHighlighter,
+            1 when def != null => new XshdHighlightedLineSource(def),
             _ => null,
         };
     }
@@ -93,6 +104,7 @@ public sealed partial class MainWindow : Window
     {
         _isDarkTheme = !_isDarkTheme;
         Editor.Theme = _isDarkTheme ? TextEditorTheme.Dark : TextEditorTheme.Light;
+        _textMateHighlighter.SetTheme(_isDarkTheme ? ThemeName.DarkPlus : ThemeName.LightPlus);
         ThemeToggle.Content = _isDarkTheme ? "\u2600 Light" : "\U0001F319 Dark";
     }
 

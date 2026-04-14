@@ -75,12 +75,12 @@ if not exist "%SOLUTION%" (
 rem Build the solution and capture exit code properly using delayed expansion
 if defined MSBUILD_PATH (
 	echo Running MSBuild...
-	"%MSBUILD_PATH%" "%SOLUTION%" /t:Rebuild /p:Configuration=Debug /m /verbosity:minimal /nologo
+	"%MSBUILD_PATH%" "%SOLUTION%" /t:restore /p:Configuration=Debug /m /verbosity:minimal /nologo
+	"%MSBUILD_PATH%" "%SOLUTION%" /p:Configuration=Debug /m /verbosity:minimal /nologo
 	set "RC=!ERRORLEVEL!"
 ) else (
-	echo Running 'dotnet msbuild'...
-	dotnet msbuild "%SOLUTION%" /t:Rebuild /p:Configuration=Debug /m /verbosity:minimal /nologo
-	set "RC=!ERRORLEVEL!"
+	echo No MSBuild found. Failed.
+	exit /b 1
 )
 
 if !RC! neq 0 (

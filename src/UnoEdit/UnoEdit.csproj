@@ -299,7 +299,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop'">
-    <ProjectReference Include="..\..\external\coretext\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
+    <ProjectReference Include="..\..\external\coretext\src\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
@@ -319,7 +319,7 @@
   </ItemGroup>
 
   <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
-    <TextCoreMacInputOutput>$(MSBuildProjectDirectory)/../../external/coretext/LeXtudio.UI.Text.Core/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</TextCoreMacInputOutput>
+    <TextCoreMacInputOutput>$(MSBuildProjectDirectory)/../../external/coretext/src/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</TextCoreMacInputOutput>
   </PropertyGroup>
 
   <Target Name="CopyTextCoreMacInputBridge"

@@ -1,8 +1,6 @@
 <Project>
   <PropertyGroup>
-    <GitVersionPackageVersion>6.0.0</GitVersionPackageVersion>
-    <GitVersionFileExe Condition=" '$(GitVersionFileExe)' == '' ">dotnet --roll-forward Major "$([MSBuild]::EnsureTrailingSlash($(HOME))).nuget/packages/gitversion.msbuild/$(GitVersionPackageVersion)/tools/net8.0/gitversion.dll"</GitVersionFileExe>
-    <GitVersionAssemblyFile Condition=" '$(GitVersionAssemblyFile)' == '' ">$([MSBuild]::EnsureTrailingSlash($(HOME))).nuget/packages/gitversion.msbuild/$(GitVersionPackageVersion)/tools/net8.0/GitVersion.MsBuild.dll</GitVersionAssemblyFile>
+    <GitVersionPackageVersion>5.12.0</GitVersionPackageVersion>
     <!-- Disable Uno long-path warning repo-wide to avoid noisy builds on Windows hosts -->
     <UnoUIDisableLongPathWarning>true</UnoUIDisableLongPathWarning>
   </PropertyGroup>

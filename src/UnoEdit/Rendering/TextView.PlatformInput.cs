@@ -317,17 +317,23 @@ public sealed partial class TextView
 
         Rect caretRect = CalculatePlatformInputCaretRect();
         Rect controlRect = GetElementRectInWindow(RootBorder);
-        double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
+        Rect screenCaretRect = caretRect;
+        Rect screenControlRect = controlRect;
+        nint hwnd = TryGetNativeWindowHandle(Window.Current);
+        if (hwnd != nint.Zero && TryGetClientOriginInScreen(hwnd, out Point clientOrigin))
+        {
+            screenCaretRect = OffsetRect(caretRect, clientOrigin.X, clientOrigin.Y);
+            screenControlRect = OffsetRect(controlRect, clientOrigin.X, clientOrigin.Y);
+        }
 
-        Rect textBounds = ScaleRect(caretRect, scale);
-        Rect bounds = ScaleRect(controlRect, scale);
-
-        request.LayoutBounds.TextBounds = textBounds;
-        request.LayoutBounds.ControlBounds = bounds;
+        request.LayoutBounds.TextBounds = screenCaretRect;
+        request.LayoutBounds.ControlBounds = screenControlRect;
 
         PlatformImeLogger.Log(
-            $"CoreText LayoutRequested caret=({caretRect.X:F1},{caretRect.Y:F1},{caretRect.Width:F1},{caretRect.Height:F1}) " +
-            $"control=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) scale={scale:F2}");
+            $"CoreText LayoutRequested clientCaret=({caretRect.X:F1},{caretRect.Y:F1},{caretRect.Width:F1},{caretRect.Height:F1}) " +
+            $"clientControl=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) " +
+            $"screenCaret=({screenCaretRect.X:F1},{screenCaretRect.Y:F1},{screenCaretRect.Width:F1},{screenCaretRect.Height:F1}) " +
+            $"screenControl=({screenControlRect.X:F1},{screenControlRect.Y:F1},{screenControlRect.Width:F1},{screenControlRect.Height:F1}) hwnd=0x{hwnd:X}");
     }
 
     private void CoreTextEditContext_CompositionStarted(CoreTextEditContext sender, CoreTextCompositionStartedEventArgs args)
@@ -374,9 +380,32 @@ public sealed partial class TextView
         };
     }
 
-    private static Rect ScaleRect(Rect rect, double scale)
+    private static Rect OffsetRect(Rect rect, double offsetX, double offsetY)
     {
-        return new Rect(rect.X * scale, rect.Y * scale, rect.Width * scale, rect.Height * scale);
+        return new Rect(rect.X + offsetX, rect.Y + offsetY, rect.Width, rect.Height);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", ExactSpelling = true)]
+    private static extern bool ClientToScreen(nint hWnd, ref NativePoint lpPoint);
+
+    private static bool TryGetClientOriginInScreen(nint hwnd, out Point point)
+    {
+        point = default;
+        var nativePoint = new NativePoint { X = 0, Y = 0 };
+        if (!ClientToScreen(hwnd, ref nativePoint))
+        {
+            return false;
+        }
+
+        point = new Point(nativePoint.X, nativePoint.Y);
+        return true;
     }
 
     private static Rect GetElementRectInWindow(FrameworkElement element)

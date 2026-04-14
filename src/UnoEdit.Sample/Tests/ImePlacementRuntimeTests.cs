@@ -21,9 +21,8 @@ public class ImePlacementRuntimeTests
             Assert.Inconclusive("Test only valid on macOS.");
         }
 
-        // Enable experimental bridge for the test
-        Environment.SetEnvironmentVariable("UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME", "1");
-        Environment.SetEnvironmentVariable("UNOEDIT_DEBUG_MACOS_IME", "1");
+        // Experimental macOS IME flag retired; enable IME debug logging only
+        Environment.SetEnvironmentVariable("UNOEDIT_DEBUG_IME", "1");
 
         var doc = new TextDocument("hello world");
         var editor = new TextEditor { Document = doc };

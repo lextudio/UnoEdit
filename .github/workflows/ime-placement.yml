@@ -35,8 +35,7 @@ jobs:
 
       - name: Run IME diagnostics and comparator
         env:
-          UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME: '1'
-          UNOEDIT_DEBUG_MACOS_IME: '1'
+          UNOEDIT_DEBUG_IME: '1'
         run: |
           bash scripts/run_ime_diag.sh
 

@@ -11,8 +11,7 @@ PROJECT="${PROJECT:-$SCRIPT_DIR/../src/UnoEdit.Sample/UnoEdit.Sample.csproj}"
 
 export UNO_RUNTIME_TESTS_RUN_TESTS=1
 export UNO_RUNTIME_TESTS_OUTPUT_PATH=/tmp/unoedit_runtime_tests.xml
-export UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME=1
-export UNOEDIT_DEBUG_MACOS_IME=1
+export UNOEDIT_DEBUG_IME=1
 
 echo "Running headless sample; project=${PROJECT} logs -> ${LOG}"
 dotnet run -f net10.0-desktop --project "${PROJECT}" 2>&1 | tee "${LOG}"

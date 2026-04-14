@@ -14,17 +14,13 @@
     },
     "UnoEdit.Skia.Desktop (Desktop IME)": {
       "commandName": "Project",
-      "compatibleTargetFramework": "desktop",
-      "environmentVariables": {
-        "UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME": "1"
-      }
+      "compatibleTargetFramework": "desktop"
     },
     "UnoEdit.Skia.Desktop (Desktop IME Debug)": {
       "commandName": "Project",
       "compatibleTargetFramework": "desktop",
       "environmentVariables": {
-        "UNOEDIT_ENABLE_EXPERIMENTAL_MACOS_IME": "1",
-        "UNOEDIT_DEBUG_MACOS_IME": "1"
+        "UNOEDIT_DEBUG_IME": "1"
       }
     },
     "UnoEdit.Skia.Desktop (Desktop WSL2)": {

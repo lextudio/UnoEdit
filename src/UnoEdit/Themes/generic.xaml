@@ -15,6 +15,22 @@
   <x:Double x:Key="UnoEditorOverlayHeight">16</x:Double>
   <x:Double x:Key="UnoEditorCaretWidth">2</x:Double>
 
+  
+
+  <Style x:Key="UnoSearchActionButtonStyle" TargetType="Button">
+    <Setter Property="MinWidth" Value="44" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Foreground" Value="{ThemeResource UnoEditorTitleBarForegroundBrush}" />
+  </Style>
+
+  <Style x:Key="UnoSearchOptionCheckBoxStyle" TargetType="CheckBox">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="6,0,0,0" />
+  </Style>
+  
   <ResourceDictionary.ThemeDictionaries>
     <ResourceDictionary x:Key="Dark">
       <SolidColorBrush x:Key="UnoEditorBackgroundBrush" Color="#0F172A" />
@@ -47,18 +63,4 @@
       <Color x:Key="UnoSearchBoxCheckedFillColor">#220969DA</Color>
     </ResourceDictionary>
   </ResourceDictionary.ThemeDictionaries>
-
-  <Style x:Key="UnoSearchActionButtonStyle" TargetType="Button">
-    <Setter Property="MinWidth" Value="44" />
-    <Setter Property="MinHeight" Value="32" />
-    <Setter Property="Foreground" Value="{ThemeResource UnoEditorTitleBarForegroundBrush}" />
-  </Style>
-
-  <Style x:Key="UnoSearchOptionCheckBoxStyle" TargetType="CheckBox">
-    <Setter Property="VerticalAlignment" Value="Center" />
-    <Setter Property="Margin" Value="0,2,0,0" />
-    <Setter Property="MinHeight" Value="0" />
-    <Setter Property="MinWidth" Value="0" />
-    <Setter Property="Padding" Value="6,0,0,0" />
-  </Style>
 </ResourceDictionary>

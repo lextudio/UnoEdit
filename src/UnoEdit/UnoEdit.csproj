@@ -5,8 +5,8 @@
          WinUI/Windows-only targets won't be attempted. -->
     <IsWindows Condition="'$(OS)' == 'Windows_NT'">true</IsWindows>
     <IsWindows Condition="'$(IsWindows)' == ''">false</IsWindows>
-    <TargetFrameworks Condition="'$(IsWindows)' == 'true'">net10.0-desktop;net10.0-windows10.0.19041.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(IsWindows)' != 'true'">net10.0-desktop</TargetFrameworks>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <TargetFrameworks Condition="'$(IsWindows)' == 'true'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <AssemblyName>UnoEdit</AssemblyName>
     <RootNamespace>ICSharpCode.AvalonEdit</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -298,7 +298,7 @@
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop'">
     <ProjectReference Include="..\..\external\coretext\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
@@ -310,11 +310,12 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
-    <!-- Include WinUI-specific control surface from the UnoEdit.WinUI folder as linked items. -->
-    <Page Include="..\UnoEdit.WinUI\Controls\TextEditor.xaml" Link="Controls\TextEditor.xaml" />
-    <Compile Include="..\UnoEdit.WinUI\Controls\TextEditor.xaml.cs" Link="Controls\TextEditor.xaml.cs">
+    <!-- WinUI-specific control surface now lives in this project -->
+    <Page Include="Controls\TextEditor.xaml" />
+    <Compile Include="Controls\TextEditor.xaml.cs">
       <DependentUpon>TextEditor.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\TextAreaProxy.cs" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">

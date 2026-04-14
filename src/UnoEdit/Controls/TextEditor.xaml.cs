@@ -669,5 +669,3 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost
             || InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftControl).HasFlag(flags);
     }
 }
-
-

@@ -25,7 +25,7 @@ namespace UnoEdit.WinUI.Controls;
 /// Delegates all editing and rendering to an inner <see cref="TextArea"/> and
 /// <see cref="SearchPanel"/>.
 /// </summary>
-public sealed partial class TextEditor : UserControl, ISearchPanelHost
+public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl, ISearchPanelHost
 {
     // ── Dependency Properties ────────────────────────────────────────────────
 

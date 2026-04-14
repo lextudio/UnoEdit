@@ -35,6 +35,11 @@
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Use central package management to pick the pinned Tmds.DBus.Protocol version -->
+    <PackageReference Include="Tmds.DBus.Protocol" />
+  </ItemGroup>
+
   <!-- Import macOS IME support automatically -->
   <Import Project="../UnoEdit/UnoEdit.MacOS.IME.targets" />
 

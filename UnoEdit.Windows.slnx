@@ -4,7 +4,6 @@
     <Project Path="src/UnoEdit/UnoEdit.csproj" />
     <Project Path="external/coretext/LeXtudio.UI.Text.Core/LeXtudio.UI.Text.Core.csproj" />
     <Project Path="src/UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
-    <Project Path="src/UnoEdit.WinUI/UnoEdit.WinUI.csproj" />
     <Project Path="src/UnoEdit.WinUI.Sample/UnoEdit.WinUI.Sample.csproj" />
     <Project Path="src/UnoEdit.Tests/UnoEdit.Tests.csproj" />
   </Folder>

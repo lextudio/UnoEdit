@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\UnoEdit.WinUI\UnoEdit.WinUI.csproj" />
+    <ProjectReference Include="..\UnoEdit\UnoEdit.csproj" />
   </ItemGroup>
 
   <ItemGroup>

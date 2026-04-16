@@ -13,7 +13,28 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>$(NoWarn);1574;1591;8632;UNO0006</NoWarn>
     <UseNuGetPackage>false</UseNuGetPackage>
+    
+    <!-- NuGet package metadata -->
+    <PackageId>LeXtudio.UnoEdit</PackageId>
+    <Authors>LeXtudio</Authors>
+    <Company>LeXtudio</Company>
+    <Description>UnoEdit — a cross-platform text editor component (AvalonEdit) for Uno Platform and WinUI 3.</Description>
+    <PackageTags>editor;text;avalonedit;uno;lextudio</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/LeXtudio/UnoEdit</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>logo.png</PackageIcon>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="" />
+    <None Include="..\..\avalonedit\LICENSE" Pack="true" PackagePath="licenses/avalonedit_LICENSE.txt" />
+    <None Include="..\..\logo.png" Pack="true" PackagePath="" />
+  </ItemGroup>
 
   <!-- WinUI / Windows-specific properties (only applied when building the windows target) -->
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
@@ -307,9 +328,9 @@
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">

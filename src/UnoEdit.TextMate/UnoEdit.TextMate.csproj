@@ -7,7 +7,28 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    
+    <!-- NuGet package metadata -->
+    <PackageId>LeXtudio.UnoEdit.TextMate</PackageId>
+    <Authors>LeXtudio</Authors>
+    <Company>LeXtudio</Company>
+    <Description>LeXtudio UnoEdit.TextMate — TextMate grammar integration for UnoEdit.</Description>
+    <PackageTags>textmate;syntax;editor;text;lextudio</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/LeXtudio/UnoEdit</RepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IsPackable>true</IsPackable>
+    <PackageIcon>logo.png</PackageIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="" />
+    <None Include="..\..\avalonedit\LICENSE" Pack="true" PackagePath="licenses/avalonedit_LICENSE.txt" />
+    <None Include="..\..\logo.png" Pack="true" PackagePath="" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\UnoEdit\UnoEdit.csproj" />
@@ -20,7 +41,7 @@
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
   </ItemGroup>
 
   <ItemGroup>

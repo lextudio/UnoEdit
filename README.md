@@ -37,3 +37,11 @@ The main deliverable is a few NuGet packages:
 - [ ] Accessibility support (screen readers, keyboard navigation, etc.)
 - [ ] Performance optimizations for large documents (virtualization, incremental layout, etc.)
 - [ ] TextMate integration (functional but needs heavy polishing)
+
+## Credits & Third-Party
+
+UnoEdit builds on and includes code from the AvalonEdit project (ICSharpCode.AvalonEdit).
+AvalonEdit is licensed under the MIT License. See `avalonedit/LICENSE` and
+`THIRD_PARTY_NOTICES.md` for attribution and full license text. The NuGet packages
+produced by this repository also include the third-party license text and notices.
+

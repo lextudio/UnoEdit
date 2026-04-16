@@ -29,8 +29,27 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		/// <summary>Performs insertion of the snippet.</summary>
 		public abstract void Insert(InsertionContext context);
 
-		/// <summary>Converts the snippet to a text run placeholder.</summary>
-		public virtual object ToTextRun() => new SnippetTextRun("element");
+		/// <summary>Converts the snippet to a descriptive text-run descriptor.</summary>
+		public virtual object ToTextRun()
+		{
+			string kind = GetType().Name.Replace("Snippet", string.Empty).Replace("Element", string.Empty);
+			if (string.IsNullOrEmpty(kind))
+				kind = "element";
+			var metadata = new List<SnippetTextRun>();
+			foreach (PropertyInfo property in GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+			{
+				if (!property.CanRead || property.GetIndexParameters().Length != 0)
+					continue;
+
+				object? value = property.GetValue(this);
+				if (value == null)
+					continue;
+
+				metadata.Add(new SnippetTextRun(property.Name.ToLowerInvariant(), value.ToString()));
+			}
+
+			return new SnippetTextRun(kind.ToLowerInvariant(), GetType().Name, metadata);
+		}
 	}
 
 	/// <summary>Inserts plain text.</summary>
@@ -240,6 +259,8 @@ namespace ICSharpCode.AvalonEdit.Snippets
 	{
 		private readonly InsertionContext context;
 		private readonly ISegment segment;
+		private bool isActive = true;
+		private bool insertionCompleted;
 
 		/// <summary>Creates a new AnchorElement.</summary>
 		public AnchorElement(object segment, string name, InsertionContext context)
@@ -250,7 +271,7 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		}
 
 		/// <inheritdoc/>
-		public bool IsEditable => false;
+		public bool IsEditable => isActive && insertionCompleted && segment != null;
 
 		/// <inheritdoc/>
 				public ISegment Segment => segment;
@@ -262,10 +283,18 @@ namespace ICSharpCode.AvalonEdit.Snippets
 				public string Text => Segment != null ? context.Document.GetText(Segment.Offset, Segment.Length) : string.Empty;
 
 		/// <inheritdoc/>
-		public void OnInsertionCompleted() { }
+		public void OnInsertionCompleted()
+		{
+			insertionCompleted = true;
+		}
 
 		/// <inheritdoc/>
-		public void Deactivate(SnippetEventArgs e) { }
+		public void Deactivate(SnippetEventArgs e)
+		{
+			isActive = false;
+			if (e?.Reason == DeactivateReason.Deleted)
+				Name = string.Empty;
+		}
 	}
 
 	/// <summary>Interface for replaceable active elements.</summary>

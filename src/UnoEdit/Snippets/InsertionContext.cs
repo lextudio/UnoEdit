@@ -108,8 +108,13 @@ namespace ICSharpCode.AvalonEdit.Snippets
 		/// <summary>Gets all active elements.</summary>
 				public IEnumerable<IActiveElement> ActiveElements => registeredElements;
 
-		/// <summary>Raises the <see cref="InsertionCompleted"/> event.</summary>
-		public void RaiseInsertionCompleted(EventArgs e) { InsertionCompleted?.Invoke(this, e); }
+		/// <summary>Raises the <see cref="InsertionCompleted"/> event and finalizes registered elements.</summary>
+		public void RaiseInsertionCompleted(EventArgs e)
+		{
+			foreach (var element in registeredElements)
+				element.OnInsertionCompleted();
+			InsertionCompleted?.Invoke(this, e);
+		}
 
 		/// <summary>Raised when insertion is completed.</summary>
 		public event EventHandler? InsertionCompleted;

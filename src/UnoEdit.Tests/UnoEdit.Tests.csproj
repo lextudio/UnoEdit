@@ -55,9 +55,12 @@
     <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />
     <Compile Include="Rendering\VisibleLineMapperTests.cs" />
     <Compile Include="Search\SearchCommandsTests.cs" />
+    <Compile Include="Snippets\SnippetTypesTests.cs" />
     <Compile Include="TextMate\DocumentSnapshotTests.cs" />
+    <Compile Include="TextMate\TextDocumentLineListTests.cs" />
     <Compile Include="TextMate\TextMateLineHighlighterTests.cs" />
     <Compile Include="Highlighting\ColorConverterTests.cs" />
+    <Compile Include="Highlighting\HighlightingBehaviorTests.cs" />
     <Compile Include="Highlighting\HtmlOptionsTests.cs" />
     <Compile Include="Highlighting\RichTextHtmlTests.cs" />
     <Compile Include="Highlighting\RichTextModelWriterTests.cs" />

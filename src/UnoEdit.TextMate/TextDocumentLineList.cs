@@ -43,6 +43,9 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		public override void UpdateLine(int lineIndex)
 		{
+			int clampedLine = Math.Clamp(lineIndex, 0, document.LineCount - 1);
+			documentSnapshot.Update(null);
+			InvalidateLineRange(clampedLine, clampedLine);
 		}
 
 		public override int GetNumberOfLines()

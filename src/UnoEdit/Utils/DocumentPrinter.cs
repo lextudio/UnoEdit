@@ -10,9 +10,9 @@ using ICSharpCode.AvalonEdit.Highlighting;
 namespace ICSharpCode.AvalonEdit.Utils
 {
 	/// <summary>
-	/// Converts a TextDocument to rich text formats.
-	/// Stub — WPF FlowDocument types not available in Uno.
-	/// </summary>
+		/// Converts a TextDocument to rich text formats.
+		/// Uses portable rich-text descriptors instead of WPF FlowDocument.
+		/// </summary>
 	public static class DocumentPrinter
 	{
 		public sealed class PrintedLine

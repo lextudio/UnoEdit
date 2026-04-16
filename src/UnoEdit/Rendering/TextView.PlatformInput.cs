@@ -22,26 +22,14 @@ public sealed partial class TextView
     private int _compositionStartOffset;
     private int _compositionLength;
 
-#if WINDOWS_APP_SDK
-    // -----------------------------------------------------------------------
-    // WinUI 3: native Windows.UI.Text.Core integration
-    // -----------------------------------------------------------------------
-
-    private CoreTextEditContext? _coreTextEditContext;
-    /// <summary>
-    /// Offset delta to correct CoreText's unreliable internal position tracking.
-    /// Computed at the first TextUpdating of each composition as (our cursor – CoreText's range start).
-    /// Applied to all subsequent CoreText ranges/selections during that composition.
-    /// </summary>
-    private int _coreTextOffsetDelta;
-    private bool _coreTextDeltaEstablished;
+    private CoreTextEditContext _coreTextEditContext;
 
     partial void InitializePlatformInputBridge()
     {
-        Loaded += OnPlatformInputLoaded;
-        Unloaded += OnPlatformInputUnloaded;
-        GotFocus += OnPlatformInputGotFocus;
-        LostFocus += OnPlatformInputLostFocus;
+        Loaded += CoreTextEditContext_InputLoaded;
+        Unloaded += CoreTextEditContext_InputUnloaded;
+        GotFocus += CoreTextEditContext_InputGotFocus;
+        LostFocus += CoreTextEditContext_InputLostFocus;
     }
 
     partial void UpdatePlatformInputBridge()
@@ -50,50 +38,49 @@ public sealed partial class TextView
         {
             return;
         }
-
+#if !WINDOWS_APP_SDK
+        Rect rect = CalculatePlatformInputCaretRect();
+        double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
+#endif
         try
         {
+            // Mirror Windows behavior: notify layout and selection changes first,
+            // then update caret rect so adapters may reposition candidate windows.
             _coreTextEditContext.NotifyLayoutChanged();
+#if WINDOWS_APP_SDK
             _coreTextEditContext.NotifySelectionChanged(ToCoreTextRange(SelectionStartOffset, SelectionEndOffset));
+#else
+            _coreTextEditContext.NotifySelectionChanged(new CoreTextRange { StartCaretPosition = SelectionStartOffset, EndCaretPosition = SelectionEndOffset });
+            _coreTextEditContext.NotifyCaretRectChanged(rect.X, rect.Y, rect.Width, rect.Height, scale);
+#endif
         }
         catch (Exception ex)
         {
-            PlatformImeLogger.Log($"CoreText notify failed: {ex.Message}");
-        }
-    }
-
-    partial void FocusPlatformInputBridge()
-    {
-        if (_coreTextEditContext is not null)
-        {
-            try
-            {
-                _coreTextEditContext.NotifyFocusEnter();
-            }
-            catch (Exception ex)
-            {
-                PlatformImeLogger.Log($"CoreText NotifyFocusEnter failed: {ex.Message}");
-            }
+            PlatformImeLogger.Log($"Platform Notify failed: {ex.Message}");
         }
     }
 
     private partial bool ShouldDeferToPlatformTextInput(bool controlPressed)
     {
+        // Linux: IME integration is via explicit TryForwardKeyToPlatformIme calls
+        // in OnRootKeyDown, NOT via full deferral. Non-IME keys must fall through
+        // to EditingCommandHandler / CaretNavigationCommandHandler.
+        // Only macOS uses full deferral (all keys go through the native AppKit bridge).
         return false;
     }
 
-    private void OnPlatformInputLoaded(object sender, RoutedEventArgs e)
+    private void CoreTextEditContext_InputLoaded(object sender, RoutedEventArgs e)
     {
         EnsureCoreTextEditContext();
         UpdatePlatformInputBridge();
     }
 
-    private void OnPlatformInputUnloaded(object sender, RoutedEventArgs e)
+    private void CoreTextEditContext_InputUnloaded(object sender, RoutedEventArgs e)
     {
         DisposeCoreTextEditContext();
     }
 
-    private void OnPlatformInputGotFocus(object sender, RoutedEventArgs e)
+    private void CoreTextEditContext_InputGotFocus(object sender, RoutedEventArgs e)
     {
         if (_coreTextEditContext is not null)
         {
@@ -108,7 +95,7 @@ public sealed partial class TextView
         }
     }
 
-    private void OnPlatformInputLostFocus(object sender, RoutedEventArgs e)
+    private void CoreTextEditContext_InputLostFocus(object sender, RoutedEventArgs e)
     {
         if (_coreTextEditContext is not null)
         {
@@ -121,6 +108,28 @@ public sealed partial class TextView
                 PlatformImeLogger.Log($"CoreText focus leave failed: {ex.Message}");
             }
         }
+    }
+
+    private void DisposeCoreTextEditContext()
+    {
+        if (_coreTextEditContext is null)
+        {
+            return;
+        }
+
+        _coreTextEditContext.TextRequested -= CoreTextEditContext_TextRequested;
+#if WINDOWS_APP_SDK
+        _coreTextEditContext.SelectionRequested -= CoreTextEditContext_SelectionRequested;
+        _coreTextEditContext.SelectionUpdating -= CoreTextEditContext_SelectionUpdating;
+        _coreTextEditContext.LayoutRequested -= CoreTextEditContext_LayoutRequested;
+#endif
+        _coreTextEditContext.TextUpdating -= CoreTextEditContext_TextUpdating;
+        _coreTextEditContext.CompositionStarted -= CoreTextEditContext_CompositionStarted;
+        _coreTextEditContext.CompositionCompleted -= CoreTextEditContext_CompositionCompleted;
+        _coreTextEditContext.FocusRemoved -= CoreTextEditContext_FocusRemoved;
+        _coreTextEditContext.CommandReceived -= CoreTextEditContext_CommandReceived;
+        _coreTextEditContext.Dispose();
+        _coreTextEditContext = null;
     }
 
     private bool EnsureCoreTextEditContext()
@@ -137,14 +146,41 @@ public sealed partial class TextView
             _coreTextEditContext.InputScope = CoreTextInputScope.Text;
 
             _coreTextEditContext.TextRequested += CoreTextEditContext_TextRequested;
+#if WINDOWS_APP_SDK
             _coreTextEditContext.SelectionRequested += CoreTextEditContext_SelectionRequested;
-            _coreTextEditContext.TextUpdating += CoreTextEditContext_TextUpdating;
             _coreTextEditContext.SelectionUpdating += CoreTextEditContext_SelectionUpdating;
             _coreTextEditContext.LayoutRequested += CoreTextEditContext_LayoutRequested;
+#endif
+            _coreTextEditContext.TextUpdating += CoreTextEditContext_TextUpdating;
             _coreTextEditContext.CompositionStarted += CoreTextEditContext_CompositionStarted;
             _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
             _coreTextEditContext.FocusRemoved += CoreTextEditContext_FocusRemoved;
 
+            _coreTextEditContext.CommandReceived += CoreTextEditContext_CommandReceived;
+
+#if !WINDOWS_APP_SDK
+            nint windowHandle = nint.Zero;
+            nint displayHandle = nint.Zero;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                TryGetX11Handles(out displayHandle, out windowHandle);
+            }
+
+            if (windowHandle == nint.Zero)
+            {
+                windowHandle = TryGetNativeWindowHandle(Window.Current);
+            }
+
+            bool attached = _coreTextEditContext.Attach(windowHandle, displayHandle);
+            PlatformImeLogger.Log($"Attach platform text context handle=0x{windowHandle:X} display=0x{displayHandle:X} attached={attached}");
+
+            // The editor may already have focus when Loaded fires, so GotFocus
+            // won't re-fire.  Ensure IBus knows we have focus.
+            if (attached)
+            {
+                _coreTextEditContext.NotifyFocusEnter();
+            }
+#endif
             PlatformImeLogger.Log("EnsureCoreTextEditContext: initialized.");
             return true;
         }
@@ -156,23 +192,73 @@ public sealed partial class TextView
         }
     }
 
-    private void DisposeCoreTextEditContext()
+    partial void FocusPlatformInputBridge()
     {
-        if (_coreTextEditContext is null)
+        if (_coreTextEditContext is not null)
         {
-            return;
+            try
+            {
+                _coreTextEditContext.NotifyFocusEnter();
+#if !WINDOWS_APP_SDK
+                UpdatePlatformInputBridge();
+#endif
+            }
+            catch (Exception ex)
+            {
+                PlatformImeLogger.Log($"CoreText NotifyFocusEnter failed: {ex.Message}");
+            }
         }
-
-        _coreTextEditContext.TextRequested -= CoreTextEditContext_TextRequested;
-        _coreTextEditContext.SelectionRequested -= CoreTextEditContext_SelectionRequested;
-        _coreTextEditContext.TextUpdating -= CoreTextEditContext_TextUpdating;
-        _coreTextEditContext.SelectionUpdating -= CoreTextEditContext_SelectionUpdating;
-        _coreTextEditContext.LayoutRequested -= CoreTextEditContext_LayoutRequested;
-        _coreTextEditContext.CompositionStarted -= CoreTextEditContext_CompositionStarted;
-        _coreTextEditContext.CompositionCompleted -= CoreTextEditContext_CompositionCompleted;
-        _coreTextEditContext.FocusRemoved -= CoreTextEditContext_FocusRemoved;
-        _coreTextEditContext = null;
     }
+
+    private void CoreTextEditContext_CompositionStarted(CoreTextEditContext sender, CoreTextCompositionStartedEventArgs args)
+    {
+        PlatformImeLogger.Log(
+            $"CoreText CompositionStarted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
+            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
+#if WINDOWS_APP_SDK
+        // Reset delta tracking — will be established on the first TextUpdating of this composition.
+        _coreTextDeltaEstablished = false;
+        _coreTextOffsetDelta = 0;
+#endif
+        HandleCompositionStart();
+    }
+
+    private void CoreTextEditContext_CompositionCompleted(CoreTextEditContext sender, CoreTextCompositionCompletedEventArgs args)
+    {
+        PlatformImeLogger.Log(
+            $"CoreText CompositionCompleted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
+            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
+        HandleCompositionEnd();
+        PlatformImeLogger.Log(
+            $"CoreText CompositionCompleted AFTER: current={CurrentOffset} composing={_isComposing}");
+    }
+
+    private void CoreTextEditContext_FocusRemoved(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (FocusState != FocusState.Unfocused)
+            {
+                Focus(FocusState.Unfocused);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+#if WINDOWS_APP_SDK
+    // -----------------------------------------------------------------------
+    // WinUI 3: native Windows.UI.Text.Core integration
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Offset delta to correct CoreText's unreliable internal position tracking.
+    /// Computed at the first TextUpdating of each composition as (our cursor – CoreText's range start).
+    /// Applied to all subsequent CoreText ranges/selections during that composition.
+    /// </summary>
+    private int _coreTextOffsetDelta;
+    private bool _coreTextDeltaEstablished;
 
     private void CoreTextEditContext_TextRequested(CoreTextEditContext sender, CoreTextTextRequestedEventArgs args)
     {
@@ -336,41 +422,6 @@ public sealed partial class TextView
             $"screenControl=({screenControlRect.X:F1},{screenControlRect.Y:F1},{screenControlRect.Width:F1},{screenControlRect.Height:F1}) hwnd=0x{hwnd:X}");
     }
 
-    private void CoreTextEditContext_CompositionStarted(CoreTextEditContext sender, CoreTextCompositionStartedEventArgs args)
-    {
-        PlatformImeLogger.Log(
-            $"CoreText CompositionStarted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
-            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
-        // Reset delta tracking — will be established on the first TextUpdating of this composition.
-        _coreTextDeltaEstablished = false;
-        _coreTextOffsetDelta = 0;
-        HandleCompositionStart();
-    }
-
-    private void CoreTextEditContext_CompositionCompleted(CoreTextEditContext sender, CoreTextCompositionCompletedEventArgs args)
-    {
-        PlatformImeLogger.Log(
-            $"CoreText CompositionCompleted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
-            $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
-        HandleCompositionEnd();
-        PlatformImeLogger.Log(
-            $"CoreText CompositionCompleted AFTER: current={CurrentOffset} composing={_isComposing}");
-    }
-
-    private void CoreTextEditContext_FocusRemoved(CoreTextEditContext sender, object args)
-    {
-        try
-        {
-            if (FocusState != FocusState.Unfocused)
-            {
-                Focus(FocusState.Unfocused);
-            }
-        }
-        catch
-        {
-        }
-    }
-
     private static CoreTextRange ToCoreTextRange(int startOffset, int endOffset)
     {
         return new CoreTextRange
@@ -420,118 +471,20 @@ public sealed partial class TextView
     // Uno Platform / Skia Desktop: LeXtudio.UI.Text.Core shim integration
     // -----------------------------------------------------------------------
 
-    private CoreTextEditContext? _platformTextContext;
-
-    partial void InitializePlatformInputBridge()
-    {
-        Loaded += OnPlatformInputLoaded;
-        Unloaded += OnPlatformInputUnloaded;
-        GotFocus += OnPlatformInputGotFocus;
-        LostFocus += OnPlatformInputLostFocus;
-    }
-
-    partial void UpdatePlatformInputBridge()
-    {
-        if (_platformTextContext is null)
-        {
-            return;
-        }
-
-        Rect rect = CalculatePlatformInputCaretRect();
-        double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
-        _platformTextContext.NotifyCaretRectChanged(rect.X, rect.Y, rect.Width, rect.Height, scale);
-    }
-
-    partial void FocusPlatformInputBridge()
-    {
-        _platformTextContext?.NotifyFocusEnter();
-        UpdatePlatformInputBridge();
-    }
-
-    private partial bool ShouldDeferToPlatformTextInput(bool controlPressed)
-    {
-        // Linux: IME integration is via explicit TryForwardKeyToPlatformIme calls
-        // in OnRootKeyDown, NOT via full deferral. Non-IME keys must fall through
-        // to EditingCommandHandler / CaretNavigationCommandHandler.
-        // Only macOS uses full deferral (all keys go through the native AppKit bridge).
-        return false;
-    }
-
     /// <summary>
     /// Forwards a key event to the platform IME (IBus on Linux).
     /// Returns true if the IME consumed the key (caller should suppress normal handling).
     /// </summary>
     private bool TryForwardKeyToPlatformIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed, char? unicodeKey = null)
     {
-        if (_platformTextContext is null)
+        if (_coreTextEditContext is null)
         {
             return false;
         }
 
-        bool handled = _platformTextContext.ProcessKeyEvent((int)key, shiftPressed, controlPressed, unicodeKey);
+        bool handled = _coreTextEditContext.ProcessKeyEvent((int)key, shiftPressed, controlPressed, unicodeKey);
         PlatformImeLogger.Log($"ProcessKeyEvent key={key} shift={shiftPressed} ctrl={controlPressed} -> handled={handled}");
         return handled;
-    }
-
-    private void OnPlatformInputLoaded(object sender, RoutedEventArgs e)
-    {
-        EnsurePlatformTextContext();
-        UpdatePlatformInputBridge();
-    }
-
-    private void OnPlatformInputUnloaded(object sender, RoutedEventArgs e)
-    {
-        DisposePlatformTextContext();
-    }
-
-    private void OnPlatformInputGotFocus(object sender, RoutedEventArgs e)
-    {
-        _platformTextContext?.NotifyFocusEnter();
-    }
-
-    private void OnPlatformInputLostFocus(object sender, RoutedEventArgs e)
-    {
-        _platformTextContext?.NotifyFocusLeave();
-    }
-
-    private void EnsurePlatformTextContext()
-    {
-        if (_platformTextContext is not null)
-        {
-            return;
-        }
-
-        nint windowHandle = nint.Zero;
-        nint displayHandle = nint.Zero;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            TryGetX11Handles(out displayHandle, out windowHandle);
-        }
-
-        if (windowHandle == nint.Zero)
-        {
-            windowHandle = TryGetNativeWindowHandle(Window.Current);
-        }
-
-        CoreTextServicesManager manager = CoreTextServicesManager.GetForCurrentView();
-        _platformTextContext = manager.CreateEditContext();
-
-        _platformTextContext.TextRequested += OnPlatformTextRequested;
-        _platformTextContext.TextUpdating += OnPlatformTextUpdating;
-        _platformTextContext.CompositionStarted += OnPlatformCompositionStarted;
-        _platformTextContext.CompositionCompleted += OnPlatformCompositionCompleted;
-        _platformTextContext.FocusRemoved += OnPlatformFocusRemoved;
-        _platformTextContext.CommandReceived += OnPlatformCommandReceived;
-
-        bool attached = _platformTextContext.Attach(windowHandle, displayHandle);
-        PlatformImeLogger.Log($"Attach platform text context handle=0x{windowHandle:X} display=0x{displayHandle:X} attached={attached}");
-
-        // The editor may already have focus when Loaded fires, so GotFocus
-        // won't re-fire.  Ensure IBus knows we have focus.
-        if (attached)
-        {
-            _platformTextContext.NotifyFocusEnter();
-        }
     }
 
     /// <summary>
@@ -576,24 +529,7 @@ public sealed partial class TextView
         }
     }
 
-    private void DisposePlatformTextContext()
-    {
-        if (_platformTextContext is null)
-        {
-            return;
-        }
-
-        _platformTextContext.TextRequested -= OnPlatformTextRequested;
-        _platformTextContext.TextUpdating -= OnPlatformTextUpdating;
-        _platformTextContext.CompositionStarted -= OnPlatformCompositionStarted;
-        _platformTextContext.CompositionCompleted -= OnPlatformCompositionCompleted;
-        _platformTextContext.FocusRemoved -= OnPlatformFocusRemoved;
-        _platformTextContext.CommandReceived -= OnPlatformCommandReceived;
-        _platformTextContext.Dispose();
-        _platformTextContext = null;
-    }
-
-    private void OnPlatformTextRequested(object? sender, CoreTextTextRequestedEventArgs e)
+    private void CoreTextEditContext_TextRequested(object? sender, CoreTextTextRequestedEventArgs e)
     {
         string text = e.Request.Text ?? string.Empty;
         PlatformImeLogger.Log($"OnPlatformTextRequested: text='{text}'");
@@ -603,38 +539,13 @@ public sealed partial class TextView
         }
     }
 
-    private void OnPlatformTextUpdating(object? sender, CoreTextTextUpdatingEventArgs e)
+    private void CoreTextEditContext_TextUpdating(object? sender, CoreTextTextUpdatingEventArgs e)
     {
         PlatformImeLogger.Log($"OnPlatformTextUpdating: text='{e.NewText}'");
         HandleCompositionUpdate(e.NewText ?? string.Empty);
     }
 
-    private void OnPlatformCompositionStarted(object? sender, EventArgs e)
-    {
-        PlatformImeLogger.Log("OnPlatformCompositionStarted");
-        HandleCompositionStart();
-    }
-
-    private void OnPlatformCompositionCompleted(object? sender, EventArgs e)
-    {
-        HandleCompositionEnd();
-    }
-
-    private void OnPlatformFocusRemoved(object? sender, EventArgs e)
-    {
-        try
-        {
-            if (FocusState != FocusState.Unfocused)
-            {
-                Focus(FocusState.Unfocused);
-            }
-        }
-        catch
-        {
-        }
-    }
-
-    private void OnPlatformCommandReceived(object? sender, CoreTextCommandReceivedEventArgs e)
+    private void CoreTextEditContext_CommandReceived(object? sender, CoreTextCommandReceivedEventArgs e)
     {
         PlatformImeLogger.Log($"CommandReceived: {e.Command}");
         bool handled = e.Command switch

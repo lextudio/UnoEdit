@@ -115,12 +115,10 @@ public sealed partial class TextView
         }
 
         _coreTextEditContext.TextRequested -= CoreTextEditContext_TextRequested;
-#if WINDOWS_APP_SDK
+        _coreTextEditContext.TextUpdating -= CoreTextEditContext_TextUpdating;
         _coreTextEditContext.SelectionRequested -= CoreTextEditContext_SelectionRequested;
         _coreTextEditContext.SelectionUpdating -= CoreTextEditContext_SelectionUpdating;
         _coreTextEditContext.LayoutRequested -= CoreTextEditContext_LayoutRequested;
-#endif
-        _coreTextEditContext.TextUpdating -= CoreTextEditContext_TextUpdating;
         _coreTextEditContext.CompositionStarted -= CoreTextEditContext_CompositionStarted;
         _coreTextEditContext.CompositionCompleted -= CoreTextEditContext_CompositionCompleted;
         _coreTextEditContext.FocusRemoved -= CoreTextEditContext_FocusRemoved;
@@ -145,11 +143,9 @@ public sealed partial class TextView
             _coreTextEditContext.InputScope = CoreTextInputScope.Text;
 
             _coreTextEditContext.TextRequested += CoreTextEditContext_TextRequested;
-#if WINDOWS_APP_SDK
             _coreTextEditContext.SelectionRequested += CoreTextEditContext_SelectionRequested;
             _coreTextEditContext.SelectionUpdating += CoreTextEditContext_SelectionUpdating;
             _coreTextEditContext.LayoutRequested += CoreTextEditContext_LayoutRequested;
-#endif
             _coreTextEditContext.TextUpdating += CoreTextEditContext_TextUpdating;
             _coreTextEditContext.CompositionStarted += CoreTextEditContext_CompositionStarted;
             _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
@@ -262,14 +258,10 @@ public sealed partial class TextView
         };
     }
 
-#if WINDOWS_APP_SDK
-    // -----------------------------------------------------------------------
-    // WinUI 3: native Windows.UI.Text.Core integration
-    // -----------------------------------------------------------------------
-
     private void CoreTextEditContext_TextRequested(CoreTextEditContext sender, CoreTextTextRequestedEventArgs args)
     {
         CoreTextTextRequest request = args.Request;
+#if WINDOWS_APP_SDK
         if (_document is null)
         {
             request.Text = string.Empty;
@@ -281,12 +273,42 @@ public sealed partial class TextView
         int end = Math.Clamp(request.Range.EndCaretPosition, start, textLength);
         request.Text = _document.GetText(start, end - start);
         PlatformImeLogger.Log($"CoreText TextRequested range=[{start},{end}) len={end - start}");
-    }
+#else
+        string text = request.Text ?? string.Empty;
+        PlatformImeLogger.Log($"OnPlatformTextRequested: text='{text}'");
+        if (!string.IsNullOrEmpty(text))
+        {
+            if (_document is null)
+            {
+                return;
+            }
 
-    private void CoreTextEditContext_SelectionRequested(CoreTextEditContext sender, CoreTextSelectionRequestedEventArgs args)
-    {
-        args.Request.Selection = ToCoreTextRange(SelectionStartOffset, SelectionEndOffset);
-        PlatformImeLogger.Log($"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset}");
+            int insertAt = _isComposing ? _compositionStartOffset : CurrentOffset;
+            int removeLen = _isComposing ? _compositionLength : 0;
+
+            RaiseTextEntering(text);
+
+            BatchRefresh(() =>
+            {
+                using (_document.RunUpdate())
+                {
+                    if (removeLen > 0)
+                    {
+                        _document.Remove(insertAt, removeLen);
+                    }
+
+                    _document.Insert(insertAt, text);
+                }
+
+                _isComposing = false;
+                _compositionLength = 0;
+                CollapseSelection(insertAt + text.Length);
+            });
+
+            RaiseTextEntered(text);
+            UpdatePlatformInputBridge();
+        }
+#endif
     }
 
     private void CoreTextEditContext_TextUpdating(CoreTextEditContext sender, CoreTextTextUpdatingEventArgs args)
@@ -295,7 +317,7 @@ public sealed partial class TextView
         {
             return;
         }
-
+#if WINDOWS_APP_SDK
         int textLength = _document.TextLength;
 
         // --- Delta correction --------------------------------------------------
@@ -372,8 +394,41 @@ public sealed partial class TextView
         {
             RaiseTextEntered(text);
         }
+#else
+        PlatformImeLogger.Log($"OnPlatformTextUpdating: text='{args.NewText}'");
+        var text = args.NewText ?? string.Empty;
+        if (!_isComposing)
+        {
+            HandleCompositionStart();
+        }
 
+        BatchRefresh(() =>
+        {
+            using (_document.RunUpdate())
+            {
+                if (_compositionLength > 0)
+                {
+                    _document.Remove(_compositionStartOffset, _compositionLength);
+                }
+
+                if (text.Length > 0)
+                {
+                    _document.Insert(_compositionStartOffset, text);
+                }
+
+                _compositionLength = text.Length;
+            }
+
+            CollapseSelection(_compositionStartOffset + text.Length);
+        });
+#endif
         UpdatePlatformInputBridge();
+    }
+
+    private void CoreTextEditContext_SelectionRequested(CoreTextEditContext sender, CoreTextSelectionRequestedEventArgs args)
+    {
+        args.Request.Selection = ToCoreTextRange(SelectionStartOffset, SelectionEndOffset);
+        PlatformImeLogger.Log($"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset}");
     }
 
     private void CoreTextEditContext_SelectionUpdating(CoreTextEditContext sender, CoreTextSelectionUpdatingEventArgs args)
@@ -402,6 +457,7 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_LayoutRequested(CoreTextEditContext sender, CoreTextLayoutRequestedEventArgs args)
     {
+#if WINDOWS_APP_SDK
         var request = args.Request;
         if (request is null)
         {
@@ -427,6 +483,9 @@ public sealed partial class TextView
             $"clientControl=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) " +
             $"screenCaret=({screenCaretRect.X:F1},{screenCaretRect.Y:F1},{screenCaretRect.Width:F1},{screenCaretRect.Height:F1}) " +
             $"screenControl=({screenControlRect.X:F1},{screenControlRect.Y:F1},{screenControlRect.Width:F1},{screenControlRect.Height:F1}) hwnd=0x{hwnd:X}");
+#else
+// TODO:
+#endif
     }
 
     private static Rect OffsetRect(Rect rect, double offsetX, double offsetY)
@@ -440,6 +499,18 @@ public sealed partial class TextView
         public int X;
         public int Y;
     }
+
+    private static Rect GetElementRectInWindow(FrameworkElement element)
+    {
+        GeneralTransform transform = element.TransformToVisual(null);
+        Point point = transform.TransformPoint(new Point(0, 0));
+        return new Rect(point.X, point.Y, element.ActualWidth, element.ActualHeight);
+    }
+
+#if WINDOWS_APP_SDK
+    // -----------------------------------------------------------------------
+    // WinUI 3: native Windows.UI.Text.Core integration
+    // -----------------------------------------------------------------------
 
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern bool ClientToScreen(nint hWnd, ref NativePoint lpPoint);
@@ -456,14 +527,6 @@ public sealed partial class TextView
         point = new Point(nativePoint.X, nativePoint.Y);
         return true;
     }
-
-    private static Rect GetElementRectInWindow(FrameworkElement element)
-    {
-        GeneralTransform transform = element.TransformToVisual(null);
-        Point point = transform.TransformPoint(new Point(0, 0));
-        return new Rect(point.X, point.Y, element.ActualWidth, element.ActualHeight);
-    }
-
 #else
     // -----------------------------------------------------------------------
     // Uno Platform / Skia Desktop: LeXtudio.UI.Text.Core shim integration
@@ -525,22 +588,6 @@ public sealed partial class TextView
         catch
         {
         }
-    }
-
-    private void CoreTextEditContext_TextRequested(object? sender, CoreTextTextRequestedEventArgs e)
-    {
-        string text = e.Request.Text ?? string.Empty;
-        PlatformImeLogger.Log($"OnPlatformTextRequested: text='{text}'");
-        if (!string.IsNullOrEmpty(text))
-        {
-            HandleCompositionCommit(text);
-        }
-    }
-
-    private void CoreTextEditContext_TextUpdating(object? sender, CoreTextTextUpdatingEventArgs e)
-    {
-        PlatformImeLogger.Log($"OnPlatformTextUpdating: text='{e.NewText}'");
-        HandleCompositionUpdate(e.NewText ?? string.Empty);
     }
 
     private void CoreTextEditContext_CommandReceived(object? sender, CoreTextCommandReceivedEventArgs e)
@@ -608,41 +655,6 @@ public sealed partial class TextView
         UpdatePlatformInputBridge();
     }
 
-    internal void HandleCompositionUpdate(string text)
-    {
-        if (_document is null)
-        {
-            return;
-        }
-
-        if (!_isComposing)
-        {
-            HandleCompositionStart();
-        }
-
-        BatchRefresh(() =>
-        {
-            using (_document.RunUpdate())
-            {
-                if (_compositionLength > 0)
-                {
-                    _document.Remove(_compositionStartOffset, _compositionLength);
-                }
-
-                if (text.Length > 0)
-                {
-                    _document.Insert(_compositionStartOffset, text);
-                }
-
-                _compositionLength = text.Length;
-            }
-
-            CollapseSelection(_compositionStartOffset + text.Length);
-        });
-
-        UpdatePlatformInputBridge();
-    }
-
     internal void HandleCompositionEnd()
     {
         if (_document is null || !_isComposing)
@@ -668,39 +680,6 @@ public sealed partial class TextView
             _isComposing = false;
         });
 
-        UpdatePlatformInputBridge();
-    }
-
-    internal void HandleCompositionCommit(string text)
-    {
-        if (_document is null)
-        {
-            return;
-        }
-
-        int insertAt = _isComposing ? _compositionStartOffset : CurrentOffset;
-        int removeLen = _isComposing ? _compositionLength : 0;
-
-        RaiseTextEntering(text);
-
-        BatchRefresh(() =>
-        {
-            using (_document.RunUpdate())
-            {
-                if (removeLen > 0)
-                {
-                    _document.Remove(insertAt, removeLen);
-                }
-
-                _document.Insert(insertAt, text);
-            }
-
-            _isComposing = false;
-            _compositionLength = 0;
-            CollapseSelection(insertAt + text.Length);
-        });
-
-        RaiseTextEntered(text);
         UpdatePlatformInputBridge();
     }
 

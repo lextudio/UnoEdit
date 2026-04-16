@@ -38,20 +38,17 @@ public sealed partial class TextView
         {
             return;
         }
-#if !WINDOWS_APP_SDK
-        Rect rect = CalculatePlatformInputCaretRect();
-        double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
-#endif
+
         try
         {
             // Mirror Windows behavior: notify layout and selection changes first,
             // then update caret rect so adapters may reposition candidate windows.
             _coreTextEditContext.NotifyLayoutChanged();
-#if WINDOWS_APP_SDK
             _coreTextEditContext.NotifySelectionChanged(ToCoreTextRange(SelectionStartOffset, SelectionEndOffset));
-#else
-            _coreTextEditContext.NotifySelectionChanged(new CoreTextRange { StartCaretPosition = SelectionStartOffset, EndCaretPosition = SelectionEndOffset });
-            _coreTextEditContext.NotifyCaretRectChanged(rect.X, rect.Y, rect.Width, rect.Height, scale);
+#if !WINDOWS_APP_SDK
+            Rect rect = CalculatePlatformInputCaretRect();
+            double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
+            _coreTextEditContext.NotifyCaretRectChanged(rect.X, rect.Y, rect.Width, rect.Height, scale); // IMPORTANT: control the IME candidate window position.
 #endif
         }
         catch (Exception ex)
@@ -256,6 +253,15 @@ public sealed partial class TextView
     private int _coreTextOffsetDelta;
     private bool _coreTextDeltaEstablished;
 
+    private static CoreTextRange ToCoreTextRange(int startOffset, int endOffset)
+    {
+        return new CoreTextRange
+        {
+            StartCaretPosition = Math.Min(startOffset, endOffset),
+            EndCaretPosition = Math.Max(startOffset, endOffset),
+        };
+    }
+
 #if WINDOWS_APP_SDK
     // -----------------------------------------------------------------------
     // WinUI 3: native Windows.UI.Text.Core integration
@@ -421,15 +427,6 @@ public sealed partial class TextView
             $"clientControl=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) " +
             $"screenCaret=({screenCaretRect.X:F1},{screenCaretRect.Y:F1},{screenCaretRect.Width:F1},{screenCaretRect.Height:F1}) " +
             $"screenControl=({screenControlRect.X:F1},{screenControlRect.Y:F1},{screenControlRect.Width:F1},{screenControlRect.Height:F1}) hwnd=0x{hwnd:X}");
-    }
-
-    private static CoreTextRange ToCoreTextRange(int startOffset, int endOffset)
-    {
-        return new CoreTextRange
-        {
-            StartCaretPosition = Math.Min(startOffset, endOffset),
-            EndCaretPosition = Math.Max(startOffset, endOffset),
-        };
     }
 
     private static Rect OffsetRect(Rect rect, double offsetX, double offsetY)

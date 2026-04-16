@@ -1,101 +1,68 @@
-# WinUI 3 support — feasibility and recommended approach
+## WinUI 3 support — feasibility and recommended approach
 
 Summary
 -------
 
-Short answer: yes — UnoEdit can be made consumable by WinUI 3 apps. The safest, lowest-risk path is to expose a WinUI-specific wrapper (a small WinUI class library) that references the cross-platform core code. Multi-targeting the existing Uno.Sdk project is possible but more complex because of XAML compilation/Uno SDK build steps.
+Short answer: yes — UnoEdit already supports integration with WinUI 3 hosts. The repository uses a pragmatic, hybrid approach: the core library (`src/UnoEdit/UnoEdit.csproj`) is Uno.Sdk-based and conditionally includes WinUI pages when the Windows target framework is enabled. A WinUI sample app (`src/UnoEdit.WinUI.Sample`) and a Windows solution (`UnoEdit.Windows.slnx`) are present to exercise the WinUI build.
 
 What I inspected
 -----------------
 
-- The library in this repo is authored with `Uno.Sdk` and contains many `*.uno.cs` partials and XAML `Page` items; it already targets the Uno/WinUI API surface in many places (e.g., `Microsoft.UI.Xaml`-style types and Uno compatibility shims).
-- The current library compiles as an Uno-targeted component and includes platform-specific IME bridges and rendering forks that are already WinUI-/Uno-aware.
+- `src/UnoEdit/UnoEdit.csproj` — uses `Uno.Sdk` and conditionally adds a Windows TargetFramework (`net10.0-windows10.0.19041.0`) when building on Windows. WinUI-specific pages (for example `Controls/TextEditor.xaml`) are included only for that target.
+- `src/UnoEdit.WinUI.Sample` and `UnoEdit.Windows.slnx` — a small sample project and solution exist in the repo and are already wired to the WinUI build.
 
-Two practical options
----------------------
+Practical options
+-----------------
 
-1) Recommended — Add a small WinUI 3 wrapper project (safe, incremental)
+1) Recommended — keep the current gated-winui approach (low friction)
 
-- Create a new WinUI class library project named `UnoEdit.WinUI` (or similar) that targets a WinUI TFM, e.g. `net7.0-windows10.0.19041.0` (or the TFM matching your projects).
-- Reference the shared core `UnoEdit` project with a `ProjectReference` and keep WinUI-only XAML and resource glue inside this wrapper. This avoids changing the existing Uno SDK project layout and keeps the platform surface thin.
-- In the wrapper's csproj, add a reference to the Windows App SDK / WinUI package used by your apps, but mark it as a development/implementation detail so the consuming app decides the Windows App SDK version. Example:
+- Keep WinUI pages in `src/UnoEdit` and rely on the conditional windows TFM to include them only when building on Windows. This keeps platform-specific XAML close to the shared code and avoids an extra project.
+- Pros: fewer projects to maintain; XAML lives next to core logic; easier to keep code and docs in sync.
+- Cons: Windows-specific builds and XAML compilation must run on Windows CI.
 
-```xml
-<Project Sdk="Microsoft.NET.Sdk">
-	<PropertyGroup>
-		<TargetFramework>net7.0-windows10.0.19041.0</TargetFramework>
-		<Nullable>enable</Nullable>
-		<ImplicitUsings>enable</ImplicitUsings>
-	</PropertyGroup>
+2) Alternative — extract a dedicated WinUI wrapper project
 
-	<ItemGroup>
-		<!-- Use PrivateAssets so the App SDK version does not flow to package consumers -->
-		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.4.0" PrivateAssets="all" />
-		<ProjectReference Include="..\UnoEdit\UnoEdit.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<!-- WinUI XAML pages and code-behind (platform glue) live here -->
-		<Page Include="TextEditor.Xaml" />
-		<Compile Include="TextEditor.Xaml.cs" />
-	</ItemGroup>
-</Project>
-```
-
-Advantages:
-
-- Keeps the main, cross-platform codebase unchanged.
-- Limits WinUI-specific XAML/markup to a single wrapper project so XAML compilation for WinUI is predictable.
-- Simplifies NuGet packaging: publish a package that contains both netstandard (or Uno SDK build) and net<windows> assets, or publish platform-specific packages.
+- If you prefer a clear project boundary, extract WinUI-only pages into `src/UnoEdit.WinUI` and reference the core `src/UnoEdit` project. This isolates WinUI XAML/packaging and can simplify Windows-only CI.
 
 Key code and API checks (audit checklist)
 ---------------------------------------
 
-- Search for WPF-only namespaces (`System.Windows.*`, `System.Windows.Media.*`) and replace or guard them — this repo already contains many compatibility shims.
-- Verify any P/Invoke or Win32-only calls (IME bridges, native macOS bridging) are isolated behind platform folders; WinUI apps run on Windows and must not pull non-Windows native build steps into the package.
-- Confirm XAML markup and resource dictionaries are compatible with WinUI 3 (the repo already references WinUI/Uno types in places, which is a good sign).
+- Guard or replace WPF-only namespaces (`System.Windows.*`, `System.Windows.Media.*`) when present.
+- Keep native helpers platform-isolated (e.g., macOS `libUnoEditMacInput.dylib` under `external/coretext`) so Windows packages don't pull non-Windows native build steps.
+- Verify WinUI XAML/pages are gated by the windows TargetFramework in `UnoEdit.csproj`.
 
 Packaging and NuGet guidance
 ---------------------------
 
-- Prefer producing a NuGet package: `lib/net7.0-windows10.0.19041.0/UnoEdit.WinUI.dll` (WinUI wrapper).
-- Force a minimal Windows App SDK version on consumers.
+- The repo's Windows TargetFramework uses a Windows App SDK package for the windows build (the `UnoEdit.csproj` currently references `Microsoft.WindowsAppSDK` for the windows TFM). For NuGet packaging, produce multi-target outputs that include `lib/net10.0-windows10.0.19041.0/` assets for WinUI consumers and keep native runtime assets under `runtimes/*/native/`.
 
 Test matrix and CI
 ------------------
 
-- Add CI jobs that build the WinUI wrapper on a Windows runner to validate XAML compilation.
-- Add a small WinUI 3 sample app (in `src/UnoEdit.WinUI.Sample`) that references the wrapper and exercises basic scenarios (open file, edit, syntax highlighting). Keep sample minimal so build is quick.
+- Add or enable a Windows CI job that builds the windows TFM and the `src/UnoEdit.WinUI.Sample` project to validate XAML compilation and smoke-test the control surface.
+- macOS/Linux CI should build the desktop target (`net10.0-desktop`) and verify platform-specific native assets (e.g., `libUnoEditMacInput.dylib`) where applicable.
 
 Potential pitfalls
 ------------------
 
-- Differences in resource dictionary merging and theme lookup between Uno and WinUI 3; test theme resources on a native WinUI app.
-- If any control relies on Uno-specific renderers (Skia runtime internals), confirm that equivalent rendering is available or provide a WinUI-specific implementation.
-- XAML compile errors are the most likely friction — keep WinUI XAML in the WinUI wrapper so compile-time failures are isolated.
+- Resource dictionary and theme differences between Uno and WinUI — validate theme merging in a native WinUI app.
+- XAML compile errors are the most likely friction point — keeping WinUI XAML gated to the windows target isolates failures.
 
 Recommended immediate next steps
 -------------------------------
 
-1. Create a new project `src/UnoEdit.WinUI` with TFM `net7.0-windows...` and add files from `src/UnoEdit/UnoEdit.csproj`.
-2. Try building on Windows.
-3. Iterate on any API or resource compatibility issues discovered during the build.
-4. Once stable, add a small WinUI sample UnoEdit.WinUI.Sample and a CI job to build it on Windows.
+1. On Windows, build `src/UnoEdit` (windows target) or `src/UnoEdit.WinUI.Sample` to confirm WinUI pages compile cleanly.
+2. Add or enable a Windows CI job that runs `dotnet build` for the windows target and the sample solution.
+3. Optionally extract a separate `src/UnoEdit.WinUI` wrapper if you want an explicit project boundary for WinUI-only assets.
 
-Checklist (quick)
------------------
+Checklist (current)
+-------------------
 
-- [x] Create `UnoEdit.WinUI` project
-- [x] Add files from `UnoEdit` gradually to this new WinUI project as links (~120 files linked)
-- [x] Build on Windows and fix XAML compile errors (0 errors, 7 warnings)
-- [x] Add WinUI sample app `src/UnoEdit.WinUI.Sample` — unpackaged, self-contained, win-x64
-- [ ] Add CI job (Windows runner, `dotnet build src/UnoEdit.WinUI.Sample`)
-- [ ] Package NuGet with multi-target outputs
+- [x] WinUI pages included in `src/UnoEdit` (gated by windows TFM)
+- [x] WinUI sample app present at `src/UnoEdit.WinUI.Sample`
+- [x] `UnoEdit.Windows.slnx` references the WinUI sample
+- [ ] CI job to build the Windows/WinUI sample
+- [ ] Package NuGet with multi-target outputs (include Windows assets)
 
-If you want, I can scaffold the `src/UnoEdit.WinUI` project and a tiny WinUI sample app next (CSProj + minimal XAML + CI job), or I can instead prepare a multi-target csproj approach. Which path do you prefer?
-
-Notes / references
-------------------
-
-- This repo already leans toward WinUI/Uno compatibility (see `Compatibility` shims and `*.uno.cs` partials). That makes the wrapper approach particularly practical and low-risk.
+If you want, I can scaffold a GitHub Actions job that builds the windows TFM and the WinUI sample. Which would you like next: scaffold the Windows CI job, or extract a separate `UnoEdit.WinUI` wrapper project?
 

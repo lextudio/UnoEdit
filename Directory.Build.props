@@ -1,10 +1,12 @@
 <Project>
   <PropertyGroup>
-    <GitVersionPackageVersion>5.12.0</GitVersionPackageVersion>
     <!-- Disable Uno long-path warning repo-wide to avoid noisy builds on Windows hosts -->
     <UnoUIDisableLongPathWarning>true</UnoUIDisableLongPathWarning>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="GitVersion.MsBuild" Version="$(GitVersionPackageVersion)" PrivateAssets="All" />
+    <PackageReference Include="GitVersion.MsBuild" PrivateAssets="All" />
   </ItemGroup>
 </Project>

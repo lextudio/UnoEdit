@@ -114,50 +114,53 @@ Deliverable: `docs/unification.md` updated with mapping table and a follow-up ti
 Mapping table (WinUI → LeXtudio.UI.Text.Core)
 -------------------------------------------
 
-| Windows API (WinUI) | Current `LeXtudio.UI.Text.Core` | Action needed |
-|---|---|---|
-| `CoreTextServicesManager.GetForCurrentView()` / `CreateEditContext()` | `CoreTextServicesManager.GetForCurrentView()` / `CreateEditContext()` (existing) | No change — present in `external/coretext/src/CoreTextServicesManager.cs` |
-| `CoreTextEditContext` events: `TextRequested`, `TextUpdating`, `SelectionRequested`, `SelectionUpdating`, `LayoutRequested`, `CompositionStarted`, `CompositionCompleted`, `FocusRemoved`, `CommandReceived` | `CoreTextEditContext` exposes `TextRequested`, `TextUpdating`, `SelectionRequested`, `SelectionUpdating`, `LayoutRequested`, `CompositionStarted`, `CompositionCompleted`, `FocusRemoved`, `CommandReceived` (see `external/coretext/src/CoreTextEditContext.cs`) | No change — events present; semantics must be kept Windows-like |
-| `CoreTextEditContext.Attach(nint hwnd)` | `CoreTextEditContext.Attach(nint hwnd, nint displayHandle = 0)` | No change — present (Linux needs displayHandle) |
-| `CoreTextEditContext.NotifyCaretRectChanged(x,y,w,h)` | `CoreTextEditContext.NotifyCaretRectChanged(x,y,w,h, scale=1.0)` | No change — present |
-| `CoreTextEditContext.NotifyFocusEnter()` / `NotifyFocusLeave()` | `CoreTextEditContext.NotifyFocusEnter()` / `NotifyFocusLeave()` | No change — present |
-| `CoreTextEditContext.NotifyLayoutChanged()` | (missing) | Add `NotifyLayoutChanged()` to `CoreTextEditContext` (or provide a compat method) to match WinUI calls in `TextView.PlatformInput.cs` |
-| `CoreTextEditContext.NotifySelectionChanged(CoreTextRange range)` | (missing) — LeXtudio currently uses `CoreTextSelectionRequest` (`Start`/`Length`) | Add `NotifySelectionChanged(CoreTextRange)` and introduce `CoreTextRange` (with `StartCaretPosition`/`EndCaretPosition`) or provide a binary/source-compatible alias to avoid call-site churn |
-| `CoreTextTextRequestedEventArgs.Request.Text` (mutable request object) | `CoreTextTextRequestedEventArgs` / `CoreTextTextRequest.Text` — present (`external/coretext/src/CoreTextTextRequest.cs`) | Matches — confirm mutable semantics and deferral behavior |
-| `CoreTextTextUpdatingEventArgs.Range` (`StartCaretPosition`/`EndCaretPosition`), `NewSelection` (range), `Text` | `CoreTextTextUpdatingEventArgs` currently exposes only `NewText` (`external/coretext/src/CoreTextTextUpdatingEventArgs.cs`) | Extend `CoreTextTextUpdatingEventArgs` to include `Range` and `NewSelection` (use `CoreTextRange` shape) and a `Text` property name matching WinUI to avoid duplicate per-callsite logic such as `_coreTextOffsetDelta` adjustments.
-| `CoreTextSelectionRequestedEventArgs.Request.Selection` (CoreTextRange with StartCaretPosition/EndCaretPosition) | `CoreTextSelectionRequestedEventArgs.Request` uses `CoreTextSelectionRequest { Start, Length }` | Provide `CoreTextRange` (StartCaretPosition/EndCaretPosition) or add convenience properties that map `Start/Length` to `StartCaretPosition/EndCaretPosition` for source compatibility.
-| `CoreTextLayoutRequestedEventArgs.Request.LayoutBounds.TextBounds` / `ControlBounds` (Rects) | `CoreTextLayoutRequest` currently has `Width` / `Height` (`external/coretext/src/CoreTextLayoutRequest.cs`) | Replace/extend layout request to include `LayoutBounds` with `TextBounds` and `ControlBounds` (Rects) so `TextView.PlatformInput` can set exact screen rects like on WinUI.
-| `CoreTextCommandReceivedEventArgs.Command` + `Handled` | `CoreTextCommandReceivedEventArgs.Command` + `Handled` — present (`external/coretext/src/CoreTextCommandReceivedEventArgs.cs`) | Matches — keep semantics and document platform selector mapping (AppKit selectors → command names)
-| `CoreTextDeferral` / async deferral pattern | `CoreTextDeferral` exists (`external/coretext/src/CoreTextDeferral.cs`) | Matches — ensure `IsCompleted` semantics match WinUI deferrals
+| Windows API (WinUI) | Current `LeXtudio.UI.Text.Core` | Status / Notes |
+|---|---:|---|
+| `CoreTextServicesManager.GetForCurrentView()` / `CreateEditContext()` | `CoreTextServicesManager.GetForCurrentView()` / `CreateEditContext()` | Implemented — see `external/coretext/src/CoreTextServicesManager.cs` |
+| `CoreTextEditContext` events: `TextRequested`, `TextUpdating`, `SelectionRequested`, `SelectionUpdating`, `LayoutRequested`, `CompositionStarted`, `CompositionCompleted`, `FocusRemoved`, `CommandReceived` | `CoreTextEditContext` (event surface) | Implemented — see `external/coretext/src/CoreTextEditContext.cs` |
+| `CoreTextEditContext.Attach(nint hwnd)` | `CoreTextEditContext.Attach(nint hwnd, nint displayHandle = 0)` | Implemented (Linux requires `displayHandle`) |
+| `CoreTextEditContext.NotifyCaretRectChanged(x,y,w,h)` | `CoreTextEditContext.NotifyCaretRectChanged(x,y,w,h, scale=1.0)` | Implemented — used by `TextView.PlatformInput` to position candidate windows |
+| `CoreTextEditContext.NotifyFocusEnter()` / `NotifyFocusLeave()` | `NotifyFocusEnter()` / `NotifyFocusLeave()` | Implemented |
+| `CoreTextEditContext.NotifyLayoutChanged()` | `NotifyLayoutChanged()` | Implemented — see `CoreTextEditContext.NotifyLayoutChanged` |
+| `CoreTextEditContext.NotifySelectionChanged(CoreTextRange range)` | `NotifySelectionChanged(CoreTextRange)` + `CoreTextRange` | Implemented — `CoreTextRange` provided in `external/coretext/src/CoreTextRange.cs` |
+| `CoreTextTextRequestedEventArgs.Request.Text` (mutable request) | `CoreTextTextRequest.Text` | Implemented — see `external/coretext/src/CoreTextTextRequest.cs` |
+| `CoreTextTextUpdatingEventArgs.Range`, `NewSelection`, `Text` | `CoreTextTextUpdatingEventArgs` (NewText / Range / NewSelection / Text alias) | Implemented — see `external/coretext/src/CoreTextTextUpdatingEventArgs.cs` |
+| `CoreTextSelectionRequestedEventArgs.Request.Selection` (StartCaretPosition/EndCaretPosition) | `CoreTextSelectionRequestedEventArgs.Request` with compatibility helpers | Implemented — convenience mapping available between `Start`/`Length` and `CoreTextRange` |
+| `CoreTextLayoutRequestedEventArgs.Request.LayoutBounds.TextBounds` / `ControlBounds` | `CoreTextLayoutRequest.LayoutBounds.{TextBounds,ControlBounds}` | Implemented — see `external/coretext/src/CoreTextLayoutRequest.cs` and `CoreTextLayoutBounds.cs` |
+| `CoreTextCommandReceivedEventArgs.Command` + `Handled` | `CoreTextCommandReceivedEventArgs.Command` + `Handled` | Implemented |
+| `CoreTextDeferral` / async deferral pattern | `CoreTextDeferral` | Implemented |
 
 Notes and priorities:
 
-- High-priority parity gaps: `NotifyLayoutChanged`, `NotifySelectionChanged`, `CoreTextRange` shape, and `CoreTextTextUpdatingEventArgs` (add Range/NewSelection/Text). These are required to let `TextView.PlatformInput` use identical call sites on Windows and Uno without per-branch corrections (e.g., `_coreTextOffsetDelta`).
-- Medium-priority: extend `CoreTextLayoutRequest` to carry `LayoutBounds` with `TextBounds` and `ControlBounds` (Rects) so caret/layout code need not differ by platform.
-- Low-effort compatibility helpers: provide property aliases or thin DTO shims (`StartCaretPosition`/`EndCaretPosition`) that map to existing `Start`/`Length` to minimize consumer diffs during early rollout.
+- Current status: the majority of the WinUI-parity surface required by `TextView.PlatformInput` has been implemented inside `LeXtudio.UI.Text.Core` (see files under `external/coretext/src`). The previous gaps (layout/selection/Range/Updating shapes) have been addressed.
+- Remaining work (high value):
+	- Remove as much platform branching from `TextView.PlatformInput` as practical (move host differences into adapters).
+	- Add a comprehensive integration test matrix that exercises composition, candidate placement, caret updates, and selection across WinUI, macOS, and Linux hosts.
+	- Verify CI packaging produces `libUnoEditMacInput.dylib` in the produced NuGet under `runtimes/*/native/` and that the sample restores from the local `dist/` feed.
+- Low-effort improvements: add more convenience aliases and XML-docs to smooth call-sites and developer ergonomics.
 
-Next action for Phase A deliverable
-----------------------------------
+Phase A — Investigation & mapping (complete)
 
-- I will now scan `TextView.PlatformInput.cs` (already done) and the `external/coretext/src` sources (done) to produce a minimal patch list for `LeXtudio.UI.Text.Core` to add the missing members. After that I can implement the API additions (small PR) or prepare a compatibility-shim patch depending on your preference.
+- Inventory: scanned `TextView.PlatformInput.cs` and the `external/coretext/src` sources and produced the mapping above.
+- Outcome: parity gaps identified in earlier plans are now implemented; Phase A is complete.
 
+Phase B — Host cleanup (1-2 days)
 
-Phase B — Interface & adapter scaffolding (2-4 days)
+- Remove platform-specific branching inside `TextView.PlatformInput` where the unified `CoreTextEditContext` API is sufficient. Prefer small, well-scoped refactors (constructor/DI or small adapter façade) rather than large rewrites.
 
-- Add `ITextEditContextAdapter` to `LeXtudio.UI.Text.Core` with portable event args.
-- Implement `WinUiCoreTextAdapter` and `CoreTextAdapter` skeletons that compile and forward basic events.
-- Add unit tests asserting event translation and basic lifecycle.
+Deliverable: PR that reduces #if branching and centralizes host-specific logic in `external/coretext` adapters or small host helpers.
 
-Deliverable: PR with adapter interfaces and tests.
+Phase C — Tests & verification (2-4 days)
 
-Phase C — Refactor host usage (2-3 days)
+- Add unit tests for adapter translation and focused integration tests for composition and caret/candidate placement on all supported hosts.
 
-- Modify `TextView.PlatformInput` to accept the adapter via constructor/DI.
-- Replace platform-specific branches with adapter calls. Keep changes minimal and well-covered by tests.
+Deliverable: test reports and CI jobs exercising the matrix.
 
-Deliverable: PR updating `TextView.PlatformInput`, with tests and a compatibility shim so existing behavior remains identical.
+Phase D — CI, packaging, docs, and merge (1-3 days)
 
-Phase D — Integration & platform verification (3-5 days)
+- Ensure macOS CI job builds native helper and that packaging places `libUnoEditMacInput.dylib` under `runtimes/*/native/` in the nupkg. Add a smoke integration job that restores the sample from `dist/` and runs basic flows.
+
+Deliverable: CI updates, packaging verification, and final docs updates.
 
 - Build and pack `LeXtudio.UI.Text.Core` on macOS with native runtime assets; produce `dist/LeXtudio.UI.Text.Core.<version>.nupkg`.
 - Restore the sample from `dist/` and run smoke/integration tests on macOS (verify candidate window placement, composition completion, and text commit flows).

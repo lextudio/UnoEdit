@@ -12,6 +12,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>$(NoWarn);1574;1591;8632;UNO0006</NoWarn>
+    <UseNuGetPackage>false</UseNuGetPackage>
   </PropertyGroup>
 
   <!-- WinUI / Windows-specific properties (only applied when building the windows target) -->
@@ -296,8 +297,12 @@
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop' AND '$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="..\..\external\coretext\src\LeXtudio.UI.Text.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop' AND '$(UseNuGetPackage)' == 'true'">
+    <PackageReference Include="LeXtudio.UI.Text.Core" />
   </ItemGroup>
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
@@ -315,16 +320,5 @@
     </Compile>
     <Compile Include="Controls\TextAreaProxy.cs" />
   </ItemGroup>
-
-  <PropertyGroup Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework')">
-    <TextCoreMacInputOutput>$(MSBuildProjectDirectory)/../../external/coretext/src/bin/$(Configuration)/$(TargetFramework)/libUnoEditMacInput.dylib</TextCoreMacInputOutput>
-  </PropertyGroup>
-
-  <Target Name="CopyTextCoreMacInputBridge"
-          AfterTargets="Build"
-          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and Exists('$(TextCoreMacInputOutput)')">
-    <Copy SourceFiles="$(TextCoreMacInputOutput)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
-    <Message Importance="high" Text="[UnoEdit macOS IME] Copied Text.Core native bridge to $(OutputPath)" />
-  </Target>
 
 </Project>

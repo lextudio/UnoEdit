@@ -28,9 +28,10 @@
     <UnoFeatures>
       SkiaRenderer;
     </UnoFeatures>
+    <UseNuGetPackage>false</UseNuGetPackage>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
   </ItemGroup>
@@ -39,9 +40,6 @@
     <!-- Use central package management to pick the pinned Tmds.DBus.Protocol version -->
     <PackageReference Include="Tmds.DBus.Protocol" />
   </ItemGroup>
-
-  <!-- Import macOS IME support automatically -->
-  <Import Project="../UnoEdit/UnoEdit.MacOS.IME.targets" />
 
   <!--
     Uno.UI.RuntimeTests.Engine — embeds a headless MSTest runner into the app.
@@ -52,6 +50,11 @@
     <PackageReference Include="DevToolsUno" />
     <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
     <PackageReference Include="MSTest.TestFramework" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
+    <PackageReference Include="UnoEdit" />
+    <PackageReference Include="UnoEdit.TextMate" />
   </ItemGroup>
 
 </Project>

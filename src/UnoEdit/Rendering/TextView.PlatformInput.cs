@@ -127,8 +127,10 @@ public sealed partial class TextView
         _coreTextEditContext.CompositionStarted -= CoreTextEditContext_CompositionStarted;
         _coreTextEditContext.CompositionCompleted -= CoreTextEditContext_CompositionCompleted;
         _coreTextEditContext.FocusRemoved -= CoreTextEditContext_FocusRemoved;
+#if !WINDOWS_APP_SDK
         _coreTextEditContext.CommandReceived -= CoreTextEditContext_CommandReceived;
         _coreTextEditContext.Dispose();
+#endif
         _coreTextEditContext = null;
     }
 
@@ -155,10 +157,9 @@ public sealed partial class TextView
             _coreTextEditContext.CompositionStarted += CoreTextEditContext_CompositionStarted;
             _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
             _coreTextEditContext.FocusRemoved += CoreTextEditContext_FocusRemoved;
-
+#if !WINDOWS_APP_SDK
             _coreTextEditContext.CommandReceived += CoreTextEditContext_CommandReceived;
 
-#if !WINDOWS_APP_SDK
             nint windowHandle = nint.Zero;
             nint displayHandle = nint.Zero;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -215,11 +216,11 @@ public sealed partial class TextView
         PlatformImeLogger.Log(
             $"CoreText CompositionStarted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
             $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
-#if WINDOWS_APP_SDK
+
         // Reset delta tracking — will be established on the first TextUpdating of this composition.
         _coreTextDeltaEstablished = false;
         _coreTextOffsetDelta = 0;
-#endif
+
         HandleCompositionStart();
     }
 
@@ -233,7 +234,7 @@ public sealed partial class TextView
             $"CoreText CompositionCompleted AFTER: current={CurrentOffset} composing={_isComposing}");
     }
 
-    private void CoreTextEditContext_FocusRemoved(object? sender, EventArgs e)
+    private void CoreTextEditContext_FocusRemoved(CoreTextEditContext? sender, object result)
     {
         try
         {
@@ -247,11 +248,6 @@ public sealed partial class TextView
         }
     }
 
-#if WINDOWS_APP_SDK
-    // -----------------------------------------------------------------------
-    // WinUI 3: native Windows.UI.Text.Core integration
-    // -----------------------------------------------------------------------
-
     /// <summary>
     /// Offset delta to correct CoreText's unreliable internal position tracking.
     /// Computed at the first TextUpdating of each composition as (our cursor – CoreText's range start).
@@ -259,6 +255,11 @@ public sealed partial class TextView
     /// </summary>
     private int _coreTextOffsetDelta;
     private bool _coreTextDeltaEstablished;
+
+#if WINDOWS_APP_SDK
+    // -----------------------------------------------------------------------
+    // WinUI 3: native Windows.UI.Text.Core integration
+    // -----------------------------------------------------------------------
 
     private void CoreTextEditContext_TextRequested(CoreTextEditContext sender, CoreTextTextRequestedEventArgs args)
     {

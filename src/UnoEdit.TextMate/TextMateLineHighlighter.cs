@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
+using UnoEdit.Logging;
 using TextMateSharp.Grammars;
 using TextMateSharp.Model;
 using TextMateSharp.Registry;
@@ -16,11 +17,9 @@ namespace ICSharpCode.AvalonEdit.TextMate
 	/// <summary>
 	/// TextMateSharp-backed highlighted-line source for UnoEdit.
 	/// </summary>
-	public sealed class TextMateLineHighlighter : IHighlightedLineSource, IModelTokensChangedListener
+	public sealed class TextMateLineHighlighter : IHighlightedLineSource, IHighlightedLineSourceWarmup, IModelTokensChangedListener
 	{
-		static readonly bool s_debugTM =
-			string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_TM"), "1", StringComparison.Ordinal);
-		static void LogTM(string msg) { if (s_debugTM) Console.WriteLine($"[TM] {msg}"); }
+		static void LogTM(string msg) { HighlightLogger.Log("TM", msg); }
 
 		readonly Registry registry;
 		readonly IRegistryOptions registryOptions;
@@ -169,6 +168,23 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			}
 
 			return highlightedLine;
+		}
+
+		public void WarmupLineRange(int startLineNumber, int endLineNumber)
+		{
+			if (document == null || model == null)
+				return;
+
+			int start = Math.Max(1, startLineNumber);
+			int end = Math.Min(document.LineCount, endLineNumber);
+			if (end < start)
+				return;
+
+			LogTM($"WarmupLineRange start={start} end={end}");
+			for (int lineNumber = start; lineNumber <= end; lineNumber++) {
+				int modelLineIndex = lineNumber - 1;
+				model.ForceTokenization(modelLineIndex);
+			}
 		}
 
 		void SetGrammarInternal(IGrammar grammar)

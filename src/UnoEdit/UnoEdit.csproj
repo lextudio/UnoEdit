@@ -75,6 +75,8 @@
     <Compile Include="Editing\SelectionMouseHandler.uno.cs" />
     <Compile Include="Editing\CaretNavigationCommandHandler.uno.cs" />
     <Compile Include="Editing\EditingCommandHandler.uno.cs" />
+    <Compile Include="Highlighting\IHighlightedLineSourceWarmup.cs" />
+    <Compile Include="Logging\HighlightLogger.cs" />
     <Compile Include="Search\ISearchPanelHost.cs" />
     <Compile Include="Search\SearchPanel.xaml.uno.cs" />
     <Compile Include="Rendering\TextView.xaml.uno.cs" />

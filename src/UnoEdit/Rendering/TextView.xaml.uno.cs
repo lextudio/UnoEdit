@@ -6,6 +6,7 @@ using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Indentation;
 using ICSharpCode.AvalonEdit.Rendering;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -14,6 +15,7 @@ using Microsoft.UI.Xaml.Media;
 using System.ComponentModel.Design;
 using System.Windows.Documents;
 using System.Windows.Input;
+using UnoEdit.Logging;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 
@@ -195,11 +197,13 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
     private IHighlightedLineSource? _prevHighlightedLineSource;
     // Set when the current highlighter fires HighlightingInvalidated (e.g. theme change within the source).
     private bool _highlightingDataInvalidated;
+    private bool _highlightInvalidationQueued;
     private bool _caretVisible = true;
 
-    private static readonly bool s_debugFlash =
-        string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_FLASH"), "1", StringComparison.Ordinal);
-    private static void LogFlash(string msg) { if (s_debugFlash) Console.WriteLine($"[Flash] {msg}"); }
+    private static readonly bool s_deferHighlightInvalidation =
+        string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEFER_HIGHLIGHT_INVALIDATION"), "1", StringComparison.Ordinal);
+
+    private static void LogFlash(string msg) { HighlightLogger.Log("Flash", msg); }
     private double _characterWidth = DefaultCharacterWidth;
     private List<int> _visibleDocLines = new();
 
@@ -366,6 +370,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             {
                 _highlightedLineSource.SetDocument(_document);
                 _highlightedLineSource.HighlightingInvalidated += OnHighlightedLineSourceInvalidated;
+                WarmHighlightedLineSourceVisibleRange(_highlightedLineSource);
             }
 
             _pendingFullRebuild = true;
@@ -569,7 +574,81 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
         _pendingFullRebuild = true;
         _highlightingDataInvalidated = true;
         LogFlash("full queued: external highlighting invalidated");
-        RefreshViewport();
+
+        if (!s_deferHighlightInvalidation)
+        {
+            RefreshViewport();
+            return;
+        }
+
+        QueueDeferredHighlightInvalidation();
+    }
+
+    private void QueueDeferredHighlightInvalidation()
+    {
+        if (_highlightInvalidationQueued)
+        {
+            LogFlash("coalesced: external highlighting invalidation already queued");
+            return;
+        }
+
+        DispatcherQueue? dispatcherQueue = DispatcherQueue;
+        if (dispatcherQueue is null)
+        {
+            LogFlash("fallback: DispatcherQueue unavailable for deferred highlighting invalidation");
+            RefreshViewport();
+            return;
+        }
+
+        _highlightInvalidationQueued = true;
+        bool enqueued = dispatcherQueue.TryEnqueue(() =>
+        {
+            _highlightInvalidationQueued = false;
+            LogFlash("drain: deferred external highlighting invalidation");
+            RefreshViewport();
+        });
+
+        if (!enqueued)
+        {
+            _highlightInvalidationQueued = false;
+            LogFlash("fallback: failed to enqueue deferred highlighting invalidation");
+            RefreshViewport();
+        }
+    }
+
+    private void WarmHighlightedLineSourceVisibleRange(IHighlightedLineSource highlightedLineSource)
+    {
+        if (highlightedLineSource is not IHighlightedLineSourceWarmup warmupSource || _document is null)
+        {
+            return;
+        }
+
+        if (_visibleDocLines.Count == 0 && _document.LineCount > 0)
+        {
+            RebuildVisibleLineList();
+        }
+
+        if (_visibleDocLines.Count == 0)
+        {
+            return;
+        }
+
+        int totalVisualRows = _visibleDocLines.Count;
+        double verticalOffset = TextScrollViewer.VerticalOffset;
+        double viewportHeight = TextScrollViewer.ViewportHeight;
+        if (viewportHeight <= 0)
+        {
+            viewportHeight = ActualHeight > 0 ? ActualHeight : 400;
+        }
+
+        int visibleRowCount = Math.Max(1, (int)Math.Ceiling(viewportHeight / LineHeight) + (OverscanLineCount * 2));
+        int firstVisualRow = Math.Max(0, ((int)(verticalOffset / LineHeight)) - OverscanLineCount);
+        int lastVisualRow = Math.Min(totalVisualRows - 1, firstVisualRow + visibleRowCount - 1);
+        int startLineNumber = _visibleDocLines[firstVisualRow];
+        int endLineNumber = _visibleDocLines[lastVisualRow];
+
+        LogFlash($"warmup visible lines={startLineNumber}-{endLineNumber}");
+        warmupSource.WarmupLineRange(startLineNumber, endLineNumber);
     }
 
     /// <summary>Update named chrome elements in the XAML tree to match the current <see cref="Theme"/>.</summary>

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/lextudio/source/repos/MewUI/src/**)",
+      "Bash(find \"C:\\\\Users\\\\lextudio\\\\source\\\\repos\\\\MewUI\\\\src\" -name \"*.cs\" -exec grep -l \"HandleTextCompositionStart\\\\|HandleTextCompositionUpdate\" {} \\\\;)",
+      "Read(//c/Users/lextudio/source/repos/MewUI/**)",
+      "Bash(mkdir -p \"C:/Users/lextudio/source/repos/UnoEdit/src/UnoEdit/Platforms/Windows\")",
+      "Bash(mkdir -p \"C:/Users/lextudio/source/repos/UnoEdit/src/UnoEdit/Platforms/Linux/DBus\")",
+      "Bash(mkdir -p \"C:/Users/lextudio/source/repos/UnoEdit/src/UnoEdit/Platforms/Linux/IBus\")",
+      "Bash(python3 -)",
+      "Bash(node -e ':*)",
+      "Bash(dotnet build:*)",
+      "Bash(taskkill /F /IM \"UnoEdit.Skia.Desktop.Tests.exe\")",
+      "Bash(powershell -Command \"Stop-Process -Name 'UnoEdit.Skia.Desktop.Tests' -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1\")",
+      "Bash(dotnet run:*)",
+      "Read(//c/Users/lextudio/AppData/Local/Temp/**)",
+      "Bash(powershell -Command \"[System.IO.Path]::GetTempPath\\(\\)\")",
+      "Bash(powershell -Command ':*)",
+      "Bash(powershell -Command \"Remove-Item 'C:\\\\Users\\\\lextudio\\\\source\\\\repos\\\\UnoEdit\\\\ime_debug.log' -ErrorAction SilentlyContinue\")"
+    ]
+  }
+}

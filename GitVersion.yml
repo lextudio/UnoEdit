@@ -1,15 +1,9 @@
-mode: ContinuousDelivery
+mode: ContinuousDeployment
 tag-prefix: 'v'
 commit-message-incrementing: Disabled
 branches:
   master:
     regex: ^master$
-    increment: Minor
-  main:
-    regex: ^main$
-    increment: Minor
-  develop:
-    regex: ^develop$
     increment: Patch
 ignore:
   sha: []

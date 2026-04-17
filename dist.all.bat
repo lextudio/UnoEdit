@@ -29,15 +29,15 @@ echo ============================================================
 echo Step 1: Packing NuGet packages
 echo ============================================================
 echo Invoking pack.ps1 to produce nupkgs in "%OUTDIR%" ...
-powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0pack.ps1" -OutDir "%OUTDIR%" -Configuration "%CONFIG%"
+pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0pack.ps1" -OutDir "%OUTDIR%" -Configuration "%CONFIG%"
 if errorlevel 1 goto :error_pack
 
 echo.
 echo ============================================================
-echo Verification: Checking that only .nupkg files exist
+echo Verification: Checking that only .nupkg and .snupkg files exist
 echo ============================================================
-powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ^
-  "$outdir = '%OUTDIR%'; $files = @(Get-ChildItem -Path $outdir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -ne '.nupkg' }); if ($files.Count -gt 0) { Write-Error 'ERROR: Non-.nupkg files found in dist folder:'; $files | ForEach-Object { Write-Error ('  - ' + $_.FullName) }; exit 1 } else { Write-Host 'SUCCESS: Only .nupkg files in dist folder'; exit 0 }"
+pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ^
+  "$outdir = '%OUTDIR%'; $files = @(Get-ChildItem -Path $outdir -File -ErrorAction SilentlyContinue | Where-Object { ($_.Extension -ne '.nupkg') -and ($_.Extension -ne '.snupkg') }); if ($files.Count -gt 0) { Write-Error 'ERROR: Non-package files found in dist folder:'; $files | ForEach-Object { Write-Error ('  - ' + $_.FullName) }; exit 1 } else { Write-Host 'SUCCESS: Only .nupkg/.snupkg files in dist folder'; exit 0 }"
 if errorlevel 1 goto :error_verify
 
 echo.
@@ -45,15 +45,15 @@ echo ============================================================
 echo Step 2: Signing packages
 echo ============================================================
 echo Invoking sign.ps1 to sign packages in "%OUTDIR%" ...
-powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0sign.ps1" -PackageDir "%OUTDIR%" -TimestampServer "%TIMESTAMPER%" -Overwrite
+pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0sign.ps1" -PackageDir "%OUTDIR%" -TimestampServer "%TIMESTAMPER%" -Overwrite
 if errorlevel 1 goto :error_sign
 
 echo.
 echo ============================================================
-echo Final verification: Checking that only .nupkg files exist
+echo Final verification: Checking that only .nupkg and .snupkg files exist
 echo ============================================================
-powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ^
-  "$outdir = '%OUTDIR%'; $files = @(Get-ChildItem -Path $outdir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -ne '.nupkg' }); if ($files.Count -gt 0) { Write-Error 'ERROR: Non-.nupkg files found in dist folder:'; $files | ForEach-Object { Write-Error ('  - ' + $_.FullName) }; exit 1 } else { Write-Host 'SUCCESS: Only .nupkg files in dist folder'; exit 0 }"
+pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ^
+  "$outdir = '%OUTDIR%'; $files = @(Get-ChildItem -Path $outdir -File -ErrorAction SilentlyContinue | Where-Object { ($_.Extension -ne '.nupkg') -and ($_.Extension -ne '.snupkg') }); if ($files.Count -gt 0) { Write-Error 'ERROR: Non-package files found in dist folder after signing:'; $files | ForEach-Object { Write-Error ('  - ' + $_.FullName) }; exit 1 } else { Write-Host 'SUCCESS: Only .nupkg/.snupkg files in dist folder'; exit 0 }"
 if errorlevel 1 goto :error_final_verify
 
 echo.

@@ -75,9 +75,9 @@ if (-not $hasCert) {
     exit 0
 }
 
-$packages = Get-ChildItem -Path $resolved -Filter *.nupkg -File -ErrorAction SilentlyContinue
-if (-not $packages) {
-    Write-Host "No .nupkg files found in $resolved"
+$packages = Get-ChildItem -Path $resolved -File -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer -and ($_.Extension -eq '.nupkg' -or $_.Extension -eq '.snupkg') }
+if (-not $packages -or $packages.Count -eq 0) {
+    Write-Host "No .nupkg or .snupkg files found in $resolved"
     exit 0
 }
 
@@ -118,9 +118,18 @@ foreach ($pkg in $packages) {
     $signArgs += '--output'; $signArgs += $resolved
 
     Write-Host "Running: dotnet $($signArgs -join ' ')"
-    $proc = Start-Process -FilePath 'dotnet' -ArgumentList $signArgs -NoNewWindow -Wait -PassThru
-    if ($proc.ExitCode -ne 0) {
-        Write-Error "Signing failed for $($pkg.Name) (exit code $($proc.ExitCode))"
+    $timeoutSeconds = 120
+    try {
+        $proc = Start-Process -FilePath 'dotnet' -ArgumentList $signArgs -NoNewWindow -PassThru
+        $completed = $proc | Wait-Process -Timeout $timeoutSeconds -PassThru -ErrorAction Stop
+        if ($proc.ExitCode -ne 0) {
+            Write-Error "Signing failed for $($pkg.Name) (exit code $($proc.ExitCode))"
+            $failed = $true
+            break
+        }
+    } catch [System.TimeoutException] {
+        Write-Error "Signing timed out after $timeoutSeconds seconds for $($pkg.Name). Timestamp server may be unreachable."
+        $proc.Kill()
         $failed = $true
         break
     }
@@ -132,12 +141,23 @@ if ($failed) {
 } else {
     Write-Host "All packages processed. Signed $signedCount package(s)."
 
-    # Validate that ONLY .nupkg files remain
+    # Clean up any non-package files (temp files, signatures, etc. that signing may have created)
     $allFiles = @(Get-ChildItem -Path $resolved -File -ErrorAction SilentlyContinue)
-    $nonNupkgs = @($allFiles | Where-Object { $_.Extension -ne '.nupkg' })
-    if ($nonNupkgs.Count -gt 0) {
-        Write-Error "ERROR: Non-.nupkg files found in package directory:"
-        foreach ($f in $nonNupkgs) {
+    $nonPackages = @($allFiles | Where-Object { -not $_.PSIsContainer -and ($_.Extension -ne '.nupkg' -and $_.Extension -ne '.snupkg') })
+    if ($nonPackages.Count -gt 0) {
+        Write-Host "Cleaning up non-package files created during signing..."
+        foreach ($f in $nonPackages) {
+            Write-Host "  Removing: $($f.Name)"
+            Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Validate that ONLY .nupkg and .snupkg files remain
+    $finalFiles = @(Get-ChildItem -Path $resolved -File -ErrorAction SilentlyContinue)
+    $remainingNonPackages = @($finalFiles | Where-Object { -not $_.PSIsContainer -and ($_.Extension -ne '.nupkg' -and $_.Extension -ne '.snupkg') })
+    if ($remainingNonPackages.Count -gt 0) {
+        Write-Error "ERROR: Non-package files found in package directory:"
+        foreach ($f in $remainingNonPackages) {
             Write-Error "  - $($f.FullName)"
         }
         exit 1

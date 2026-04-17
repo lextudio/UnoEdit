@@ -32,8 +32,11 @@ function Resolve-ProjectPath([string]$proj) {
 }
 
 # Create temporary staging directories (MSBuild's OutDir and PackageOutputPath must be isolated)
-$buildOutDir = Join-Path ([System.IO.Path]::GetTempPath()) ("unoedit_build_" + [Guid]::NewGuid().ToString("N").Substring(0,8))
-$pkgStaging = Join-Path ([System.IO.Path]::GetTempPath()) ("unoedit_pkg_" + [Guid]::NewGuid().ToString("N").Substring(0,8))
+$repoRoot = $PSScriptRoot
+$buildOutDir = Join-Path $repoRoot ".build_out"
+$pkgStaging = Join-Path $repoRoot ".pkg_staging"
+if (Test-Path $buildOutDir) { Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path $pkgStaging) { Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $buildOutDir -Force | Out-Null
 New-Item -ItemType Directory -Path $pkgStaging -Force | Out-Null
 
@@ -60,10 +63,31 @@ if ($msbuild) {
     foreach ($p in $Projects) {
         try { $projFull = Resolve-ProjectPath $p } catch { Write-Error $_.Exception.Message; Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue; exit 1 }
         Write-Host "Packing $projFull with MSBuild..."
+        Write-Host "  Build output: $buildOutDir"
+        Write-Host "  Package staging: $pkgStaging"
         # NOTE: OutDir must be a temp directory to prevent DLL/PDB/XML files from going to dist
-        $args = @($projFull, '/t:Restore;Pack', "/p:Configuration=$Configuration", "/p:OutDir=$buildOutDir", "/p:PackageOutputPath=$pkgStaging")
-        $proc = Start-Process -FilePath $msbuild -ArgumentList $args -NoNewWindow -Wait -PassThru
-        if ($proc.ExitCode -ne 0) { Write-Error "MSBuild pack failed for $projFull (exit $($proc.ExitCode))"; Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue; exit 1 }
+        $msbuildArgs = @($projFull, '/t:Restore;Pack', "/p:Configuration=$Configuration", "/p:OutDir=$buildOutDir", "/p:PackageOutputPath=$pkgStaging")
+        Write-Host "  Starting MSBuild process at $(Get-Date -Format 'HH:mm:ss.fff')..."
+        try {
+            $proc = Start-Process -FilePath $msbuild -ArgumentList $msbuildArgs -NoNewWindow -PassThru -RedirectStandardOutput ([System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "msbuild_out_$([guid]::NewGuid()).log")) -RedirectStandardError ([System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "msbuild_err_$([guid]::NewGuid()).log"))
+            Write-Host "  MSBuild process started (PID: $($proc.Id)). Waiting for completion..."
+            $timeoutMs = 600000
+            if ($proc.WaitForExit($timeoutMs)) {
+                Write-Host "  MSBuild process completed at $(Get-Date -Format 'HH:mm:ss.fff') with exit code: $($proc.ExitCode)" -ForegroundColor Green
+                if ($proc.ExitCode -ne 0) { Write-Error "MSBuild pack failed for $projFull (exit $($proc.ExitCode))"; Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue; exit 1 }
+            } else {
+                Write-Error "MSBuild timed out after 600 seconds for $projFull"
+                $proc.Kill()
+                Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue
+                Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue
+                exit 1
+            }
+        } catch {
+            Write-Error "Failed to run MSBuild: $_"
+            Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue
+            exit 1
+        }
     }
 } else {
     Write-Error "MSBuild not found. Packaging WinUI or multi-TFM packages requires MSBuild/Visual Studio. Aborting."
@@ -72,33 +96,42 @@ if ($msbuild) {
     exit 1
 }
 
-# Move only .nupkg files from pkg staging to final OutDir
-Write-Host "Extracting .nupkg files from staging..."
-$nupkgs = Get-ChildItem -Path $pkgStaging -Filter *.nupkg -File -ErrorAction SilentlyContinue
-if (-not $nupkgs) {
-    Write-Error "No .nupkg files produced in staging: $pkgStaging"
+# Move .nupkg and .snupkg files from pkg staging to final OutDir
+Write-Host "Extracting package files (.nupkg/.snupkg) from staging at $(Get-Date -Format 'HH:mm:ss.fff')..."
+Write-Host "  Staging directory: $pkgStaging"
+Write-Host "  Checking for files..."
+$packages = Get-ChildItem -Path $pkgStaging -File -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer -and ($_.Extension -eq '.nupkg' -or $_.Extension -eq '.snupkg') }
+$allFilesInStaging = Get-ChildItem -Path $pkgStaging -File -ErrorAction SilentlyContinue
+Write-Host "  Total files in staging: $($allFilesInStaging.Count)"
+if ($allFilesInStaging) {
+    $allFilesInStaging | ForEach-Object { Write-Host "    - $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)" }
+}
+
+if (-not $packages -or $packages.Count -eq 0) {
+    Write-Error "No .nupkg or .snupkg files produced in staging: $pkgStaging"
     Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue
     exit 1
 }
 
-Write-Host "Moving .nupkg files to output directory..."
-foreach ($pkg in $nupkgs) {
-    Write-Host "  Moving: $($pkg.Name)"
+Write-Host "Moving package files ($($packages.Count) file(s)) to output directory at $(Get-Date -Format 'HH:mm:ss.fff')..."
+foreach ($pkg in $packages) {
+    Write-Host "  Moving: $($pkg.Name) ($([math]::Round($pkg.Length/1MB, 2)) MB)"
     Move-Item -Path $pkg.FullName -Destination $out -Force
+    Write-Host "    Done at $(Get-Date -Format 'HH:mm:ss.fff')"
 }
 
 # Clean up staging directories
-Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue
+if (Test-Path $buildOutDir) { Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path $pkgStaging) { Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue }
 
-# Validate that ONLY .nupkg files are in the output directory
+# Validate that ONLY .nupkg and .snupkg files are in the output directory
 Write-Host "Validating output directory..."
 $allFiles = Get-ChildItem -Path $out -Force -ErrorAction SilentlyContinue
-$nonNupkgs = @($allFiles | Where-Object { -not $_.PSIsContainer -and $_.Extension -ne '.nupkg' })
-if ($nonNupkgs.Count -gt 0) {
-    Write-Error "ERROR: Non-.nupkg files found in output directory:"
-    foreach ($f in $nonNupkgs) {
+$nonPackages = @($allFiles | Where-Object { -not $_.PSIsContainer -and ($_.Extension -ne '.nupkg' -and $_.Extension -ne '.snupkg') })
+if ($nonPackages.Count -gt 0) {
+    Write-Error "ERROR: Non-package files found in output directory:"
+    foreach ($f in $nonPackages) {
         Write-Error "  - $($f.FullName)"
     }
     exit 1
@@ -106,5 +139,5 @@ if ($nonNupkgs.Count -gt 0) {
 
 Write-Host "Packing complete. Packages are in: $out" -ForegroundColor Green
 Write-Host "Contents:" -ForegroundColor Green
-Get-ChildItem -Path $out -Filter *.nupkg | ForEach-Object { Write-Host "  - $($_.Name)" }
+Get-ChildItem -Path $out -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -eq '.nupkg' -or $_.Extension -eq '.snupkg' } | ForEach-Object { Write-Host "  - $($_.Name)" }
 exit 0

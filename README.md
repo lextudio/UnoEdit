@@ -2,6 +2,8 @@
 
 UnoEdit is a desktop-first port of AvalonEdit to Uno Platform.
 
+![UnoEdit on macOS](https://raw.githubusercontent.com/LeXtudio/UnoEdit/main/images/macos.png)
+
 Current scope:
 
 - Target Uno Skia Desktop (WinUI 3 port is included but not the primary focus).
@@ -44,4 +46,3 @@ UnoEdit builds on and includes code from the AvalonEdit project (ICSharpCode.Ava
 AvalonEdit is licensed under the MIT License. See `avalonedit/LICENSE` and
 `THIRD_PARTY_NOTICES.md` for attribution and full license text. The NuGet packages
 produced by this repository also include the third-party license text and notices.
-

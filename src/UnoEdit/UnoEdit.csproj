@@ -35,7 +35,7 @@
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
     <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="" />
     <None Include="..\..\avalonedit\LICENSE" Pack="true" PackagePath="licenses/avalonedit_LICENSE.txt" />
-    <None Include="..\..\logo.png" Pack="true" PackagePath="" />
+    <None Include="..\..\images\logo.png" Pack="true" PackagePath="" />
   </ItemGroup>
 
   <!-- WinUI / Windows-specific properties (only applied when building the windows target) -->

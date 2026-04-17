@@ -5,6 +5,8 @@
          WinUI/Windows-only targets won't be attempted. -->
     <TargetFrameworks>net10.0-desktop</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+    <!-- Support building for all RIDs to ensure native assets are properly handled -->
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;osx-x64</RuntimeIdentifiers>
     <AssemblyName>UnoEdit</AssemblyName>
     <RootNamespace>ICSharpCode.AvalonEdit</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -322,6 +324,9 @@
     <ProjectReference Include="..\..\external\coretext\src\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
+  <!-- Import native asset targets for project references (NuGet packages import via buildTransitive) -->
+  <Import Project="../../external/coretext/src/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackage)' != 'true'" />
+
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop' AND '$(UseNuGetPackage)' == 'true'">
     <PackageReference Include="LeXtudio.UI.Text.Core" />
   </ItemGroup>
@@ -332,6 +337,53 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
+
+  <!-- Copy native assets from LeXtudio.UI.Text.Core to runtime directories for distribution to consumers (macOS osx-arm64 and osx-x64 RIDs only) -->
+  <Target Name="CopyNativeTextCoreAssets"
+          AfterTargets="Build"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == '') and '$(UseNuGetPackage)' != 'true'">
+    <ItemGroup>
+      <NativeTextCoreAssets Include="../../external/coretext/src/bin/$(Configuration)/net10.0-desktop/libUnoEditMacInput.dylib" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(NativeTextCoreAssets)"
+          DestinationFolder="$(OutputPath)runtimes/osx-arm64/native/"
+          SkipUnchangedFiles="true"
+          Condition="'@(NativeTextCoreAssets)' != '' and '$(Configuration)' != ''">
+      <Output TaskParameter="DestinationFiles" ItemName="CopiedNativeAssets" />
+    </Copy>
+
+    <Copy SourceFiles="@(NativeTextCoreAssets)"
+          DestinationFolder="$(OutputPath)runtimes/osx-x64/native/"
+          SkipUnchangedFiles="true"
+          Condition="'@(NativeTextCoreAssets)' != '' and '$(Configuration)' != ''">
+      <Output TaskParameter="DestinationFiles" ItemName="CopiedNativeAssets" />
+    </Copy>
+
+    <Message Importance="low"
+             Text="[UnoEdit] Copied native text core assets: @(CopiedNativeAssets)"
+             Condition="'@(CopiedNativeAssets)' != ''" />
+  </Target>
+
+  <!-- Declare native assets as content for project reference distribution (macOS only) -->
+  <Target Name="IncludeNativeTextCoreContent"
+          BeforeTargets="GetCopyToOutputDirectoryItems"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and '$(UseNuGetPackage)' != 'true'">
+    <ItemGroup>
+      <ContentWithTargetPath Include="$(OutputPath)runtimes/osx-arm64/native/libUnoEditMacInput.dylib"
+                             Condition="Exists('$(OutputPath)runtimes/osx-arm64/native/libUnoEditMacInput.dylib')">
+        <TargetPath>runtimes/osx-arm64/native/libUnoEditMacInput.dylib</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Visible>false</Visible>
+      </ContentWithTargetPath>
+      <ContentWithTargetPath Include="$(OutputPath)runtimes/osx-x64/native/libUnoEditMacInput.dylib"
+                             Condition="Exists('$(OutputPath)runtimes/osx-x64/native/libUnoEditMacInput.dylib')">
+        <TargetPath>runtimes/osx-x64/native/libUnoEditMacInput.dylib</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Visible>false</Visible>
+      </ContentWithTargetPath>
+    </ItemGroup>
+  </Target>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <!-- WinUI-specific control surface now lives in this project -->

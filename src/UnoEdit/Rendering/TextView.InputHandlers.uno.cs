@@ -60,15 +60,14 @@ public sealed partial class TextView
         // Recover it here so the character can be forwarded to IBus and/or inserted.
         char? unicodeKey = s_unicodeKeyProperty?.GetValue(e) as char?;
 
-#if !WINDOWS_APP_SDK
         // Linux: forward the key to IBus synchronously before UnoEdit processes it.
         // If IBus handles the key (e.g. for IME composition), suppress normal processing.
-        if (TryForwardKeyToPlatformIme(e.Key, controlPressed, extendSelection, unicodeKey))
+         if (TryForwardKeyToPlatformIme(e.Key, controlPressed, extendSelection, unicodeKey))
         {
             e.Handled = true;
             return;
         }
-#endif
+
         // For VirtualKey.None with a printable UnicodeKey, insert the character directly.
         if (e.Key == Windows.System.VirtualKey.None && unicodeKey.HasValue && !char.IsControl(unicodeKey.Value) && !controlPressed)
         {

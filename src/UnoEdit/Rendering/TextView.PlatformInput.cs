@@ -1,15 +1,5 @@
-using System;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Xaml;
-#if WINDOWS_APP_SDK
-using Windows.UI.Text.Core;
-#else
-using LeXtudio.UI.Text.Core;
-using Uno.UI.Xaml;
-#endif
-using Windows.Foundation;
 using UnoEdit.Logging;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -23,6 +13,7 @@ public sealed partial class TextView
     private int _compositionLength;
 
     private CoreTextEditContext _coreTextEditContext;
+    private IDisposable? _commandSubscription;
 
     partial void InitializePlatformInputBridge()
     {
@@ -41,15 +32,13 @@ public sealed partial class TextView
 
         try
         {
-            // Mirror Windows behavior: notify layout and selection changes first,
-            // then update caret rect so adapters may reposition candidate windows.
-            _coreTextEditContext.NotifyLayoutChanged();
-            _coreTextEditContext.NotifySelectionChanged(ToCoreTextRange(SelectionStartOffset, SelectionEndOffset));
-#if !WINDOWS_APP_SDK
-            Rect rect = CalculatePlatformInputCaretRect();
-            double scale = RootBorder.XamlRoot?.RasterizationScale ?? 1.0;
-            _coreTextEditContext.NotifyCaretRectChanged(rect.X, rect.Y, rect.Width, rect.Height, scale); // IMPORTANT: control the IME candidate window position.
-#endif
+            _coreTextEditContext.SyncState(
+                CalculatePlatformInputCaretRect(),
+                GetElementRectInWindow(RootBorder),
+                RootBorder.XamlRoot?.RasterizationScale ?? 1.0,
+                SelectionStartOffset,
+                SelectionEndOffset,
+                Window.Current);
         }
         catch (Exception ex)
         {
@@ -122,10 +111,8 @@ public sealed partial class TextView
         _coreTextEditContext.CompositionStarted -= CoreTextEditContext_CompositionStarted;
         _coreTextEditContext.CompositionCompleted -= CoreTextEditContext_CompositionCompleted;
         _coreTextEditContext.FocusRemoved -= CoreTextEditContext_FocusRemoved;
-#if !WINDOWS_APP_SDK
         _coreTextEditContext.CommandReceived -= CoreTextEditContext_CommandReceived;
         _coreTextEditContext.Dispose();
-#endif
         _coreTextEditContext = null;
     }
 
@@ -143,38 +130,21 @@ public sealed partial class TextView
             _coreTextEditContext.InputScope = CoreTextInputScope.Text;
 
             _coreTextEditContext.TextRequested += CoreTextEditContext_TextRequested;
+            _coreTextEditContext.TextUpdating += CoreTextEditContext_TextUpdating;
             _coreTextEditContext.SelectionRequested += CoreTextEditContext_SelectionRequested;
             _coreTextEditContext.SelectionUpdating += CoreTextEditContext_SelectionUpdating;
             _coreTextEditContext.LayoutRequested += CoreTextEditContext_LayoutRequested;
-            _coreTextEditContext.TextUpdating += CoreTextEditContext_TextUpdating;
             _coreTextEditContext.CompositionStarted += CoreTextEditContext_CompositionStarted;
             _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
             _coreTextEditContext.FocusRemoved += CoreTextEditContext_FocusRemoved;
-#if !WINDOWS_APP_SDK
             _coreTextEditContext.CommandReceived += CoreTextEditContext_CommandReceived;
 
-            nint windowHandle = nint.Zero;
-            nint displayHandle = nint.Zero;
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                TryGetX11Handles(out displayHandle, out windowHandle);
-            }
-
-            if (windowHandle == nint.Zero)
-            {
-                windowHandle = TryGetNativeWindowHandle(Window.Current);
-            }
-
-            bool attached = _coreTextEditContext.Attach(windowHandle, displayHandle);
-            PlatformImeLogger.Log($"Attach platform text context handle=0x{windowHandle:X} display=0x{displayHandle:X} attached={attached}");
-
-            // The editor may already have focus when Loaded fires, so GotFocus
-            // won't re-fire.  Ensure IBus knows we have focus.
+            bool attached = _coreTextEditContext.AttachToCurrentWindow(Window.Current);
             if (attached)
             {
                 _coreTextEditContext.NotifyFocusEnter();
             }
-#endif
+
             PlatformImeLogger.Log("EnsureCoreTextEditContext: initialized.");
             return true;
         }
@@ -188,19 +158,19 @@ public sealed partial class TextView
 
     partial void FocusPlatformInputBridge()
     {
-        if (_coreTextEditContext is not null)
+        if (_coreTextEditContext is null)
         {
-            try
-            {
-                _coreTextEditContext.NotifyFocusEnter();
-#if !WINDOWS_APP_SDK
-                UpdatePlatformInputBridge();
-#endif
-            }
-            catch (Exception ex)
-            {
-                PlatformImeLogger.Log($"CoreText NotifyFocusEnter failed: {ex.Message}");
-            }
+            return;
+        }
+
+        try
+        {
+            _coreTextEditContext.NotifyFocusEnter();
+            UpdatePlatformInputBridge();
+        }
+        catch (Exception ex)
+        {
+            PlatformImeLogger.Log($"CoreText NotifyFocusEnter failed: {ex.Message}");
         }
     }
 
@@ -209,11 +179,6 @@ public sealed partial class TextView
         PlatformImeLogger.Log(
             $"CoreText CompositionStarted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
             $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
-
-        // Reset delta tracking — will be established on the first TextUpdating of this composition.
-        _coreTextDeltaEstablished = false;
-        _coreTextOffsetDelta = 0;
-
         HandleCompositionStart();
     }
 
@@ -241,27 +206,9 @@ public sealed partial class TextView
         }
     }
 
-    /// <summary>
-    /// Offset delta to correct CoreText's unreliable internal position tracking.
-    /// Computed at the first TextUpdating of each composition as (our cursor – CoreText's range start).
-    /// Applied to all subsequent CoreText ranges/selections during that composition.
-    /// </summary>
-    private int _coreTextOffsetDelta;
-    private bool _coreTextDeltaEstablished;
-
-    private static CoreTextRange ToCoreTextRange(int startOffset, int endOffset)
-    {
-        return new CoreTextRange
-        {
-            StartCaretPosition = Math.Min(startOffset, endOffset),
-            EndCaretPosition = Math.Max(startOffset, endOffset),
-        };
-    }
-
     private void CoreTextEditContext_TextRequested(CoreTextEditContext sender, CoreTextTextRequestedEventArgs args)
     {
         CoreTextTextRequest request = args.Request;
-#if WINDOWS_APP_SDK
         if (_document is null)
         {
             request.Text = string.Empty;
@@ -273,42 +220,6 @@ public sealed partial class TextView
         int end = Math.Clamp(request.Range.EndCaretPosition, start, textLength);
         request.Text = _document.GetText(start, end - start);
         PlatformImeLogger.Log($"CoreText TextRequested range=[{start},{end}) len={end - start}");
-#else
-        string text = request.Text ?? string.Empty;
-        PlatformImeLogger.Log($"OnPlatformTextRequested: text='{text}'");
-        if (!string.IsNullOrEmpty(text))
-        {
-            if (_document is null)
-            {
-                return;
-            }
-
-            int insertAt = _isComposing ? _compositionStartOffset : CurrentOffset;
-            int removeLen = _isComposing ? _compositionLength : 0;
-
-            RaiseTextEntering(text);
-
-            BatchRefresh(() =>
-            {
-                using (_document.RunUpdate())
-                {
-                    if (removeLen > 0)
-                    {
-                        _document.Remove(insertAt, removeLen);
-                    }
-
-                    _document.Insert(insertAt, text);
-                }
-
-                _isComposing = false;
-                _compositionLength = 0;
-                CollapseSelection(insertAt + text.Length);
-            });
-
-            RaiseTextEntered(text);
-            UpdatePlatformInputBridge();
-        }
-#endif
     }
 
     private void CoreTextEditContext_TextUpdating(CoreTextEditContext sender, CoreTextTextUpdatingEventArgs args)
@@ -317,37 +228,16 @@ public sealed partial class TextView
         {
             return;
         }
-#if WINDOWS_APP_SDK
+
         int textLength = _document.TextLength;
-
-        // --- Delta correction --------------------------------------------------
-        // WinUI 3's NotifySelectionChanged does not reliably update CoreText's
-        // internal position tracking.  When the user navigates between compositions,
-        // CoreText's first TextUpdating range can be off by an arbitrary amount.
-        // We detect this at the start of each composition and apply a correction.
-        int rawStart = args.Range.StartCaretPosition;
-        int rawEnd = args.Range.EndCaretPosition;
-        int rawNewSelStart = args.NewSelection.StartCaretPosition;
-        int rawNewSelEnd = args.NewSelection.EndCaretPosition;
-
-        if (_isComposing && !_coreTextDeltaEstablished)
-        {
-            _coreTextOffsetDelta = _compositionStartOffset - rawStart;
-            _coreTextDeltaEstablished = true;
-            if (_coreTextOffsetDelta != 0)
-            {
-                PlatformImeLogger.Log(
-                    $"CoreText TextUpdating DELTA established: coreTextStart={rawStart} editorCompStart={_compositionStartOffset} delta={_coreTextOffsetDelta}");
-            }
-        }
-
-        int start = Math.Clamp(rawStart + _coreTextOffsetDelta, 0, textLength);
-        int end = Math.Clamp(rawEnd + _coreTextOffsetDelta, start, textLength);
+        int start = Math.Clamp(args.Range.StartCaretPosition, 0, textLength);
+        int end = Math.Clamp(args.Range.EndCaretPosition, start, textLength);
         int removeLength = end - start;
-        string inText = args.Text ?? string.Empty;
+        string text = args.Text ?? string.Empty;
+
         PlatformImeLogger.Log(
-            $"CoreText TextUpdating range=[{rawStart},{rawEnd})+delta({_coreTextOffsetDelta})=[{start},{end}) remove={removeLength} " +
-            $"newText='{inText}'(len={inText.Length}) newSel=[{rawNewSelStart},{rawNewSelEnd}]+delta=[{rawNewSelStart + _coreTextOffsetDelta},{rawNewSelEnd + _coreTextOffsetDelta}] " +
+            $"CoreText TextUpdating range=[{start},{end}) remove={removeLength} " +
+            $"newText='{text}'(len={text.Length}) newSel=[{args.NewSelection.StartCaretPosition},{args.NewSelection.EndCaretPosition}] " +
             $"BEFORE: docLen={textLength} current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
             $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength}");
 
@@ -356,7 +246,6 @@ public sealed partial class TextView
             return;
         }
 
-        string text = args.Text ?? string.Empty;
         if (!string.IsNullOrEmpty(text))
         {
             RaiseTextEntering(text);
@@ -378,13 +267,19 @@ public sealed partial class TextView
             }
 
             int newTextLength = _document.TextLength;
-            int newSelStart = Math.Clamp(rawNewSelStart + _coreTextOffsetDelta, 0, newTextLength);
-            int newSelEnd = Math.Clamp(rawNewSelEnd + _coreTextOffsetDelta, 0, newTextLength);
+            int newSelStart = Math.Clamp(args.NewSelection.StartCaretPosition, 0, newTextLength);
+            int newSelEnd = Math.Clamp(args.NewSelection.EndCaretPosition, 0, newTextLength);
             _selectionAnchorOffset = newSelStart;
             SelectionStartOffset = Math.Min(newSelStart, newSelEnd);
             SelectionEndOffset = Math.Max(newSelStart, newSelEnd);
             CurrentOffset = newSelEnd;
             _desiredColumn = _document.GetLocation(CurrentOffset).Column;
+
+            if (_isComposing)
+            {
+                _compositionStartOffset = start;
+                _compositionLength = text.Length;
+            }
         });
 
         PlatformImeLogger.Log(
@@ -394,40 +289,18 @@ public sealed partial class TextView
         {
             RaiseTextEntered(text);
         }
-#else
-        PlatformImeLogger.Log($"OnPlatformTextUpdating: text='{args.NewText}'");
-        var text = args.NewText ?? string.Empty;
-        if (!_isComposing)
-        {
-            HandleCompositionStart();
-        }
 
-        BatchRefresh(() =>
-        {
-            using (_document.RunUpdate())
-            {
-                if (_compositionLength > 0)
-                {
-                    _document.Remove(_compositionStartOffset, _compositionLength);
-                }
-
-                if (text.Length > 0)
-                {
-                    _document.Insert(_compositionStartOffset, text);
-                }
-
-                _compositionLength = text.Length;
-            }
-
-            CollapseSelection(_compositionStartOffset + text.Length);
-        });
-#endif
         UpdatePlatformInputBridge();
     }
 
     private void CoreTextEditContext_SelectionRequested(CoreTextEditContext sender, CoreTextSelectionRequestedEventArgs args)
     {
-        args.Request.Selection = ToCoreTextRange(SelectionStartOffset, SelectionEndOffset);
+        args.Request.Selection = new CoreTextRange
+        {
+            StartCaretPosition = SelectionStartOffset,
+            EndCaretPosition = SelectionEndOffset,
+        };
+
         PlatformImeLogger.Log($"CoreText SelectionRequested sel=[{SelectionStartOffset},{SelectionEndOffset}] current={CurrentOffset}");
     }
 
@@ -439,9 +312,9 @@ public sealed partial class TextView
         }
 
         int textLength = _document.TextLength;
-        int start = Math.Clamp(args.Selection.StartCaretPosition + _coreTextOffsetDelta, 0, textLength);
-        int end = Math.Clamp(args.Selection.EndCaretPosition + _coreTextOffsetDelta, 0, textLength);
-        PlatformImeLogger.Log($"CoreText SelectionUpdating raw=[{args.Selection.StartCaretPosition},{args.Selection.EndCaretPosition}]+delta({_coreTextOffsetDelta})=[{start},{end}] docLen={textLength}");
+        int start = Math.Clamp(args.Selection.StartCaretPosition, 0, textLength);
+        int end = Math.Clamp(args.Selection.EndCaretPosition, 0, textLength);
+        PlatformImeLogger.Log($"CoreText SelectionUpdating sel=[{start},{end}] docLen={textLength}");
 
         BatchRefresh(() =>
         {
@@ -457,85 +330,12 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_LayoutRequested(CoreTextEditContext sender, CoreTextLayoutRequestedEventArgs args)
     {
-#if WINDOWS_APP_SDK
-        var request = args.Request;
-        if (request is null)
-        {
-            return;
-        }
-
-        Rect caretRect = CalculatePlatformInputCaretRect();
-        Rect controlRect = GetElementRectInWindow(RootBorder);
-        Rect screenCaretRect = caretRect;
-        Rect screenControlRect = controlRect;
-        nint hwnd = TryGetNativeWindowHandle(Window.Current);
-        if (hwnd != nint.Zero && TryGetClientOriginInScreen(hwnd, out Point clientOrigin))
-        {
-            screenCaretRect = OffsetRect(caretRect, clientOrigin.X, clientOrigin.Y);
-            screenControlRect = OffsetRect(controlRect, clientOrigin.X, clientOrigin.Y);
-        }
-
-        request.LayoutBounds.TextBounds = screenCaretRect;
-        request.LayoutBounds.ControlBounds = screenControlRect;
-
-        PlatformImeLogger.Log(
-            $"CoreText LayoutRequested clientCaret=({caretRect.X:F1},{caretRect.Y:F1},{caretRect.Width:F1},{caretRect.Height:F1}) " +
-            $"clientControl=({controlRect.X:F1},{controlRect.Y:F1},{controlRect.Width:F1},{controlRect.Height:F1}) " +
-            $"screenCaret=({screenCaretRect.X:F1},{screenCaretRect.Y:F1},{screenCaretRect.Width:F1},{screenCaretRect.Height:F1}) " +
-            $"screenControl=({screenControlRect.X:F1},{screenControlRect.Y:F1},{screenControlRect.Width:F1},{screenControlRect.Height:F1}) hwnd=0x{hwnd:X}");
-#else
-// TODO:
-#endif
+        args.ApplyLayoutBoundsCompat(
+            CalculatePlatformInputCaretRect(),
+            GetElementRectInWindow(RootBorder),
+            Window.Current);
     }
 
-    private static Rect OffsetRect(Rect rect, double offsetX, double offsetY)
-    {
-        return new Rect(rect.X + offsetX, rect.Y + offsetY, rect.Width, rect.Height);
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct NativePoint
-    {
-        public int X;
-        public int Y;
-    }
-
-    private static Rect GetElementRectInWindow(FrameworkElement element)
-    {
-        GeneralTransform transform = element.TransformToVisual(null);
-        Point point = transform.TransformPoint(new Point(0, 0));
-        return new Rect(point.X, point.Y, element.ActualWidth, element.ActualHeight);
-    }
-
-#if WINDOWS_APP_SDK
-    // -----------------------------------------------------------------------
-    // WinUI 3: native Windows.UI.Text.Core integration
-    // -----------------------------------------------------------------------
-
-    [DllImport("user32.dll", ExactSpelling = true)]
-    private static extern bool ClientToScreen(nint hWnd, ref NativePoint lpPoint);
-
-    private static bool TryGetClientOriginInScreen(nint hwnd, out Point point)
-    {
-        point = default;
-        var nativePoint = new NativePoint { X = 0, Y = 0 };
-        if (!ClientToScreen(hwnd, ref nativePoint))
-        {
-            return false;
-        }
-
-        point = new Point(nativePoint.X, nativePoint.Y);
-        return true;
-    }
-#else
-    // -----------------------------------------------------------------------
-    // Uno Platform / Skia Desktop: LeXtudio.UI.Text.Core shim integration
-    // -----------------------------------------------------------------------
-
-    /// <summary>
-    /// Forwards a key event to the platform IME (IBus on Linux).
-    /// Returns true if the IME consumed the key (caller should suppress normal handling).
-    /// </summary>
     private bool TryForwardKeyToPlatformIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed, char? unicodeKey = null)
     {
         if (_coreTextEditContext is null)
@@ -548,52 +348,11 @@ public sealed partial class TextView
         return handled;
     }
 
-    /// <summary>
-    /// Resolve the X11 display and window handles from Uno internals via reflection.
-    /// Path: X11XamlRootHost.GetHostFromWindow(Window.Current) → .RootX11Window → .Display/.Window
-    /// </summary>
-    private static void TryGetX11Handles(out nint display, out nint window)
+    private void CoreTextEditContext_CommandReceived(object sender, CoreTextCommandReceivedEventArgs args)
     {
-        display = nint.Zero;
-        window = nint.Zero;
-
-        try
-        {
-            var currentWindow = Window.Current;
-            if (currentWindow is null) return;
-
-            var hostType = Type.GetType("Uno.WinUI.Runtime.Skia.X11.X11XamlRootHost, Uno.UI.Runtime.Skia.X11");
-            if (hostType is null) return;
-
-            var getHost = hostType.GetMethod("GetHostFromWindow", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-            var host = getHost?.Invoke(null, new object?[] { currentWindow });
-            if (host is null) return;
-
-            var rootX11WindowProp = hostType.GetProperty("RootX11Window", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            var x11Window = rootX11WindowProp?.GetValue(host);
-            if (x11Window is null) return;
-
-            var windowType = x11Window.GetType();
-            var displayProp = windowType.GetProperty("Display", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            var windowProp = windowType.GetProperty("Window", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-            object? displayVal = displayProp?.GetValue(x11Window);
-            if (displayVal is nint dp) display = dp;
-            else if (displayVal is IntPtr dip) display = dip;
-
-            object? windowVal = windowProp?.GetValue(x11Window);
-            if (windowVal is nint wp) window = wp;
-            else if (windowVal is IntPtr wip) window = wip;
-        }
-        catch
-        {
-        }
-    }
-
-    private void CoreTextEditContext_CommandReceived(object? sender, CoreTextCommandReceivedEventArgs e)
-    {
-        PlatformImeLogger.Log($"CommandReceived: {e.Command}");
-        bool handled = e.Command switch
+        string command = args.Command;
+        PlatformImeLogger.Log($"CommandReceived: {command}");
+        bool handled = command switch
         {
             "deleteBackward:" => Backspace(),
             "deleteForward:" => Delete(),
@@ -631,21 +390,16 @@ public sealed partial class TextView
         if (handled)
         {
             UpdatePlatformInputBridge();
-            e.Handled = true;
+            args.Handled = true;
             return;
         }
 
-        if (e.Command == "paste:")
+        if (command == "paste:")
         {
             _ = PasteAsync();
-            e.Handled = true;
+            args.Handled = true;
         }
     }
-#endif
-
-    // -----------------------------------------------------------------------
-    // Composition document management (shared)
-    // -----------------------------------------------------------------------
 
     internal void HandleCompositionStart()
     {
@@ -683,10 +437,6 @@ public sealed partial class TextView
         UpdatePlatformInputBridge();
     }
 
-    // -----------------------------------------------------------------------
-    // Shared: caret rect and native window handle
-    // -----------------------------------------------------------------------
-
     private Rect CalculatePlatformInputCaretRect()
     {
         if (_document is null || _visibleDocLines.Count == 0 || RootBorder.XamlRoot is null)
@@ -713,111 +463,10 @@ public sealed partial class TextView
         return new Rect(point.X, point.Y + 3d, 2d, 16d);
     }
 
-    private static nint TryGetNativeWindowHandle(Window? window)
+    private static Rect GetElementRectInWindow(FrameworkElement element)
     {
-        if (window is null)
-        {
-            // Window.Current can be null in WinUI 3 unpackaged apps and in Uno Skia
-            // Desktop; fall back to the process main window handle so Win32 IME
-            // subclassing can proceed.
-            return System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
-        }
-
-#if WINDOWS_APP_SDK
-        try
-        {
-            return (nint)WinRT.Interop.WindowNative.GetWindowHandle(window);
-        }
-        catch
-        {
-            return nint.Zero;
-        }
-#else
-        object? nativeWindow = WindowHelper.GetNativeWindow(window);
-        if (nativeWindow is null)
-        {
-            return nint.Zero;
-        }
-
-        string nativeTypeName = nativeWindow.GetType().FullName ?? string.Empty;
-
-        if (nativeTypeName == "System.Windows.Window")
-        {
-            try
-            {
-                Type? helperType = Type.GetType(
-                    "System.Windows.Interop.WindowInteropHelper, PresentationFramework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
-                helperType ??= Type.GetType("System.Windows.Interop.WindowInteropHelper, PresentationFramework");
-                if (helperType is null)
-                {
-                    return nint.Zero;
-                }
-
-                object? helper = Activator.CreateInstance(helperType, nativeWindow);
-                PropertyInfo? handleProp = helperType.GetProperty("Handle", BindingFlags.Instance | BindingFlags.Public);
-
-                if (handleProp?.GetValue(helper) is IntPtr hwndIntPtr)
-                {
-                    return hwndIntPtr;
-                }
-            }
-            catch
-            {
-            }
-
-            return nint.Zero;
-        }
-
-        // Uno Skia Desktop (newer Uno): native window is Uno.UI... Win32NativeWindow.
-        // Reflect over known property/field names to find the HWND.
-        if (nativeTypeName.Contains("Win32NativeWindow", StringComparison.Ordinal))
-        {
-            foreach (string name in new[] { "Hwnd", "HWnd", "Handle", "WindowHandle", "NativeHandle", "Pointer", "hwnd", "_hwnd" })
-            {
-                PropertyInfo? p = nativeWindow.GetType().GetProperty(name,
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (p is not null)
-                {
-                    object? v = p.GetValue(nativeWindow);
-                    if (v is nint np && np != nint.Zero) return np;
-                    if (v is IntPtr ip && ip != IntPtr.Zero) return ip;
-                    if (v is long lv && lv != 0) return new nint(lv);
-                }
-
-                FieldInfo? f = nativeWindow.GetType().GetField(name,
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (f is not null)
-                {
-                    object? v = f.GetValue(nativeWindow);
-                    if (v is nint np && np != nint.Zero) return np;
-                    if (v is IntPtr ip && ip != IntPtr.Zero) return ip;
-                    if (v is long lv && lv != 0) return new nint(lv);
-                }
-            }
-
-            return nint.Zero;
-        }
-
-        PropertyInfo? handleProperty = nativeWindow.GetType().GetProperty(
-            "Handle",
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-        if (handleProperty?.GetValue(nativeWindow) is nint handle)
-        {
-            return handle;
-        }
-
-        if (handleProperty?.GetValue(nativeWindow) is IntPtr intPtrHandle)
-        {
-            return intPtrHandle;
-        }
-
-        if (handleProperty?.GetValue(nativeWindow) is long longHandle)
-        {
-            return new nint(longHandle);
-        }
-
-        return nint.Zero;
-#endif
+        GeneralTransform transform = element.TransformToVisual(null);
+        Point point = transform.TransformPoint(new Point(0, 0));
+        return new Rect(point.X, point.Y, element.ActualWidth, element.ActualHeight);
     }
 }

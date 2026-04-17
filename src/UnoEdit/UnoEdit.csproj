@@ -53,6 +53,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Compatibility\CollectionExtensions.cs" />
     <Compile Include="Compatibility\ExtensionMethods.cs" />
+    <Compile Include="Compatibility\CoreTextCompatExtensions.cs" />
     <Compile Include="Compatibility\InputShims.cs" />
     <Compile Include="Compatibility\SystemWindowsCompatibility.cs" />
     <Compile Include="Compatibility\WpfTypeAliases.cs" />

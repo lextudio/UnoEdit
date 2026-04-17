@@ -84,7 +84,18 @@ namespace UnoEdit.Skia.Desktop.Controls
                 Rect screenControlRect = controlRect;
 
 #if WINDOWS_APP_SDK
-            nint hwnd = window is null ? nint.Zero : (nint)WinRT.Interop.WindowNative.GetWindowHandle(window);
+            // Window.Current is null in WinUI 3 unpackaged apps; fall back to the
+            // process main window handle so ClientToScreen can resolve correctly.
+            nint hwnd = nint.Zero;
+            if (window is not null)
+            {
+                try { hwnd = (nint)WinRT.Interop.WindowNative.GetWindowHandle(window); }
+                catch { hwnd = nint.Zero; }
+            }
+            if (hwnd == nint.Zero)
+            {
+                hwnd = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+            }
             if (hwnd != nint.Zero && TryGetClientOriginInScreen(hwnd, out Point clientOrigin))
             {
                 screenCaretRect = new Rect(caretRect.X + clientOrigin.X, caretRect.Y + clientOrigin.Y, caretRect.Width, caretRect.Height);
@@ -95,6 +106,10 @@ namespace UnoEdit.Skia.Desktop.Controls
 #if WINDOWS_APP_SDK
             args.Request.LayoutBounds.TextBounds = screenCaretRect;
             args.Request.LayoutBounds.ControlBounds = screenControlRect;
+            UnoEdit.Logging.PlatformImeLogger.Log(
+                $"CoreText LayoutRequested hwnd=0x{hwnd:X} " +
+                $"caret=({caretRect.X:F1},{caretRect.Y:F1},{caretRect.Width:F1},{caretRect.Height:F1}) " +
+                $"screenCaret=({screenCaretRect.X:F1},{screenCaretRect.Y:F1},{screenCaretRect.Width:F1},{screenCaretRect.Height:F1})");
 #else
                 args.Request.LayoutBounds.TextBounds = new CoreTextRect
                 {

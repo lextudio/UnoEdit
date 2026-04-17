@@ -43,7 +43,8 @@ public sealed partial class HighlightedTextBlock : UserControl
 
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(TextLineViewModel.Runs) or nameof(TextLineViewModel.ReferenceSegments))
+        if (e.PropertyName is nameof(TextLineViewModel.Runs)
+            or nameof(TextLineViewModel.ReferenceSegments))
             RefreshInlines(ViewModel);
         else if (e.PropertyName is nameof(TextLineViewModel.WrapText))
             ApplyWrapping(ViewModel);
@@ -54,7 +55,6 @@ public sealed partial class HighlightedTextBlock : UserControl
         ApplyWrapping(vm);
         var newRuns    = vm?.Runs;
         var newRefSegs = vm?.ReferenceSegments;
-
         // Same Runs + RefSegs reference → text content unchanged, skip entirely.
         if (ReferenceEquals(newRuns, _lastRuns) && ReferenceEquals(newRefSegs, _lastRefSegs))
             return;

@@ -477,8 +477,6 @@ public sealed partial class TextView
     {
         BatchRefresh(() =>
         {
-            CurrentOffset = targetOffset;
-
             if (extendSelection)
             {
                 SelectionStartOffset = Math.Min(_selectionAnchorOffset, targetOffset);
@@ -491,6 +489,7 @@ public sealed partial class TextView
                 SelectionEndOffset = targetOffset;
             }
 
+            CurrentOffset = targetOffset;
             _desiredColumn = _document?.GetLocation(CurrentOffset).Column ?? 1;
         });
     }
@@ -631,9 +630,9 @@ public sealed partial class TextView
         BatchRefresh(() =>
         {
             _selectionAnchorOffset = offset;
-            CurrentOffset = offset;
             SelectionStartOffset = offset;
             SelectionEndOffset = offset;
+            CurrentOffset = offset;
         });
     }
 

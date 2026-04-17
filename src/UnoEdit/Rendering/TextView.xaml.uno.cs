@@ -428,6 +428,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
     {
         var textView = (TextView)dependencyObject;
         textView.RefreshViewport();
+        textView.UpdatePlatformInputBridge();
         textView.SelectionChanged?.Invoke(textView, EventArgs.Empty);
     }
 
@@ -975,6 +976,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                 bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
                 int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
                 double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
+                GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
+                GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
 
                 double newSelectionOpacity = 0d;
                 double newSelectionLeft = 0d;
@@ -1006,6 +1009,11 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                 oldVm.SelectionMargin  = newSelectionMargin;
                 oldVm.SelectionWidth   = newSelectionWidth;
                 oldVm.SelectionOpacity = newSelectionOpacity;
+                oldVm.PreeditUnderlineMargin = new Thickness(preeditUnderlineLeft, 0, 0, 0);
+                oldVm.PreeditUnderlineWidth = preeditUnderlineWidth;
+                oldVm.PreeditUnderlineOpacity = preeditUnderlineOpacity;
+                oldVm.PreeditVisualStart = preeditVisualStart;
+                oldVm.PreeditVisualEnd = preeditVisualEnd;
             }
             return;
         }
@@ -1039,6 +1047,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
             // Convert logical column to visual column so tab characters are handled correctly.
             double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
+            GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
+            GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
             double selectionOpacity = 0d;
             double selectionLeft = 0d;
             double selectionWidth = 0d;
@@ -1080,15 +1090,23 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                     new Thickness(caretLeft,        0, 0, 0),
                     new Thickness(selectionLeft,    0, 0, 0),
                     selectionWidth,
-                    selectionOpacity);
+                    selectionOpacity,
+                    new Thickness(preeditUnderlineLeft, 0, 0, 0),
+                    preeditUnderlineWidth,
+                    preeditUnderlineOpacity,
+                    preeditVisualStart,
+                    preeditVisualEnd);
                 continue;
             }
 
             HighlightedLine? highlightedLine = null;
-            try {
+            try
+            {
                 highlightedLine = _highlightedLineSource?.HighlightLine(lineNumber)
                     ?? (_highlightedLineSourceExplicitlySet ? null : _highlighter?.HighlightLine(lineNumber));
-            } catch {
+            }
+            catch
+            {
                 /* ignore errors during highlighting */
             }
             LogFlash($"line={lineNumber} highlightedLine={(highlightedLine == null ? "null" : $"{highlightedLine.Sections.Count} sections")}");
@@ -1130,6 +1148,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                 new Thickness(selectionLeft, 0, 0, 0),
                 selectionWidth,
                 selectionOpacity,
+                new Thickness(preeditUnderlineLeft, 0, 0, 0),
+                preeditUnderlineWidth,
+                preeditUnderlineOpacity,
                 Theme,
                 ShowLineNumbers,
                 WordWrap,
@@ -1139,7 +1160,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                 SelectionCornerRadius,
                 foldMarker,
                 highlightedLine,
-                lineRefs);
+                lineRefs,
+                preeditVisualStart,
+                preeditVisualEnd);
         }
 
         // Apply: mutate existing VMs in-place via UpdateFrom (raises only PropertyChanged
@@ -1161,6 +1184,64 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
 
         TopSpacer.Height = firstVisualRow * LineHeight;
         BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
+    }
+
+    private void GetPreeditVisualRange(DocumentLine line, string lineText, out int visualStart, out int visualEnd)
+    {
+        visualStart = -1;
+        visualEnd = -1;
+
+        if (!_isComposing || _compositionLength <= 0)
+        {
+            return;
+        }
+
+        int compositionStart = _compositionStartOffset;
+        int compositionEnd = compositionStart + _compositionLength;
+        int lineStart = line.Offset;
+        int lineEnd = line.EndOffset;
+        int segmentStart = Math.Max(compositionStart, lineStart);
+        int segmentEnd = Math.Min(compositionEnd, lineEnd);
+        if (segmentStart >= segmentEnd)
+        {
+            return;
+        }
+
+        int logicalStart = Math.Clamp(segmentStart - lineStart, 0, lineText.Length);
+        int logicalEnd = Math.Clamp(segmentEnd - lineStart, logicalStart, lineText.Length);
+        visualStart = TextLineViewModel.LogicalToVisualColumn(lineText, logicalStart);
+        visualEnd = TextLineViewModel.LogicalToVisualColumn(lineText, logicalEnd);
+    }
+
+    private void GetPreeditUnderlineLayout(DocumentLine line, string lineText, out double left, out double width, out double opacity)
+    {
+        left = 0d;
+        width = 0d;
+        opacity = 0d;
+
+        if (!_isComposing || _compositionLength <= 0)
+        {
+            return;
+        }
+
+        int compositionStart = _compositionStartOffset;
+        int compositionEnd = compositionStart + _compositionLength;
+        int lineStart = line.Offset;
+        int lineEnd = line.EndOffset;
+        int segmentStart = Math.Max(compositionStart, lineStart);
+        int segmentEnd = Math.Min(compositionEnd, lineEnd);
+        if (segmentStart >= segmentEnd)
+        {
+            return;
+        }
+
+        int logicalStart = Math.Clamp(segmentStart - lineStart, 0, lineText.Length);
+        int logicalEnd = Math.Clamp(segmentEnd - lineStart, logicalStart, lineText.Length);
+        double startX = GetDisplayColumnX(lineText, logicalStart);
+        double endX = GetDisplayColumnX(lineText, logicalEnd);
+        left = Math.Max(0d, startX);
+        width = Math.Max(1d, endX - startX);
+        opacity = 1d;
     }
 
     private int ClampLineNumber(int lineNumber)

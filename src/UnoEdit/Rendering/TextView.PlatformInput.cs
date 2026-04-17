@@ -13,7 +13,6 @@ public sealed partial class TextView
     private int _compositionLength;
 
     private CoreTextEditContext _coreTextEditContext;
-    private IDisposable? _commandSubscription;
 
     partial void InitializePlatformInputBridge()
     {
@@ -406,34 +405,22 @@ public sealed partial class TextView
         _compositionStartOffset = CurrentOffset;
         _compositionLength = 0;
         _isComposing = true;
+        RefreshViewport();
         UpdatePlatformInputBridge();
     }
 
     internal void HandleCompositionEnd()
     {
-        if (_document is null || !_isComposing)
+        if (!_isComposing)
         {
             _isComposing = false;
             _compositionLength = 0;
             return;
         }
 
-        BatchRefresh(() =>
-        {
-            if (_compositionLength > 0)
-            {
-                using (_document.RunUpdate())
-                {
-                    _document.Remove(_compositionStartOffset, _compositionLength);
-                }
-
-                _compositionLength = 0;
-                CollapseSelection(_compositionStartOffset);
-            }
-
-            _isComposing = false;
-        });
-
+        _isComposing = false;
+        _compositionLength = 0;
+        RefreshViewport();
         UpdatePlatformInputBridge();
     }
 

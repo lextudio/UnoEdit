@@ -60,6 +60,9 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         Thickness selectionMargin,
         double selectionWidth,
         double selectionOpacity,
+        Thickness preeditUnderlineMargin,
+        double preeditUnderlineWidth,
+        double preeditUnderlineOpacity,
         TextEditorTheme theme,
         bool showLineNumbers = true,
         bool wrapText = false,
@@ -69,7 +72,9 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         double selectionCornerRadius = 0d,
         FoldMarkerKind foldMarker = FoldMarkerKind.None,
         HighlightedLine? highlightedLine = null,
-        IReadOnlyList<ReferenceSegment>? referenceSegments = null)
+        IReadOnlyList<ReferenceSegment>? referenceSegments = null,
+        int preeditVisualStart = -1,
+        int preeditVisualEnd = -1)
     {
         FoldMarker = foldMarker;
         ShowLineNumbers = showLineNumbers;
@@ -83,13 +88,19 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         _selectionMargin = selectionMargin;
         _selectionWidth = selectionWidth;
         _selectionOpacity = selectionOpacity;
+        _preeditUnderlineMargin = preeditUnderlineMargin;
+        _preeditUnderlineWidth = preeditUnderlineWidth;
+        _preeditUnderlineOpacity = preeditUnderlineOpacity;
         LineHighlightBrush   = new SolidColorBrush(theme.LineHighlight);
         SelectionBrush       = new SolidColorBrush(selectionBrushOverride ?? theme.SelectionColor);
         SelectionBorderBrush = selectionBorderOverride.HasValue ? new SolidColorBrush(selectionBorderOverride.Value) : null;
+        PreeditUnderlineBrush = new SolidColorBrush(theme.DefaultForeground);
         CaretBrush           = new SolidColorBrush(theme.CaretColor);
         GutterForegroundBrush = new SolidColorBrush(gutterForegroundOverride ?? theme.GutterForeground);
         _defaultForeground   = theme.DefaultForeground;
         ReferenceSegments    = referenceSegments ?? System.Array.Empty<ReferenceSegment>();
+        _preeditVisualStart  = preeditVisualStart;
+        _preeditVisualEnd    = preeditVisualEnd;
         Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground);
     }
 
@@ -101,7 +112,10 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         Thickness caretMargin,
         Thickness selectionMargin,
         double selectionWidth,
-        double selectionOpacity)
+        double selectionOpacity,
+        Thickness preeditUnderlineMargin,
+        double preeditUnderlineWidth,
+        double preeditUnderlineOpacity)
     {
         FoldMarker            = source.FoldMarker;
         ShowLineNumbers       = source.ShowLineNumbers;
@@ -115,13 +129,19 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         _selectionMargin      = selectionMargin;
         _selectionWidth       = selectionWidth;
         _selectionOpacity     = selectionOpacity;
+        _preeditUnderlineMargin = preeditUnderlineMargin;
+        _preeditUnderlineWidth = preeditUnderlineWidth;
+        _preeditUnderlineOpacity = preeditUnderlineOpacity;
         LineHighlightBrush    = source.LineHighlightBrush;
         SelectionBrush        = source.SelectionBrush;
         SelectionBorderBrush  = source.SelectionBorderBrush;
+        PreeditUnderlineBrush = source.PreeditUnderlineBrush;
         CaretBrush            = source.CaretBrush;
         GutterForegroundBrush = source.GutterForegroundBrush;
         _defaultForeground    = source._defaultForeground;
         ReferenceSegments     = source.ReferenceSegments;
+        _preeditVisualStart   = source._preeditVisualStart;
+        _preeditVisualEnd     = source._preeditVisualEnd;
         Runs                  = source.Runs;  // reuse pre-computed syntax-highlighted runs
     }
 
@@ -133,18 +153,29 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
     internal TextLineViewModel WithCaretAndSelection(
         double caretOpacity, double highlightOpacity,
         Thickness caretMargin,
-        Thickness selectionMargin, double selectionWidth, double selectionOpacity)
+        Thickness selectionMargin, double selectionWidth, double selectionOpacity,
+        Thickness preeditUnderlineMargin, double preeditUnderlineWidth, double preeditUnderlineOpacity,
+        int preeditVisualStart, int preeditVisualEnd)
     {
         if (Math.Abs(CaretOpacity - caretOpacity) < 0.001
             && Math.Abs(HighlightOpacity - highlightOpacity) < 0.001
             && CaretMargin.Left == caretMargin.Left
             && Math.Abs(SelectionOpacity - selectionOpacity) < 0.001
             && SelectionMargin.Left == selectionMargin.Left
-            && Math.Abs(SelectionWidth - selectionWidth) < 0.001)
+            && Math.Abs(SelectionWidth - selectionWidth) < 0.001
+            && Math.Abs(PreeditUnderlineOpacity - preeditUnderlineOpacity) < 0.001
+            && PreeditUnderlineMargin.Left == preeditUnderlineMargin.Left
+            && Math.Abs(PreeditUnderlineWidth - preeditUnderlineWidth) < 0.001
+            && PreeditVisualStart == preeditVisualStart
+            && PreeditVisualEnd == preeditVisualEnd)
         {
             return this;
         }
-        return new(this, caretOpacity, highlightOpacity, caretMargin, selectionMargin, selectionWidth, selectionOpacity);
+        return new(this, caretOpacity, highlightOpacity, caretMargin, selectionMargin, selectionWidth, selectionOpacity, preeditUnderlineMargin, preeditUnderlineWidth, preeditUnderlineOpacity)
+        {
+            PreeditVisualStart = preeditVisualStart,
+            PreeditVisualEnd = preeditVisualEnd,
+        };
     }
 
     /// <summary>
@@ -162,6 +193,9 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         SelectionMargin  = source._selectionMargin;
         SelectionWidth   = source._selectionWidth;
         SelectionOpacity = source._selectionOpacity;
+        PreeditUnderlineMargin = source._preeditUnderlineMargin;
+        PreeditUnderlineWidth = source._preeditUnderlineWidth;
+        PreeditUnderlineOpacity = source._preeditUnderlineOpacity;
 
         // Text / runs — only change when line content was re-highlighted.
         if (Text != source.Text)
@@ -196,10 +230,23 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             Notify(nameof(SelectionBorderBrush));
             Notify(nameof(SelectionBorderThickness));
         }
+        if (!ReferenceEquals(PreeditUnderlineBrush, source.PreeditUnderlineBrush))
+        {
+            PreeditUnderlineBrush = source.PreeditUnderlineBrush;
+            Notify(nameof(PreeditUnderlineBrush));
+        }
         if (!ReferenceEquals(ReferenceSegments, source.ReferenceSegments))
         {
             ReferenceSegments = source.ReferenceSegments;
             Notify(nameof(ReferenceSegments));
+        }
+        if (PreeditVisualStart != source.PreeditVisualStart)
+        {
+            PreeditVisualStart = source.PreeditVisualStart;
+        }
+        if (PreeditVisualEnd != source.PreeditVisualEnd)
+        {
+            PreeditVisualEnd = source.PreeditVisualEnd;
         }
         if (FoldMarker != source.FoldMarker)
         {
@@ -262,15 +309,31 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
     private double _selectionOpacity;
     public double SelectionOpacity { get => _selectionOpacity; internal set { if (Math.Abs(_selectionOpacity - value) > 0.001) { _selectionOpacity = value; Notify(); } } }
 
+    private Thickness _preeditUnderlineMargin;
+    public Thickness PreeditUnderlineMargin { get => _preeditUnderlineMargin; internal set { if (_preeditUnderlineMargin.Left != value.Left) { _preeditUnderlineMargin = value; Notify(); } } }
+
+    private double _preeditUnderlineWidth;
+    public double PreeditUnderlineWidth { get => _preeditUnderlineWidth; internal set { if (Math.Abs(_preeditUnderlineWidth - value) > 0.001) { _preeditUnderlineWidth = value; Notify(); } } }
+
+    private double _preeditUnderlineOpacity;
+    public double PreeditUnderlineOpacity { get => _preeditUnderlineOpacity; internal set { if (Math.Abs(_preeditUnderlineOpacity - value) > 0.001) { _preeditUnderlineOpacity = value; Notify(); } } }
+
     public SolidColorBrush LineHighlightBrush   { get; private set; }
     public SolidColorBrush SelectionBrush       { get; private set; }
     public SolidColorBrush? SelectionBorderBrush { get; private set; }
     public Thickness SelectionBorderThickness => SelectionBorderBrush is null ? new Thickness(0) : new Thickness(1);
+    public SolidColorBrush PreeditUnderlineBrush { get; private set; }
     public SolidColorBrush CaretBrush           { get; private set; }
     public SolidColorBrush GutterForegroundBrush { get; private set; }
 
     /// <summary>Reference segments that fall within this line (for underline rendering).</summary>
     public IReadOnlyList<ReferenceSegment> ReferenceSegments { get; private set; }
+
+    private int _preeditVisualStart;
+    public int PreeditVisualStart { get => _preeditVisualStart; internal set { if (_preeditVisualStart != value) { _preeditVisualStart = value; Notify(); } } }
+
+    private int _preeditVisualEnd;
+    public int PreeditVisualEnd { get => _preeditVisualEnd; internal set { if (_preeditVisualEnd != value) { _preeditVisualEnd = value; Notify(); } } }
 
     /// <summary>Pre-computed color runs for syntax-highlighted rendering.</summary>
     public IReadOnlyList<TextRun> Runs { get; private set; }

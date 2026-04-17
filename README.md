@@ -18,13 +18,15 @@ Current scope:
 
 > If you are looking for support of a specific platform, business sponsorship is the way to accelerate that work. Please reach out to us at [homepage](https://lextudio.com).
 
-## Deliverables
+## Get Started
 
 The main deliverable is a few NuGet packages:
 
-- `UnoEdit` — the core editor component, including document model, editing engine, and platform-agnostic UI logic.
-- `UnoEdit.TextMate` — optional TextMate integration library built on top of `UnoEdit`.
-- `LeXtudio.UI.Text.Core` — the core text rendering and layout engine, shared across UnoEdit and potentially other text-based controls.
+- [![NuGet](https://img.shields.io/nuget/v/LeXtudio.UnoEdit.svg?label=LeXtudio.UnoEdit)](https://www.nuget.org/packages/LeXtudio.UnoEdit) The core editor component, including document model, editing engine, and platform-agnostic UI logic.
+- [![NuGet](https://img.shields.io/nuget/v/LeXtudio.UnoEdit.TextMate.svg?label=LeXtudio.UnoEdit.TextMate)](https://www.nuget.org/packages/LeXtudio.UnoEdit.TextMate) Optional TextMate integration library built on top of UnoEdit.
+- [![NuGet](https://img.shields.io/nuget/v/LeXtudio.UI.Text.Core.svg?label=LeXtudio.UI.Text.Core)](https://www.nuget.org/packages/LeXtudio.UI.Text.Core) The core text rendering and layout engine, shared across UnoEdit and potentially other text-based controls.
+
+Clone this repo and check out the sample projects to see how to use UnoEdit in your own applications (Uno Platform and WinUI 3).
 
 ## Current Status
 

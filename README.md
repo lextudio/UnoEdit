@@ -2,7 +2,7 @@
 
 UnoEdit is a desktop-first port of AvalonEdit to Uno Platform.
 
-![UnoEdit on macOS](https://raw.githubusercontent.com/LeXtudio/UnoEdit/main/images/macos.png)
+![UnoEdit on macOS](https://github.com/lextudio/UnoEdit/blob/master/images/macos.png?raw=true)
 
 Current scope:
 

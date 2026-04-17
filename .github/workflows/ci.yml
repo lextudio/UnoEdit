@@ -27,10 +27,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.x'
-      - name: Restore
-        run: dotnet restore ${{ matrix.solution }}
-      - name: Build
-        run: dotnet build -c Release --no-restore ${{ matrix.solution }}
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: ./build.windows.bat
+      - name: Build (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: dotnet build -c Release ${{ matrix.solution }}
       - name: Run unit tests
         run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" ${{ matrix.solution }}
 

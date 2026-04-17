@@ -45,8 +45,10 @@ namespace UnoEdit.Skia.Desktop.Controls
                     StartCaretPosition = Math.Min(selectionStart, selectionEnd),
                     EndCaretPosition = Math.Max(selectionStart, selectionEnd),
                 });
+#if !WINDOWS_APP_SDK
                 context.RasterizationScale = scale;
                 context.NotifyCaretRectChanged(caretRect.X, caretRect.Y, caretRect.Width, caretRect.Height);
+#endif
             }
 
 
@@ -71,11 +73,6 @@ namespace UnoEdit.Skia.Desktop.Controls
             _ = context;
         }
 
-        public event EventHandler<CoreTextCommandReceivedEventArgs> CommandReceived
-        {
-            add { }
-            remove { }
-        }
 #endif
         }
 

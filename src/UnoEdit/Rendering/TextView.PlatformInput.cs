@@ -110,7 +110,9 @@ public sealed partial class TextView
         _coreTextEditContext.CompositionStarted -= CoreTextEditContext_CompositionStarted;
         _coreTextEditContext.CompositionCompleted -= CoreTextEditContext_CompositionCompleted;
         _coreTextEditContext.FocusRemoved -= CoreTextEditContext_FocusRemoved;
+#if !WINDOWS_APP_SDK
         _coreTextEditContext.CommandReceived -= CoreTextEditContext_CommandReceived;
+#endif
         _coreTextEditContext.Dispose();
         _coreTextEditContext = null;
     }
@@ -136,7 +138,9 @@ public sealed partial class TextView
             _coreTextEditContext.CompositionStarted += CoreTextEditContext_CompositionStarted;
             _coreTextEditContext.CompositionCompleted += CoreTextEditContext_CompositionCompleted;
             _coreTextEditContext.FocusRemoved += CoreTextEditContext_FocusRemoved;
+#if !WINDOWS_APP_SDK
             _coreTextEditContext.CommandReceived += CoreTextEditContext_CommandReceived;
+#endif
 
             bool attached = _coreTextEditContext.AttachToCurrentWindow(Window.Current);
             if (attached)

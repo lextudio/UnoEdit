@@ -72,11 +72,17 @@ if not exist "%SOLUTION%" (
 	)
 )
 
+rem Determine build configuration (default: Debug, override with first argument)
+set "CONFIG=Debug"
+if not "%~1"=="" (
+	set "CONFIG=%~1"
+)
+
 rem Build the solution and capture exit code properly using delayed expansion
 if defined MSBUILD_PATH (
-	echo Running MSBuild...
-	"%MSBUILD_PATH%" "%SOLUTION%" /t:restore /p:Configuration=Debug /m /verbosity:minimal /nologo
-	"%MSBUILD_PATH%" "%SOLUTION%" /p:Configuration=Debug /m /verbosity:minimal /nologo
+	echo Running MSBuild with Configuration=!CONFIG!...
+	"%MSBUILD_PATH%" "%SOLUTION%" /t:restore /p:Configuration=!CONFIG! /m /verbosity:minimal /nologo
+	"%MSBUILD_PATH%" "%SOLUTION%" /p:Configuration=!CONFIG! /m /verbosity:minimal /nologo
 	set "RC=!ERRORLEVEL!"
 ) else (
 	echo No MSBuild found. Failed.

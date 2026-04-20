@@ -1,6 +1,6 @@
 # UnoEdit
 
-UnoEdit is a desktop-first port of AvalonEdit to [Uno Platform](https://platform.uno).
+UnoEdit is a desktop-first port of AvalonEdit to [Uno Platform](https://platform.uno) and [WinUI 3](https://learn.microsoft.com/windows/apps/winui/winui3/).
 
 ![UnoEdit on macOS](https://github.com/lextudio/UnoEdit/blob/master/images/macos.png?raw=true)
 

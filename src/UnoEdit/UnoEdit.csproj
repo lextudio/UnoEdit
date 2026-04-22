@@ -1,16 +1,17 @@
 <Project Sdk="Uno.Sdk">
   <PropertyGroup>
     <!-- Detect Windows at MSBuild time and only include the Windows TFM on Windows hosts.
-         On macOS/Linux this will leave the project targeting only net10.0-desktop so
+         On macOS/Linux this will leave the project targeting only net9.0-desktop so
          WinUI/Windows-only targets won't be attempted. -->
-    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
-    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks>net9.0-desktop</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
     <!-- Support building for all RIDs to ensure native assets are properly handled -->
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;osx-x64</RuntimeIdentifiers>
     <AssemblyName>UnoEdit</AssemblyName>
     <RootNamespace>ICSharpCode.AvalonEdit</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>$(NoWarn);1574;1591;8632;UNO0006</NoWarn>
@@ -41,7 +42,7 @@
   </ItemGroup>
 
   <!-- WinUI / Windows-specific properties (only applied when building the windows target) -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
     <UseWinUI>true</UseWinUI>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
@@ -78,7 +79,6 @@
     <Compile Include="Editing\SelectionMouseHandler.uno.cs" />
     <Compile Include="Editing\CaretNavigationCommandHandler.uno.cs" />
     <Compile Include="Editing\EditingCommandHandler.uno.cs" />
-    <Compile Include="Highlighting\IHighlightedLineSourceWarmup.cs" />
     <Compile Include="Logging\HighlightLogger.cs" />
     <Compile Include="Search\ISearchPanelHost.cs" />
     <Compile Include="Search\SearchPanel.xaml.uno.cs" />
@@ -325,19 +325,19 @@
                       LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop' AND '$(UseNuGetPackage)' != 'true'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-desktop' AND '$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="..\..\external\coretext\src\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
   <!-- Import native asset targets for project references (NuGet packages import via buildTransitive) -->
   <Import Project="../../external/coretext/src/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackage)' != 'true'" />
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop' AND '$(UseNuGetPackage)' == 'true'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-desktop' AND '$(UseNuGetPackage)' == 'true'">
     <PackageReference Include="LeXtudio.UI.Text.Core" />
   </ItemGroup>
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
@@ -348,7 +348,7 @@
           AfterTargets="Build"
           Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == '') and '$(UseNuGetPackage)' != 'true'">
     <ItemGroup>
-      <NativeTextCoreAssets Include="../../external/coretext/src/bin/$(Configuration)/net10.0-desktop/libUnoEditMacInput.dylib" />
+      <NativeTextCoreAssets Include="../../external/coretext/src/bin/$(Configuration)/net9.0-desktop/libUnoEditMacInput.dylib" />
     </ItemGroup>
 
     <Copy SourceFiles="@(NativeTextCoreAssets)"
@@ -390,7 +390,7 @@
     </ItemGroup>
   </Target>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
     <!-- WinUI-specific control surface now lives in this project -->
     <Page Include="Controls\TextEditor.xaml" />
     <Compile Include="Controls\TextEditor.xaml.cs">

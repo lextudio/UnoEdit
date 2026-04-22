@@ -162,14 +162,16 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			if (document == null || model == null || theme == null)
 				return null;
 
+			if (lineHighlightCache.TryGetValue(lineNumber, out CachedLineHighlight cachedLine) && cachedLine.IsComplete) {
+				LogTM($"HighlightLine lineNumber={lineNumber} cache=hit sections={(cachedLine.HighlightedLine == null ? 0 : cachedLine.HighlightedLine.Sections.Count)}");
+				return cachedLine.HighlightedLine;
+			}
+
 			int modelLineIndex = lineNumber - 1;
 			DocumentLine line = document.GetLineByNumber(lineNumber);
 			List<TMToken> tokens = model.GetLineTokens(modelLineIndex);
 			if (tokens == null) {
-				LogTM($"HighlightLine lineNumber={lineNumber} tokens=null cache={(lineHighlightCache.ContainsKey(lineNumber) ? "hit" : "miss")}");
-				if (lineHighlightCache.TryGetValue(lineNumber, out CachedLineHighlight cachedLine) && cachedLine.IsComplete) {
-					return cachedLine.HighlightedLine;
-				}
+				LogTM($"HighlightLine lineNumber={lineNumber} tokens=null cache=miss");
 				return null;
 			}
 
@@ -332,6 +334,18 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			lineHighlightCache.Clear();
 		}
 
+		void InvalidateCachedLineRange(int startLineNumber, int endLineNumber)
+		{
+			if (lineHighlightCache.Count == 0)
+				return;
+
+			startLineNumber = Math.Max(1, startLineNumber);
+			endLineNumber = Math.Max(startLineNumber, endLineNumber);
+			for (int lineNumber = startLineNumber; lineNumber <= endLineNumber; lineNumber++) {
+				lineHighlightCache.Remove(lineNumber);
+			}
+		}
+
 		void RaiseHighlightingInvalidated()
 		{
 			HighlightingInvalidated?.Invoke(this, EventArgs.Empty);
@@ -360,6 +374,8 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			if (firstChangedLine == int.MaxValue || lastChangedLine < 0) {
 				return;
 			}
+
+			InvalidateCachedLineRange(firstChangedLine, lastChangedLine);
 
 			int firstVisibleLine = textView.FirstVisibleLineNumber;
 			int lastVisibleLine = textView.LastVisibleLineNumber;

@@ -199,6 +199,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private bool _highlightingDataInvalidated;
     private bool _caretVisible = true;
     private readonly HashSet<int> _dirtyHighlightedLines = new();
+    private bool _highlightRangeRefreshQueued;
 
     private static void LogFlash(string msg) { HighlightLogger.Log("Flash", msg); }
     private static void LogRender(string msg) { HighlightLogger.Log("Render", msg); }
@@ -649,7 +650,29 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         LogFlash($"range queued: external highlighting invalidated lines={e.StartLineNumber}-{e.EndLineNumber}");
-        RefreshViewport();
+        QueueHighlightedRangeRefresh();
+    }
+
+    private void QueueHighlightedRangeRefresh()
+    {
+        if (_highlightRangeRefreshQueued)
+        {
+            return;
+        }
+
+        _highlightRangeRefreshQueued = true;
+
+        void RefreshQueuedRange()
+        {
+            _highlightRangeRefreshQueued = false;
+            RefreshViewport();
+        }
+
+        var dispatcherQueue = DispatcherQueue;
+        if (dispatcherQueue is null || !dispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, RefreshQueuedRange))
+        {
+            RefreshQueuedRange();
+        }
     }
 
     /// <summary>Update named chrome elements in the XAML tree to match the current <see cref="Theme"/>.</summary>
@@ -792,8 +815,54 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private void OnScrollViewerViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
     {
         LogRender($"view-changed intermediate={e.IsIntermediate} h={TextScrollViewer.HorizontalOffset:0.###} v={TextScrollViewer.VerticalOffset:0.###} viewportH={TextScrollViewer.ViewportHeight:0.###} lines={_lines.Count}");
+        PublishScrollOffset();
+        if (CanSkipScrollRefresh())
+        {
+            UpdatePlatformInputBridge();
+            return;
+        }
+
         RefreshViewport();
         UpdatePlatformInputBridge();
+    }
+
+    private bool CanSkipScrollRefresh()
+    {
+        if (_document is null || _pendingFullRebuild || _highlightingDataInvalidated || _dirtyHighlightedLines.Count > 0)
+        {
+            return false;
+        }
+
+        if (!TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow))
+        {
+            return false;
+        }
+
+        return firstVisualRow == _prevFirstVisualRow && lastVisualRow == _prevLastVisualRow;
+    }
+
+    private bool TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow)
+    {
+        firstVisualRow = -1;
+        lastVisualRow = -1;
+
+        int totalVisualRows = _visibleDocLines.Count;
+        if (totalVisualRows <= 0)
+        {
+            return false;
+        }
+
+        double verticalOffset = TextScrollViewer.VerticalOffset;
+        double viewportHeight = TextScrollViewer.ViewportHeight;
+        if (viewportHeight <= 0)
+        {
+            viewportHeight = ActualHeight > 0 ? ActualHeight : 400;
+        }
+
+        int visibleRowCount = Math.Max(1, (int)Math.Ceiling(viewportHeight / LineHeight) + (OverscanLineCount * 2));
+        firstVisualRow = Math.Max(0, ((int)(verticalOffset / LineHeight)) - OverscanLineCount);
+        lastVisualRow = Math.Min(totalVisualRows - 1, firstVisualRow + visibleRowCount - 1);
+        return lastVisualRow >= firstVisualRow;
     }
 
     private void HandleCurrentOffsetChanged(int offset)

@@ -58,6 +58,22 @@ namespace UnoEdit.Tests.TextMate
             Assert.That(invalidations, Is.GreaterThan(0));
         }
 
+        [Test]
+        public void HighlightLine_ReusesCachedHighlightedLine_WhenTokensStayStable()
+        {
+            var document = new TextDocument("public static class Demo { }\n");
+            var highlighter = new TextMateLineHighlighter(new RegistryOptions(ThemeName.DarkPlus));
+            highlighter.SetTextView(new MockTextView());
+            highlighter.SetDocument(document);
+            highlighter.SetGrammarByExtension(".cs");
+
+            var first = WaitForHighlightedLine(highlighter, 1);
+            var second = highlighter.HighlightLine(1);
+
+            Assert.That(first, Is.Not.Null);
+            Assert.That(second, Is.SameAs(first));
+        }
+
         private static HighlightedLine WaitForHighlightedLine(TextMateLineHighlighter highlighter, int lineNumber)
         {
             var deadline = Stopwatch.StartNew();

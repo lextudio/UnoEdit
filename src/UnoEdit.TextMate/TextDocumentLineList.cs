@@ -22,6 +22,11 @@ namespace ICSharpCode.AvalonEdit.TextMate
 		readonly Action<Exception> exceptionHandler;
 		DocumentSnapshot documentSnapshot;
 		InvalidLineRange invalidRange;
+		bool viewportTokenizationQueued;
+		int queuedViewportStartLine = -1;
+		int queuedViewportEndLine = -1;
+		int lastTokenizedViewportStartLine = -1;
+		int lastTokenizedViewportEndLine = -1;
 
 		public DocumentSnapshot DocumentSnapshot {
 			get { return documentSnapshot; }
@@ -41,7 +46,6 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			document.Changed += DocumentOnChanged;
 			document.UpdateFinished += DocumentOnUpdateFinished;
 			textView.VisibleLinesChanged += TextView_VisibleLinesChanged;
-			textView.ScrollOffsetChanged += TextView_ScrollOffsetChanged;
 		}
 
 		public override void Dispose()
@@ -50,7 +54,6 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			document.Changed -= DocumentOnChanged;
 			document.UpdateFinished -= DocumentOnUpdateFinished;
 			textView.VisibleLinesChanged -= TextView_VisibleLinesChanged;
-			textView.ScrollOffsetChanged -= TextView_ScrollOffsetChanged;
 		}
 
 		public override void UpdateLine(int lineIndex)
@@ -169,34 +172,62 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			}
 		}
 
-		void TextView_ScrollOffsetChanged(object? sender, EventArgs e)
-		{
-			try {
-				TokenizeViewPort();
-			} catch (Exception ex) {
-				exceptionHandler?.Invoke(ex);
-			}
-		}
-
 		void TokenizeViewPort()
 		{
 			DispatcherQueue? dispatcherQueue = textView.DispatcherQueue;
 			if (dispatcherQueue is null) {
-				ForceTokenizeVisibleRange();
+				if (!TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex))
+					return;
+				ForceTokenizeVisibleRange(startLineIndex, endLineIndex);
 				return;
 			}
 
-			bool enqueued = dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, ForceTokenizeVisibleRange);
+			if (viewportTokenizationQueued) {
+				if (TryGetVisibleLineRange(out int queuedStartLineIndex, out int queuedEndLineIndex)) {
+					queuedViewportStartLine = queuedStartLineIndex;
+					queuedViewportEndLine = queuedEndLineIndex;
+				}
+				return;
+			}
+
+			if (!TryGetVisibleLineRange(out int currentStartLineIndex, out int currentEndLineIndex))
+				return;
+
+			viewportTokenizationQueued = true;
+			queuedViewportStartLine = currentStartLineIndex;
+			queuedViewportEndLine = currentEndLineIndex;
+			bool enqueued = dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, ForceQueuedVisibleRange);
 			if (!enqueued) {
-				ForceTokenizeVisibleRange();
+				viewportTokenizationQueued = false;
+				int queuedStart = queuedViewportStartLine;
+				int queuedEnd = queuedViewportEndLine;
+				queuedViewportStartLine = -1;
+				queuedViewportEndLine = -1;
+				ForceTokenizeVisibleRange(queuedStart, queuedEnd);
 			}
 		}
 
-		void ForceTokenizeVisibleRange()
+		void ForceQueuedVisibleRange()
 		{
+			viewportTokenizationQueued = false;
+			queuedViewportStartLine = -1;
+			queuedViewportEndLine = -1;
+
 			if (!TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex))
 				return;
 
+			ForceTokenizeVisibleRange(startLineIndex, endLineIndex);
+		}
+
+		void ForceTokenizeVisibleRange(int startLineIndex, int endLineIndex)
+		{
+			if (startLineIndex == lastTokenizedViewportStartLine && endLineIndex == lastTokenizedViewportEndLine) {
+				LogTMModel($"ForceTokenizeVisibleRange skipped duplicate startLineIndex={startLineIndex} endLineIndex={endLineIndex}");
+				return;
+			}
+
+			lastTokenizedViewportStartLine = startLineIndex;
+			lastTokenizedViewportEndLine = endLineIndex;
 			LogTMModel($"ForceTokenizeVisibleRange startLineIndex={startLineIndex} endLineIndex={endLineIndex}");
 			ForceTokenization(startLineIndex, endLineIndex);
 		}

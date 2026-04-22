@@ -1,4 +1,4 @@
-using UnoEdit.Skia.Desktop.Controls;
+using ICSharpCode.AvalonEdit.Rendering;
 
 namespace ICSharpCode.AvalonEdit.Highlighting
 {
@@ -8,6 +8,6 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 	/// </summary>
 	public interface ITextViewAwareHighlightedLineSource
 	{
-		void SetTextView(TextView? textView);
+		void SetTextView(ITextView? textView);
 	}
 }

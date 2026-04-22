@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Rendering;
 using UnoEdit.Logging;
 using UnoEdit.Skia.Desktop.Controls;
 using TextMateSharp.Grammars;
@@ -32,7 +33,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		TextDocument document;
 		TextDocument cachedDocument;
-		TextView textView;
+		ITextView textView;
 		TextDocumentLineList lineList;
 		TMModel model;
 		IGrammar grammar;
@@ -58,7 +59,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		public IRegistryOptions RegistryOptions => registryOptions;
 
-		public void SetTextView(TextView textView)
+		public void SetTextView(ITextView textView)
 		{
 			if (ReferenceEquals(this.textView, textView))
 				return;

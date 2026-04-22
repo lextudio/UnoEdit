@@ -1,5 +1,6 @@
 using System;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Dispatching;
 using TextMateSharp.Grammars;
 using TextMateSharp.Model;
@@ -17,7 +18,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 		static void LogTMModel(string msg) { HighlightLogger.Log("TMModel", msg); }
 
 		readonly TextDocument document;
-		readonly TextView textView;
+		readonly ITextView textView;
 		readonly Action<Exception> exceptionHandler;
 		DocumentSnapshot documentSnapshot;
 		InvalidLineRange invalidRange;
@@ -26,7 +27,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			get { return documentSnapshot; }
 		}
 
-		public TextDocumentLineList(TextView textView, TextDocument document, Action<Exception> exceptionHandler = null)
+		public TextDocumentLineList(ITextView textView, TextDocument document, Action<Exception> exceptionHandler = null)
 		{
 			this.textView = textView ?? throw new ArgumentNullException(nameof(textView));
 			this.document = document ?? throw new ArgumentNullException(nameof(document));

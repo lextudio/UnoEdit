@@ -171,6 +171,7 @@
     <Compile Include="Rendering\IVisualLineTransformer.cs" />
     <Compile Include="Rendering\ITextViewConnect.cs" />
     <Compile Include="Rendering\IBackgroundRenderer.cs" />
+    <Compile Include="Rendering\ITextView.cs" />
     <Compile Include="Rendering\VisualLineElementGenerator.cs" />
     <Compile Include="Rendering\ColorizingTransformer.cs" />
     <Compile Include="Rendering\DocumentColorizingTransformer.cs" />

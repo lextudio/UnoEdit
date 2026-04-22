@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.Rendering;
 using ICSharpCode.AvalonEdit.TextMate;
+using Microsoft.UI.Dispatching;
 using NUnit.Framework;
 using TextMateSharp.Grammars;
 
@@ -13,11 +15,21 @@ namespace UnoEdit.Tests.TextMate
     [TestFixture]
     public class TextMateLineHighlighterTests
     {
+        class MockTextView : ITextView
+        {
+            public event EventHandler VisibleLinesChanged;
+            public event EventHandler ScrollOffsetChanged;
+            public int FirstVisibleLineNumber => 0;
+            public int LastVisibleLineNumber => int.MaxValue;
+            public DispatcherQueue DispatcherQueue => null;
+        }
+
         [Test]
         public void HighlightLine_ReturnsSections_ForCSharpKeywords()
         {
             var document = new TextDocument("public static class Demo { }\n");
             var highlighter = new TextMateLineHighlighter(new RegistryOptions(ThemeName.DarkPlus));
+            highlighter.SetTextView(new MockTextView());
             highlighter.SetDocument(document);
             highlighter.SetGrammarByExtension(".cs");
 
@@ -34,6 +46,7 @@ namespace UnoEdit.Tests.TextMate
             var document = new TextDocument("public class Demo {}\n");
             var registryOptions = new RegistryOptions(ThemeName.DarkPlus);
             var highlighter = new TextMateLineHighlighter(registryOptions);
+            highlighter.SetTextView(new MockTextView());
             highlighter.SetDocument(document);
             highlighter.SetGrammarByExtension(".cs");
 

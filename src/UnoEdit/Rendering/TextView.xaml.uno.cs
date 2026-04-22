@@ -21,7 +21,7 @@ using Windows.Foundation;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
-public sealed partial class TextView : UserControl, ICaretAnchorProvider
+public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextView
 {
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(

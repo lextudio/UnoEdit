@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.4.0] - 2026-04-22
+
+- Fixed a few scrolling issues.
+
 ## [v0.3.0] - 2026-04-21
 
 - Improved TextMate rendering stability.

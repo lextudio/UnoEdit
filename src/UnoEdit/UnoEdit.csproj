@@ -82,6 +82,8 @@
     <Compile Include="Highlighting\HighlightedLineRangeInvalidatedEventArgs.cs" />
     <Compile Include="Highlighting\IRangeInvalidatingHighlightedLineSource.cs" />
     <Compile Include="Highlighting\ITextViewAwareHighlightedLineSource.cs" />
+    <Compile Include="Highlighting\IVisibleRangeReadyHighlightedLineSource.cs" />
+    <Compile Include="Highlighting\IVisibleRangeWarmableHighlightedLineSource.cs" />
     <Compile Include="Logging\HighlightLogger.cs" />
     <Compile Include="Search\ISearchPanelHost.cs" />
     <Compile Include="Search\SearchPanel.xaml.uno.cs" />

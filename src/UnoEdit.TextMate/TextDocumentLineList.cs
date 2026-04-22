@@ -232,6 +232,16 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			ForceTokenization(startLineIndex, endLineIndex);
 		}
 
+		public void WarmLineRange(int startLineIndex, int endLineIndex)
+		{
+			if (document.LineCount == 0)
+				return;
+
+			startLineIndex = Math.Clamp(startLineIndex, 0, document.LineCount - 1);
+			endLineIndex = Math.Clamp(endLineIndex, startLineIndex, document.LineCount - 1);
+			ForceTokenizeVisibleRange(startLineIndex, endLineIndex);
+		}
+
 		bool TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex)
 		{
 			startLineIndex = -1;

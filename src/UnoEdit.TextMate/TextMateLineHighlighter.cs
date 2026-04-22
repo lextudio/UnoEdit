@@ -19,7 +19,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 	/// <summary>
 	/// TextMateSharp-backed highlighted-line source for UnoEdit.
 	/// </summary>
-	public sealed class TextMateLineHighlighter : IHighlightedLineSource, ITextViewAwareHighlightedLineSource, IModelTokensChangedListener
+	public sealed class TextMateLineHighlighter : IHighlightedLineSource, ITextViewAwareHighlightedLineSource, IVisibleRangeWarmableHighlightedLineSource, IVisibleRangeReadyHighlightedLineSource, IModelTokensChangedListener
 	{
 		static void LogTM(string msg) { HighlightLogger.Log("TM", msg); }
 
@@ -171,8 +171,14 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			DocumentLine line = document.GetLineByNumber(lineNumber);
 			List<TMToken> tokens = model.GetLineTokens(modelLineIndex);
 			if (tokens == null) {
-				LogTM($"HighlightLine lineNumber={lineNumber} tokens=null cache=miss");
-				return null;
+				LogTM($"HighlightLine lineNumber={lineNumber} tokens=null cache=miss retry=warm");
+				model.InvalidateLine(modelLineIndex);
+				lineList?.WarmLineRange(modelLineIndex, modelLineIndex);
+				tokens = model.GetLineTokens(modelLineIndex);
+				if (tokens == null) {
+					LogTM($"HighlightLine lineNumber={lineNumber} tokens=null cache=miss retry=failed");
+					return null;
+				}
 			}
 
 			if (tokens.Count == 0) {
@@ -213,6 +219,33 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 			lineHighlightCache[lineNumber] = new CachedLineHighlight { HighlightedLine = highlightedLine, IsComplete = true };
 			return highlightedLine;
+		}
+
+		public void WarmVisibleLineRange(int startLineNumber, int endLineNumber)
+		{
+			if (document == null || lineList == null || model == null)
+				return;
+
+			int startLineIndex = Math.Max(0, startLineNumber - 1);
+			int endLineIndex = Math.Max(startLineIndex, endLineNumber - 1);
+			LogTM($"WarmVisibleLineRange startLine={startLineNumber} endLine={endLineNumber}");
+			lineList.WarmLineRange(startLineIndex, endLineIndex);
+		}
+
+		public bool IsVisibleLineRangeReady(int startLineNumber, int endLineNumber)
+		{
+			if (document == null || model == null)
+				return false;
+
+			startLineNumber = Math.Max(1, startLineNumber);
+			endLineNumber = Math.Max(startLineNumber, endLineNumber);
+			for (int lineNumber = startLineNumber; lineNumber <= endLineNumber; lineNumber++) {
+				if (model.GetLineTokens(lineNumber - 1) == null) {
+					return false;
+				}
+			}
+
+			return true;
 		}
 
 		void SetGrammarInternal(IGrammar grammar)

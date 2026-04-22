@@ -201,6 +201,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private bool _caretVisible = true;
     private readonly HashSet<int> _dirtyHighlightedLines = new();
     private bool _highlightRangeRefreshQueued;
+    private bool _awaitingHighlightedLineSourceReady;
 
     private static void LogFlash(string msg) { HighlightLogger.Log("Flash", msg); }
     private static void LogRender(string msg) { HighlightLogger.Log("Render", msg); }
@@ -406,6 +407,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
             _highlightedLineSource = value;
             _highlightedLineSourceExplicitlySet = true;
+            _awaitingHighlightedLineSourceReady = false;
 
             if (_highlightedLineSource is not null)
             {
@@ -422,6 +424,21 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             }
 
             _pendingFullRebuild = true;
+            _highlightingDataInvalidated = true;
+            _dirtyHighlightedLines.Clear();
+
+            bool deferInitialRefresh =
+                _highlightedLineSource is IVisibleRangeWarmableHighlightedLineSource
+                && _highlightedLineSource is IRangeInvalidatingHighlightedLineSource;
+
+            if (deferInitialRefresh)
+            {
+                _awaitingHighlightedLineSourceReady = true;
+                WarmHighlightedLineSourceVisibleRange();
+                LogFlash("full queued: HighlightedLineSource changed (awaiting ready)");
+                return;
+            }
+
             LogFlash("full queued: HighlightedLineSource changed");
             RefreshViewport();
         }
@@ -634,17 +651,91 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
     }
 
+    private void WarmHighlightedLineSourceVisibleRange()
+    {
+        if (_highlightedLineSource is not IVisibleRangeWarmableHighlightedLineSource warmableSource)
+        {
+            return;
+        }
+
+        int startLineNumber = FirstVisibleLineNumber;
+        int endLineNumber = LastVisibleLineNumber;
+        if (startLineNumber <= 0 || endLineNumber <= 0)
+        {
+            if (!TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow)
+                || _visibleDocLines.Count == 0)
+            {
+                return;
+            }
+
+            startLineNumber = _visibleDocLines[firstVisualRow];
+            endLineNumber = _visibleDocLines[lastVisualRow];
+        }
+
+        if (startLineNumber <= 0 || endLineNumber < startLineNumber)
+        {
+            return;
+        }
+
+        LogRender($"warm-highlight visibleLines={startLineNumber}-{endLineNumber}");
+        warmableSource.WarmVisibleLineRange(startLineNumber, endLineNumber);
+    }
+
+    private bool TryGetVisibleLineNumberRange(out int startLineNumber, out int endLineNumber)
+    {
+        startLineNumber = FirstVisibleLineNumber;
+        endLineNumber = LastVisibleLineNumber;
+        if (startLineNumber > 0 && endLineNumber >= startLineNumber)
+        {
+            return true;
+        }
+
+        if (!TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow)
+            || _visibleDocLines.Count == 0)
+        {
+            startLineNumber = 0;
+            endLineNumber = 0;
+            return false;
+        }
+
+        startLineNumber = _visibleDocLines[firstVisualRow];
+        endLineNumber = _visibleDocLines[lastVisualRow];
+        return startLineNumber > 0 && endLineNumber >= startLineNumber;
+    }
+
+    private bool IsHighlightedLineSourceVisibleRangeReady()
+    {
+        if (_highlightedLineSource is not IVisibleRangeReadyHighlightedLineSource readySource)
+        {
+            return true;
+        }
+
+        if (!TryGetVisibleLineNumberRange(out int startLineNumber, out int endLineNumber))
+        {
+            return false;
+        }
+
+        return readySource.IsVisibleLineRangeReady(startLineNumber, endLineNumber);
+    }
+
     private void OnHighlightedLineSourceInvalidated(object? sender, EventArgs e)
     {
         _pendingFullRebuild = true;
         _highlightingDataInvalidated = true;
         _dirtyHighlightedLines.Clear();
+        _awaitingHighlightedLineSourceReady = false;
         LogFlash("full queued: external highlighting invalidated");
         RefreshViewport();
     }
 
     private void OnHighlightedLineSourceRangeInvalidated(object? sender, HighlightedLineRangeInvalidatedEventArgs e)
     {
+        if (_awaitingHighlightedLineSourceReady && IsHighlightedLineSourceVisibleRangeReady())
+        {
+            _pendingFullRebuild = true;
+            _awaitingHighlightedLineSourceReady = false;
+        }
+
         _highlightingDataInvalidated = true;
         for (int lineNumber = e.StartLineNumber; lineNumber <= e.EndLineNumber; lineNumber++)
         {
@@ -1049,6 +1140,16 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         HashSet<int>? dirtyHighlightedLines = _dirtyHighlightedLines.Count > 0
             ? new HashSet<int>(_dirtyHighlightedLines)
             : null;
+        int expectedCount = lastVisualRow - firstVisualRow + 1;
+
+        if (_awaitingHighlightedLineSourceReady && !IsHighlightedLineSourceVisibleRangeReady())
+        {
+            LogFlash($"defer full rebuild: highlighted source not ready lines={_firstVisibleLineNumber}-{_lastVisibleLineNumber}");
+            QueueHighlightedRangeRefresh();
+            sw.Stop();
+            LogPerf($"refresh-core reason={reason} path=deferred-highlight rows={firstVisualRow}-{lastVisualRow} expectedCount={expectedCount} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
+            return;
+        }
 
         // ── Partial-update fast path ────────────────────────────────────────────
         // When only caret/selection positions changed (no text, fold, or theme
@@ -1193,21 +1294,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             return;
         }
 
-        // ── Full rebuild ────────────────────────────────────────────────────────
-        _pendingFullRebuild = false;
-        _highlightingDataInvalidated = false;
-        _dirtyHighlightedLines.Clear();
-        _prevFirstVisualRow = firstVisualRow;
-        _prevLastVisualRow  = lastVisualRow;
-        _prevTheme          = Theme;
-        _prevHighlightedLineSource = _highlightedLineSource;
-
-        int expectedCount = lastVisualRow - firstVisualRow + 1;
-        LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} count={expectedCount} prevLineCount={_lines.Count} themeChanged={themeChanged}");
-
-        // Build new view-models into a temporary list first so we can decide
-        // whether to update in-place (avoids Clear() which flashes a blank frame)
-        // or do a full Clear+Add (only needed when the row count changes).
         bool canReuseExisting = _lines.Count == expectedCount;
         Dictionary<int, (TextLineViewModel ViewModel, int Index)>? reusableViewModelsByLineNumber = null;
         if (canReuseExisting && !themeChanged && !highlighterChanged && ReferenceSegmentSource is null)
@@ -1222,142 +1308,76 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                 }
             }
         }
+
+        int rowDelta = _prevFirstVisualRow >= 0 ? firstVisualRow - _prevFirstVisualRow : 0;
+        bool canApplyScrollShift =
+            !_pendingFullRebuild
+            && !themeChanged
+            && !highlighterChanged
+            && !highlightingInvalidated
+            && dirtyHighlightedLines is null
+            && canReuseExisting
+            && ReferenceSegmentSource is null
+            && reason.StartsWith("scroll", StringComparison.Ordinal)
+            && rowDelta != 0
+            && Math.Abs(rowDelta) < expectedCount;
+
+        if (canApplyScrollShift)
+        {
+            LogFlash($"SHIFT rows={firstVisualRow}-{lastVisualRow} delta={rowDelta} count={expectedCount}");
+            if (rowDelta > 0)
+            {
+                for (int shift = 0; shift < rowDelta; shift++)
+                {
+                    var recycled = _lines[0];
+                    _lines.RemoveAt(0);
+                    int targetVisualRow = lastVisualRow - rowDelta + 1 + shift;
+                    recycled.UpdateFrom(BuildLineViewModel(targetVisualRow, expectedCount - rowDelta + shift, selectionStart, selectionEnd, hasSelection));
+                    _lines.Add(recycled);
+                }
+            }
+            else
+            {
+                int shiftCount = -rowDelta;
+                for (int shift = 0; shift < shiftCount; shift++)
+                {
+                    var recycled = _lines[_lines.Count - 1];
+                    _lines.RemoveAt(_lines.Count - 1);
+                    int targetVisualRow = firstVisualRow + (shiftCount - 1 - shift);
+                    recycled.UpdateFrom(BuildLineViewModel(targetVisualRow, shiftCount - 1 - shift, selectionStart, selectionEnd, hasSelection));
+                    _lines.Insert(0, recycled);
+                }
+            }
+
+            _pendingFullRebuild = false;
+            _highlightingDataInvalidated = false;
+            _dirtyHighlightedLines.Clear();
+            _prevFirstVisualRow = firstVisualRow;
+            _prevLastVisualRow = lastVisualRow;
+            _prevTheme = Theme;
+            _prevHighlightedLineSource = _highlightedLineSource;
+            TopSpacer.Height = firstVisualRow * LineHeight;
+            BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
+            LogVisibleLineNumbers("shift", _lines);
+            sw.Stop();
+            LogPerf($"refresh-core reason={reason} path=shift rows={firstVisualRow}-{lastVisualRow} delta={rowDelta} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
+            return;
+        }
+
+        // ── Full rebuild ────────────────────────────────────────────────────────
+        _pendingFullRebuild = false;
+        _highlightingDataInvalidated = false;
+        _dirtyHighlightedLines.Clear();
+
+        LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} count={expectedCount} prevLineCount={_lines.Count} themeChanged={themeChanged}");
+
+        // Build new view-models into a temporary list first so we can decide
+        // whether to update in-place (avoids Clear() which flashes a blank frame)
+        // or do a full Clear+Add (only needed when the row count changes).
         var newVms = new TextLineViewModel[expectedCount];
         for (int i = 0; i < expectedCount; i++)
         {
-            int vRow = firstVisualRow + i;
-            int lineNumber = _visibleDocLines[vRow];
-            DocumentLine line = _document.GetLineByNumber(lineNumber);
-            string lineText = _document.GetText(line);
-            bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
-            int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
-            // Convert logical column to visual column so tab characters are handled correctly.
-            double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
-            GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
-            GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
-            double selectionOpacity = 0d;
-            double selectionLeft = 0d;
-            double selectionWidth = 0d;
-
-            if (hasSelection)
-            {
-                int lineSelectionStart = Math.Max(selectionStart, line.Offset);
-                int lineSelectionEnd = Math.Min(selectionEnd, line.EndOffset);
-                if (lineSelectionStart < lineSelectionEnd)
-                {
-                    int startLogical = lineSelectionStart - line.Offset;
-                    int endLogical   = lineSelectionEnd   - line.Offset;
-                    double startX = GetDisplayColumnX(lineText, startLogical);
-                    double endX = GetDisplayColumnX(lineText, endLogical);
-                    selectionLeft = Math.Max(0, startX);
-                    selectionWidth = Math.Max(2, endX - startX);
-                    selectionOpacity = 0.45d;
-                }
-            }
-
-            string displayText = lineText.Length == 0 ? " " : lineText;
-            FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
-
-            // If the line text and fold-marker haven't changed, reuse the existing VM's pre-computed
-            // Runs (and ReferenceSegments) via WithCaretAndSelection.  HighlightedTextBlock will then
-            // skip its Inlines rebuild because the Runs reference is identical, eliminating
-            // the brief blank-text flash that otherwise occurs on every caret/selection change.
-            TextLineViewModel? reusableVm = null;
-            bool reusableVmMoved = false;
-            if (reusableViewModelsByLineNumber is not null)
-            {
-                if (reusableViewModelsByLineNumber.TryGetValue(lineNumber, out var reusableEntry))
-                {
-                    reusableVm = reusableEntry.ViewModel;
-                    reusableVmMoved = reusableEntry.Index != i;
-                }
-            }
-
-            if (reusableVm is not null
-                && (!highlightingInvalidated || dirtyHighlightedLines?.Contains(lineNumber) != true)
-                && reusableVm.Text == displayText
-                && reusableVm.FoldMarker == foldMarker)
-            {
-                newVms[i] = reusableVm.WithCaretAndSelection(
-                    isCaretLine && _caretVisible ? 1d : 0d,
-                    isCaretLine ? 0.18d : 0d,
-                    new Thickness(caretLeft,        0, 0, 0),
-                    new Thickness(selectionLeft,    0, 0, 0),
-                    selectionWidth,
-                    selectionOpacity,
-                    new Thickness(preeditUnderlineLeft, 0, 0, 0),
-                    preeditUnderlineWidth,
-                    preeditUnderlineOpacity,
-                    preeditVisualStart,
-                    preeditVisualEnd,
-                    forceClone: reusableVmMoved);
-                continue;
-            }
-
-            HighlightedLine? highlightedLine = null;
-            try
-            {
-                highlightedLine = _highlightedLineSource?.HighlightLine(lineNumber)
-                    ?? (_highlightedLineSourceExplicitlySet ? null : _highlighter?.HighlightLine(lineNumber));
-            }
-            catch
-            {
-                /* ignore errors during highlighting */
-            }
-            LogFlash($"line={lineNumber} highlightedLine={(highlightedLine == null ? "null" : $"{highlightedLine.Sections.Count} sections")}");
-
-            // Collect reference segments for this line, converted to line-relative visual-column offsets
-            // so HighlightedTextBlock can compare them against visual run positions directly.
-            System.Collections.Generic.IReadOnlyList<ReferenceSegment>? lineRefs = null;
-            if (ReferenceSegmentSource is { } refSrc)
-            {
-                var segs = refSrc.GetSegments(line.Offset, line.EndOffset);
-                if (segs.Count > 0)
-                {
-                    var converted = new System.Collections.Generic.List<ReferenceSegment>(segs.Count);
-                    foreach (var seg in segs)
-                    {
-                        // Clip to line boundaries, then convert to visual column range.
-                        int logStart = Math.Max(0, seg.StartOffset - line.Offset);
-                        int logEnd   = Math.Min(lineText.Length, seg.EndOffset - line.Offset);
-                        int visStart = TextLineViewModel.LogicalToVisualColumn(lineText, logStart);
-                        int visEnd   = TextLineViewModel.LogicalToVisualColumn(lineText, logEnd);
-                        converted.Add(new ReferenceSegment
-                        {
-                            StartOffset = visStart,
-                            EndOffset   = visEnd,
-                            Reference   = seg.Reference,
-                            IsLocal     = seg.IsLocal,
-                        });
-                    }
-                    lineRefs = converted;
-                }
-            }
-
-            newVms[i] = new TextLineViewModel(
-                line.LineNumber,
-                displayText,
-                isCaretLine && _caretVisible ? 1d : 0d,
-                isCaretLine ? 0.18d : 0d,
-                new Thickness(caretLeft, 0, 0, 0),
-                new Thickness(selectionLeft, 0, 0, 0),
-                selectionWidth,
-                selectionOpacity,
-                new Thickness(preeditUnderlineLeft, 0, 0, 0),
-                preeditUnderlineWidth,
-                preeditUnderlineOpacity,
-                Theme,
-                ShowLineNumbers,
-                WordWrap,
-                (LineNumbersForeground as SolidColorBrush)?.Color,
-                (SelectionBrush as SolidColorBrush)?.Color,
-                (SelectionBorder as SolidColorBrush)?.Color,
-                SelectionCornerRadius,
-                foldMarker,
-                highlightedLine,
-                lineRefs,
-                preeditVisualStart,
-                preeditVisualEnd);
+            newVms[i] = BuildLineViewModel(firstVisualRow + i, i, selectionStart, selectionEnd, hasSelection);
         }
 
         // Apply: mutate existing VMs in-place via UpdateFrom (raises only PropertyChanged
@@ -1379,10 +1399,139 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             LogVisibleLineNumbers("replace", newVms);
         }
 
+        _prevFirstVisualRow = firstVisualRow;
+        _prevLastVisualRow  = lastVisualRow;
+        _prevTheme          = Theme;
+        _prevHighlightedLineSource = _highlightedLineSource;
         TopSpacer.Height = firstVisualRow * LineHeight;
         BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
         sw.Stop();
         LogPerf($"refresh-core reason={reason} path=full rows={firstVisualRow}-{lastVisualRow} expectedCount={expectedCount} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
+    }
+
+    private TextLineViewModel BuildLineViewModel(int visualRow, int targetIndex, int selectionStart, int selectionEnd, bool hasSelection)
+    {
+        int lineNumber = _visibleDocLines[visualRow];
+        DocumentLine line = _document!.GetLineByNumber(lineNumber);
+        string lineText = _document.GetText(line);
+        bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
+        int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
+        double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
+        GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
+        GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
+        double selectionOpacity = 0d;
+        double selectionLeft = 0d;
+        double selectionWidth = 0d;
+
+        if (hasSelection)
+        {
+            int lineSelectionStart = Math.Max(selectionStart, line.Offset);
+            int lineSelectionEnd = Math.Min(selectionEnd, line.EndOffset);
+            if (lineSelectionStart < lineSelectionEnd)
+            {
+                int startLogical = lineSelectionStart - line.Offset;
+                int endLogical = lineSelectionEnd - line.Offset;
+                double startX = GetDisplayColumnX(lineText, startLogical);
+                double endX = GetDisplayColumnX(lineText, endLogical);
+                selectionLeft = Math.Max(0, startX);
+                selectionWidth = Math.Max(2, endX - startX);
+                selectionOpacity = 0.45d;
+            }
+        }
+
+        string displayText = lineText.Length == 0 ? " " : lineText;
+        FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
+
+        if (!(_highlightingDataInvalidated || _dirtyHighlightedLines.Count > 0)
+            && ReferenceSegmentSource is null
+            && ReferenceEquals(_highlightedLineSource, _prevHighlightedLineSource))
+        {
+            for (int existingIndex = 0; existingIndex < _lines.Count; existingIndex++)
+            {
+                var existingVm = _lines[existingIndex];
+                if (int.TryParse(existingVm.LineNumber, out int existingLineNumber)
+                    && existingLineNumber == lineNumber
+                    && existingVm.Text == displayText
+                    && existingVm.FoldMarker == foldMarker)
+                {
+                    return existingVm.WithCaretAndSelection(
+                        isCaretLine && _caretVisible ? 1d : 0d,
+                        isCaretLine ? 0.18d : 0d,
+                        new Thickness(caretLeft, 0, 0, 0),
+                        new Thickness(selectionLeft, 0, 0, 0),
+                        selectionWidth,
+                        selectionOpacity,
+                        new Thickness(preeditUnderlineLeft, 0, 0, 0),
+                        preeditUnderlineWidth,
+                        preeditUnderlineOpacity,
+                        preeditVisualStart,
+                        preeditVisualEnd,
+                        forceClone: existingIndex != targetIndex);
+                }
+            }
+        }
+
+        HighlightedLine? highlightedLine = null;
+        try
+        {
+            highlightedLine = _highlightedLineSource?.HighlightLine(lineNumber)
+                ?? (_highlightedLineSourceExplicitlySet ? null : _highlighter?.HighlightLine(lineNumber));
+        }
+        catch
+        {
+            /* ignore errors during highlighting */
+        }
+        LogFlash($"line={lineNumber} highlightedLine={(highlightedLine == null ? "null" : $"{highlightedLine.Sections.Count} sections")}");
+
+        System.Collections.Generic.IReadOnlyList<ReferenceSegment>? lineRefs = null;
+        if (ReferenceSegmentSource is { } refSrc)
+        {
+            var segs = refSrc.GetSegments(line.Offset, line.EndOffset);
+            if (segs.Count > 0)
+            {
+                var converted = new System.Collections.Generic.List<ReferenceSegment>(segs.Count);
+                foreach (var seg in segs)
+                {
+                    int logStart = Math.Max(0, seg.StartOffset - line.Offset);
+                    int logEnd = Math.Min(lineText.Length, seg.EndOffset - line.Offset);
+                    int visStart = TextLineViewModel.LogicalToVisualColumn(lineText, logStart);
+                    int visEnd = TextLineViewModel.LogicalToVisualColumn(lineText, logEnd);
+                    converted.Add(new ReferenceSegment
+                    {
+                        StartOffset = visStart,
+                        EndOffset = visEnd,
+                        Reference = seg.Reference,
+                        IsLocal = seg.IsLocal,
+                    });
+                }
+                lineRefs = converted;
+            }
+        }
+
+        return new TextLineViewModel(
+            line.LineNumber,
+            displayText,
+            isCaretLine && _caretVisible ? 1d : 0d,
+            isCaretLine ? 0.18d : 0d,
+            new Thickness(caretLeft, 0, 0, 0),
+            new Thickness(selectionLeft, 0, 0, 0),
+            selectionWidth,
+            selectionOpacity,
+            new Thickness(preeditUnderlineLeft, 0, 0, 0),
+            preeditUnderlineWidth,
+            preeditUnderlineOpacity,
+            Theme,
+            ShowLineNumbers,
+            WordWrap,
+            (LineNumbersForeground as SolidColorBrush)?.Color,
+            (SelectionBrush as SolidColorBrush)?.Color,
+            (SelectionBorder as SolidColorBrush)?.Color,
+            SelectionCornerRadius,
+            foldMarker,
+            highlightedLine,
+            lineRefs,
+            preeditVisualStart,
+            preeditVisualEnd);
     }
 
     private void PublishVisibleLinesState(int firstVisualRow, int lastVisualRow)

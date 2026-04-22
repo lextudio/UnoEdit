@@ -48,9 +48,7 @@
     <Compile Include="Rendering\RenderingSplitTests.cs" />
     <Compile Include="Rendering\BackgroundGeometryBuilderTests.cs" />
     <Compile Include="Rendering\FormattedTextTypesTests.cs" />
-    <Compile Include="Rendering\TextLineViewModelTests.cs" />
     <Compile Include="Rendering\TextViewCursorTests.cs" />
-    <Compile Include="Rendering\TextRunPropertiesTests.cs" />
     <Compile Include="Rendering\TextViewLayoutTests.cs" />
     <Compile Include="Rendering\TextViewRenderingHostTests.cs" />
     <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />

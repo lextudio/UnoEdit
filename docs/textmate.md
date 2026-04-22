@@ -132,3 +132,20 @@ This leaves the codebase ready for a cleaner reimplementation that follows Avalo
 3. Change TextMate invalidation to carry changed ranges rather than a generic full invalidation.
 4. Post redraw work onto the UI thread and redraw only visible affected ranges.
 5. Revisit how UnoEdit represents "no tokens yet" vs "no styled sections".
+
+## Implemented Follow-Up
+
+UnoEdit now applies the AvaloniaEdit-style async tolerance in two concrete places:
+
+- `TextMateLineHighlighter` caches the last known complete highlighted result per line.
+- `GetLineTokens() == null` now means "tokenization is still pending", so UnoEdit reuses cached highlighted output instead of downgrading the line to default-colored text.
+- completed "empty" results still return `null`, but they are cached as final so they are not confused with pending work.
+- cache entries are cleared on document text changes, grammar changes, theme changes, and document swaps.
+
+UnoEdit's view invalidation path also changed:
+
+- TextMate range invalidation no longer automatically forces full-rebuild semantics.
+- when only visible dirty highlight ranges change, `TextView` updates those rows in place and leaves unaffected rows alone.
+- theme swaps, source swaps, and other structural editor changes still use the full rebuild path.
+
+This closes the specific mismatch that caused UnoEdit to lose highlighting while TextMate was still computing tokens for a visible line.

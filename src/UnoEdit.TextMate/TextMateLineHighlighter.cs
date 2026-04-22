@@ -6,6 +6,7 @@ using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using UnoEdit.Logging;
+using UnoEdit.Skia.Desktop.Controls;
 using TextMateSharp.Grammars;
 using TextMateSharp.Model;
 using TextMateSharp.Registry;
@@ -17,7 +18,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 	/// <summary>
 	/// TextMateSharp-backed highlighted-line source for UnoEdit.
 	/// </summary>
-	public sealed class TextMateLineHighlighter : IHighlightedLineSource, IModelTokensChangedListener
+	public sealed class TextMateLineHighlighter : IHighlightedLineSource, ITextViewAwareHighlightedLineSource, IModelTokensChangedListener
 	{
 		static void LogTM(string msg) { HighlightLogger.Log("TM", msg); }
 
@@ -26,15 +27,26 @@ namespace ICSharpCode.AvalonEdit.TextMate
 		readonly Action<Exception> exceptionHandler;
 		readonly Dictionary<(int Foreground, int Background, FontStyleFlags FontStyle), HighlightingColor> colorCache
 			= new Dictionary<(int Foreground, int Background, FontStyleFlags FontStyle), HighlightingColor>();
+		readonly Dictionary<int, CachedLineHighlight> lineHighlightCache
+			= new Dictionary<int, CachedLineHighlight>();
 
 		TextDocument document;
+		TextDocument cachedDocument;
+		TextView textView;
 		TextDocumentLineList lineList;
 		TMModel model;
 		IGrammar grammar;
 		Theme theme;
 		ReadOnlyDictionary<string, string> themeColorsDictionary;
 
+		sealed class CachedLineHighlight
+		{
+			public HighlightedLine HighlightedLine { get; init; }
+			public bool IsComplete { get; init; }
+		}
+
 		public event EventHandler HighlightingInvalidated;
+		public event EventHandler<HighlightedLineRangeInvalidatedEventArgs> HighlightingRangeInvalidated;
 
 		public TextMateLineHighlighter(IRegistryOptions registryOptions, Action<Exception> exceptionHandler = null)
 		{
@@ -46,24 +58,43 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		public IRegistryOptions RegistryOptions => registryOptions;
 
+		public void SetTextView(TextView textView)
+		{
+			if (ReferenceEquals(this.textView, textView))
+				return;
+
+			this.textView = textView;
+			if (document != null && textView != null) {
+				RecreateModel();
+			} else if (textView == null) {
+				DisposeModel();
+			}
+		}
+
 		public void SetDocument(TextDocument document)
 		{
 			if (ReferenceEquals(this.document, document))
 				return;
 
-			DisposeModel();
+			if (this.document != null) {
+				this.document.TextChanged -= Document_TextChanged;
+			}
+
 			this.document = document;
 
 			if (document == null) {
+				DisposeModel();
 				RaiseHighlightingInvalidated();
 				return;
 			}
 
-			lineList = new TextDocumentLineList(document, exceptionHandler);
-			model = new TMModel(lineList);
-			if (grammar != null)
-				model.SetGrammar(grammar);
-			model.AddModelTokensChangedListener(this);
+			if (!ReferenceEquals(cachedDocument, document)) {
+				ClearLineCache();
+				cachedDocument = document;
+			}
+
+			document.TextChanged += Document_TextChanged;
+			RecreateModel();
 			RaiseHighlightingInvalidated();
 		}
 
@@ -104,7 +135,9 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			theme = registry.GetTheme();
 			themeColorsDictionary = theme.GetGuiColorDictionary();
 			colorCache.Clear();
+			ClearLineCache();
 			model?.InvalidateLine(0);
+			lineList?.InvalidateViewPortLines();
 			RaiseHighlightingInvalidated();
 		}
 
@@ -129,12 +162,19 @@ namespace ICSharpCode.AvalonEdit.TextMate
 				return null;
 
 			int modelLineIndex = lineNumber - 1;
-			model.ForceTokenization(modelLineIndex);
-
 			DocumentLine line = document.GetLineByNumber(lineNumber);
 			List<TMToken> tokens = model.GetLineTokens(modelLineIndex);
-			if (tokens == null || tokens.Count == 0) {
-				LogTM($"HighlightLine lineNumber={lineNumber} tokens={(tokens == null ? "null" : "empty")}");
+			if (tokens == null) {
+				LogTM($"HighlightLine lineNumber={lineNumber} tokens=null cache={(lineHighlightCache.ContainsKey(lineNumber) ? "hit" : "miss")}");
+				if (lineHighlightCache.TryGetValue(lineNumber, out CachedLineHighlight cachedLine) && cachedLine.IsComplete) {
+					return cachedLine.HighlightedLine;
+				}
+				return null;
+			}
+
+			if (tokens.Count == 0) {
+				LogTM($"HighlightLine lineNumber={lineNumber} tokens=empty");
+				lineHighlightCache[lineNumber] = new CachedLineHighlight { HighlightedLine = null, IsComplete = true };
 				return null;
 			}
 
@@ -164,18 +204,22 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 			LogTM($"HighlightLine lineNumber={lineNumber} sectionCount={highlightedLine.Sections.Count}");
 			if (highlightedLine.Sections.Count == 0) {
+				lineHighlightCache[lineNumber] = new CachedLineHighlight { HighlightedLine = null, IsComplete = true };
 				return null;
 			}
 
+			lineHighlightCache[lineNumber] = new CachedLineHighlight { HighlightedLine = highlightedLine, IsComplete = true };
 			return highlightedLine;
 		}
 
 		void SetGrammarInternal(IGrammar grammar)
 		{
 			this.grammar = grammar;
+			ClearLineCache();
 			if (model != null) {
 				model.SetGrammar(grammar);
 				model.InvalidateLine(0);
+				lineList?.InvalidateViewPortLines();
 			}
 			RaiseHighlightingInvalidated();
 		}
@@ -276,6 +320,17 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			return value;
 		}
 
+		void Document_TextChanged(object sender, EventArgs e)
+		{
+			ClearLineCache();
+			cachedDocument = document;
+		}
+
+		void ClearLineCache()
+		{
+			lineHighlightCache.Clear();
+		}
+
 		void RaiseHighlightingInvalidated()
 		{
 			HighlightingInvalidated?.Invoke(this, EventArgs.Empty);
@@ -285,7 +340,68 @@ namespace ICSharpCode.AvalonEdit.TextMate
 		{
 			var t = Thread.CurrentThread;
 			LogTM($"ModelTokensChanged thread={t.ManagedThreadId} name={t.Name} isBackground={t.IsBackground}");
-			RaiseHighlightingInvalidated();
+			if (e?.Ranges == null || model == null || model.IsStopped) {
+				return;
+			}
+
+			if (textView is null) {
+				RaiseHighlightingInvalidated();
+				return;
+			}
+
+			int firstChangedLine = int.MaxValue;
+			int lastChangedLine = -1;
+			foreach (var range in e.Ranges) {
+				firstChangedLine = Math.Min(firstChangedLine, range.FromLineNumber);
+				lastChangedLine = Math.Max(lastChangedLine, range.ToLineNumber);
+			}
+
+			if (firstChangedLine == int.MaxValue || lastChangedLine < 0) {
+				return;
+			}
+
+			int firstVisibleLine = textView.FirstVisibleLineNumber;
+			int lastVisibleLine = textView.LastVisibleLineNumber;
+			if (firstVisibleLine > 0 && lastVisibleLine > 0
+				&& (lastChangedLine < firstVisibleLine || firstChangedLine > lastVisibleLine)) {
+				LogTM($"ModelTokensChanged skipped changed={firstChangedLine}-{lastChangedLine} visible={firstVisibleLine}-{lastVisibleLine}");
+				return;
+			}
+
+			int intersectedStart = firstVisibleLine > 0 ? Math.Max(firstChangedLine, firstVisibleLine) : firstChangedLine;
+			int intersectedEnd = lastVisibleLine > 0 ? Math.Min(lastChangedLine, lastVisibleLine) : lastChangedLine;
+			if (intersectedEnd < intersectedStart) {
+				return;
+			}
+
+			void RaiseOnUiThread()
+			{
+				LogTM($"ModelTokensChanged -> HighlightingRangeInvalidated changed={firstChangedLine}-{lastChangedLine} visible={firstVisibleLine}-{lastVisibleLine} redraw={intersectedStart}-{intersectedEnd}");
+				HighlightingRangeInvalidated?.Invoke(this, new HighlightedLineRangeInvalidatedEventArgs(intersectedStart, intersectedEnd));
+			}
+
+			var dispatcherQueue = textView.DispatcherQueue;
+			if (dispatcherQueue is not null && dispatcherQueue.HasThreadAccess) {
+				RaiseOnUiThread();
+				return;
+			}
+
+			if (dispatcherQueue is null || !dispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Normal, RaiseOnUiThread)) {
+				RaiseOnUiThread();
+			}
+		}
+
+		void RecreateModel()
+		{
+			DisposeModel();
+			if (document == null || textView == null)
+				return;
+
+			lineList = new TextDocumentLineList(textView, document, exceptionHandler);
+			model = new TMModel(lineList);
+			if (grammar != null)
+				model.SetGrammar(grammar);
+			model.AddModelTokensChangedListener(this);
 		}
 
 		void DisposeModel()
@@ -300,6 +416,9 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		public void Dispose()
 		{
+			if (document != null) {
+				document.TextChanged -= Document_TextChanged;
+			}
 			DisposeModel();
 		}
 	}

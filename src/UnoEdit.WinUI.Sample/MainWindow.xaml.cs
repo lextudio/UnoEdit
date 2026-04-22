@@ -155,14 +155,184 @@ public sealed partial class MainWindow : Window
     {
         return """
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace Demo;
+namespace Demo.Workspace;
 
-public static class Bootstrap
+public sealed class WorkspaceDocument
 {
-    public static string Describe()
+    public WorkspaceDocument(string name, IReadOnlyList<ProjectNode> projects, DateTimeOffset generatedAt)
     {
-        return "UnoEdit document core is running on WinUI 3.";
+        Name = name;
+        Projects = projects;
+        GeneratedAt = generatedAt;
+    }
+
+    public string Name { get; }
+    public IReadOnlyList<ProjectNode> Projects { get; }
+    public DateTimeOffset GeneratedAt { get; }
+}
+
+public sealed class ProjectNode
+{
+    public ProjectNode(string id, string language, IReadOnlyList<SourceFile> files, IDictionary<string, string> metadata)
+    {
+        Id = id;
+        Language = language;
+        Files = files;
+        Metadata = metadata;
+    }
+
+    public string Id { get; }
+    public string Language { get; }
+    public IReadOnlyList<SourceFile> Files { get; }
+    public IDictionary<string, string> Metadata { get; }
+}
+
+public sealed class SourceFile
+{
+    public SourceFile(string path, int lineCount, bool isGenerated, string checksum)
+    {
+        Path = path;
+        LineCount = lineCount;
+        IsGenerated = isGenerated;
+        Checksum = checksum;
+    }
+
+    public string Path { get; }
+    public int LineCount { get; }
+    public bool IsGenerated { get; }
+    public string Checksum { get; }
+}
+
+public interface IWorkspaceFormatter
+{
+    ValueTask<string> RenderAsync(WorkspaceDocument document, CancellationToken cancellationToken = default);
+}
+
+public sealed class WorkspaceFormatter : IWorkspaceFormatter
+{
+    private readonly JsonSerializerOptions _serializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true
+    };
+
+    public async ValueTask<string> RenderAsync(WorkspaceDocument document, CancellationToken cancellationToken = default)
+    {
+        var buffer = new List<string>();
+        var watch = Stopwatch.StartNew();
+
+        buffer.Add("// Longer sample used to stress UnoEdit highlighter switching.");
+        buffer.Add($"// Generated: {document.GeneratedAt:O}");
+        buffer.Add($"// Culture: {CultureInfo.InvariantCulture.Name}");
+        buffer.Add(string.Empty);
+        buffer.Add("namespace Demo.Workspace.Generated;");
+        buffer.Add(string.Empty);
+        buffer.Add("public static partial class Snapshot");
+        buffer.Add("{");
+        buffer.Add($"    public const string Name = \"{document.Name}\";");
+        buffer.Add($"    public const int ProjectCount = {document.Projects.Length};");
+        buffer.Add(string.Empty);
+        buffer.Add("    public static string ExportJson()");
+        buffer.Add("    {");
+
+        string payload = JsonSerializer.Serialize(document, _serializerOptions).Replace("\"", "\"\"");
+        buffer.Add("        return \"\"\"");
+        buffer.Add(payload);
+        buffer.Add("        \"\"\";");
+        buffer.Add("    }");
+        buffer.Add("}");
+        buffer.Add(string.Empty);
+
+        foreach (ProjectNode project in document.Projects)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            buffer.Add($"public sealed class {project.Id}Summary");
+            buffer.Add("{");
+            buffer.Add($"    public string Language {{ get; }} = \"{project.Language}\";");
+            buffer.Add($"    public int FileCount {{ get; }} = {project.Files.Length};");
+            buffer.Add("    public IEnumerable<string> EnumerateFiles()");
+            buffer.Add("    {");
+
+            foreach (SourceFile file in project.Files)
+            {
+                buffer.Add($"        yield return $\"{file.Path} ({file.LineCount} lines, generated={file.IsGenerated.ToString().ToLowerInvariant()})\";");
+            }
+
+            buffer.Add("    }");
+            buffer.Add("}");
+            buffer.Add(string.Empty);
+        }
+
+        await Task.Delay(1, cancellationToken);
+        watch.Stop();
+
+        buffer.Add("file static class Metrics");
+        buffer.Add("{");
+        buffer.Add($"    public static long ElapsedMilliseconds => {watch.ElapsedMilliseconds};");
+        buffer.Add("}");
+
+        return string.Join(Environment.NewLine, buffer);
+    }
+}
+
+public static class WorkspaceFactory
+{
+    public static WorkspaceDocument Create()
+    {
+        return new WorkspaceDocument(
+            "DemoWorkspace",
+            new[]
+            {
+                new ProjectNode(
+                    "EditorCore",
+                    "CSharp",
+                    new[]
+                    {
+                        new SourceFile("src/Editor/DocumentModel.cs", 214, false, "A1B2C3"),
+                        new SourceFile("src/Editor/ViewportLayout.cs", 387, false, "A1B2C4"),
+                        new SourceFile("src/Editor/GeneratedTheme.g.cs", 122, true, "A1B2C5"),
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["owner"] = "platform",
+                        ["tier"] = "hot"
+                    }),
+                new ProjectNode(
+                    "EditorTests",
+                    "CSharp",
+                    new[]
+                    {
+                        new SourceFile("tests/Highlighting/TextMateSwitchTests.cs", 146, false, "D4E5F6"),
+                        new SourceFile("tests/Highlighting/ViewportTokenizationTests.cs", 173, false, "D4E5F7"),
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["owner"] = "qa",
+                        ["tier"] = "validation"
+                    }),
+                new ProjectNode(
+                    "Docs",
+                    "Markdown",
+                    new[]
+                    {
+                        new SourceFile("docs/textmate.md", 188, false, "FF1122"),
+                        new SourceFile("docs/unification.md", 141, false, "FF1123"),
+                    },
+                    new Dictionary<string, string>
+                    {
+                        ["owner"] = "docs",
+                        ["tier"] = "reference"
+                    })
+            },
+            DateTimeOffset.Parse("2026-04-21T18:30:00Z", CultureInfo.InvariantCulture));
     }
 }
 """;

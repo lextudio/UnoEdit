@@ -1,7 +1,10 @@
 using System;
 using ICSharpCode.AvalonEdit.Document;
+using Microsoft.UI.Dispatching;
 using TextMateSharp.Grammars;
 using TextMateSharp.Model;
+using UnoEdit.Logging;
+using UnoEdit.Skia.Desktop.Controls;
 
 namespace ICSharpCode.AvalonEdit.TextMate
 {
@@ -11,7 +14,10 @@ namespace ICSharpCode.AvalonEdit.TextMate
 	/// </summary>
 	public sealed class TextDocumentLineList : AbstractLineList, IDisposable
 	{
+		static void LogTMModel(string msg) { HighlightLogger.Log("TMModel", msg); }
+
 		readonly TextDocument document;
+		readonly TextView textView;
 		readonly Action<Exception> exceptionHandler;
 		DocumentSnapshot documentSnapshot;
 		InvalidLineRange invalidRange;
@@ -20,8 +26,9 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			get { return documentSnapshot; }
 		}
 
-		public TextDocumentLineList(TextDocument document, Action<Exception> exceptionHandler = null)
+		public TextDocumentLineList(TextView textView, TextDocument document, Action<Exception> exceptionHandler = null)
 		{
+			this.textView = textView ?? throw new ArgumentNullException(nameof(textView));
 			this.document = document ?? throw new ArgumentNullException(nameof(document));
 			this.exceptionHandler = exceptionHandler;
 			documentSnapshot = new DocumentSnapshot(document);
@@ -32,6 +39,8 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			document.Changing += DocumentOnChanging;
 			document.Changed += DocumentOnChanged;
 			document.UpdateFinished += DocumentOnUpdateFinished;
+			textView.VisibleLinesChanged += TextView_VisibleLinesChanged;
+			textView.ScrollOffsetChanged += TextView_ScrollOffsetChanged;
 		}
 
 		public override void Dispose()
@@ -39,13 +48,22 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			document.Changing -= DocumentOnChanging;
 			document.Changed -= DocumentOnChanged;
 			document.UpdateFinished -= DocumentOnUpdateFinished;
+			textView.VisibleLinesChanged -= TextView_VisibleLinesChanged;
+			textView.ScrollOffsetChanged -= TextView_ScrollOffsetChanged;
 		}
 
 		public override void UpdateLine(int lineIndex)
 		{
-			int clampedLine = Math.Clamp(lineIndex, 0, document.LineCount - 1);
-			documentSnapshot.Update(null);
-			InvalidateLineRange(clampedLine, clampedLine);
+			// Match AvaloniaEdit: TMModel may call UpdateLine while processing tokens.
+			// Rebuilding the snapshot or re-invalidating here can perturb parser state.
+		}
+
+		public void InvalidateViewPortLines()
+		{
+			if (!TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex))
+				return;
+
+			InvalidateLineRange(startLineIndex, endLineIndex);
 		}
 
 		public override int GetNumberOfLines()
@@ -55,7 +73,11 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		public override LineText GetLineTextIncludingTerminators(int lineIndex)
 		{
-			return new LineText(documentSnapshot.GetLineTextIncludingTerminator(lineIndex));
+			string text = documentSnapshot.GetLineTextIncludingTerminator(lineIndex);
+			if (HighlightLogger.Enabled && (lineIndex < 5 || lineIndex + 1 == textView.FirstVisibleLineNumber)) {
+				LogTMModel($"GetLineTextIncludingTerminators lineIndex={lineIndex} len={text.Length} text={EscapeForLog(text)}");
+			}
+			return new LineText(text);
 		}
 
 		public override int GetLineLength(int lineIndex)
@@ -94,6 +116,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 				}
 
 				documentSnapshot.Update(e);
+				LogTMModel($"DocumentOnChanged offset={e.Offset} insertion={e.InsertionLength} removal={e.RemovalLength} startLine={startLine} endLine={endLine} lineCount={documentSnapshot.LineCount}");
 
 				if (startLine == 0) {
 					SetInvalidRange(startLine, endLine);
@@ -108,6 +131,7 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 		void SetInvalidRange(int startLine, int endLine)
 		{
+			LogTMModel($"SetInvalidRange startLine={startLine} endLine={endLine} inUpdate={document.IsInUpdate}");
 			if (!document.IsInUpdate) {
 				InvalidateLineRange(startLine, endLine);
 				return;
@@ -133,6 +157,82 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			} finally {
 				invalidRange = null;
 			}
+		}
+
+		void TextView_VisibleLinesChanged(object? sender, EventArgs e)
+		{
+			try {
+				TokenizeViewPort();
+			} catch (Exception ex) {
+				exceptionHandler?.Invoke(ex);
+			}
+		}
+
+		void TextView_ScrollOffsetChanged(object? sender, EventArgs e)
+		{
+			try {
+				TokenizeViewPort();
+			} catch (Exception ex) {
+				exceptionHandler?.Invoke(ex);
+			}
+		}
+
+		void TokenizeViewPort()
+		{
+			DispatcherQueue? dispatcherQueue = textView.DispatcherQueue;
+			if (dispatcherQueue is null) {
+				ForceTokenizeVisibleRange();
+				return;
+			}
+
+			bool enqueued = dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, ForceTokenizeVisibleRange);
+			if (!enqueued) {
+				ForceTokenizeVisibleRange();
+			}
+		}
+
+		void ForceTokenizeVisibleRange()
+		{
+			if (!TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex))
+				return;
+
+			LogTMModel($"ForceTokenizeVisibleRange startLineIndex={startLineIndex} endLineIndex={endLineIndex}");
+			ForceTokenization(startLineIndex, endLineIndex);
+		}
+
+		bool TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex)
+		{
+			startLineIndex = -1;
+			endLineIndex = -1;
+
+			if (document.LineCount == 0)
+				return false;
+
+			int firstVisibleLineNumber = textView.FirstVisibleLineNumber;
+			int lastVisibleLineNumber = textView.LastVisibleLineNumber;
+			if (firstVisibleLineNumber <= 0 || lastVisibleLineNumber <= 0)
+				return false;
+
+			startLineIndex = Math.Clamp(firstVisibleLineNumber - 1, 0, document.LineCount - 1);
+			endLineIndex = Math.Clamp(lastVisibleLineNumber - 1, 0, document.LineCount - 1);
+			if (endLineIndex < startLineIndex)
+				return false;
+
+			return true;
+		}
+
+		static string EscapeForLog(string text)
+		{
+			if (text == null)
+				return "<null>";
+
+			string escaped = text
+				.Replace("\\", "\\\\")
+				.Replace("\r", "\\r")
+				.Replace("\n", "\\n");
+			if (escaped.Length > 120)
+				return escaped.Substring(0, 120) + "...";
+			return escaped;
 		}
 
 		sealed class InvalidLineRange

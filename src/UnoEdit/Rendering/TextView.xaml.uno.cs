@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
@@ -197,13 +198,21 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
     // Set when the current highlighter fires HighlightingInvalidated (e.g. theme change within the source).
     private bool _highlightingDataInvalidated;
     private bool _caretVisible = true;
+    private readonly HashSet<int> _dirtyHighlightedLines = new();
 
     private static void LogFlash(string msg) { HighlightLogger.Log("Flash", msg); }
     private double _characterWidth = DefaultCharacterWidth;
     private List<int> _visibleDocLines = new();
+    private double _lastPublishedHorizontalOffset;
+    private double _lastPublishedVerticalOffset;
+    private bool _visibleLinesPublished;
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
+    public event EventHandler? VisibleLinesChanged;
+    public event EventHandler? ScrollOffsetChanged;
+    public int FirstVisibleLineNumber => _firstVisibleLineNumber;
+    public int LastVisibleLineNumber => _lastVisibleLineNumber;
 
     private double CharacterWidth => _characterWidth;
 
@@ -355,6 +364,14 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             if (_highlightedLineSource is not null)
             {
                 _highlightedLineSource.HighlightingInvalidated -= OnHighlightedLineSourceInvalidated;
+                if (_highlightedLineSource is IRangeInvalidatingHighlightedLineSource oldRangeSource)
+                {
+                    oldRangeSource.HighlightingRangeInvalidated -= OnHighlightedLineSourceRangeInvalidated;
+                }
+                if (_highlightedLineSource is ITextViewAwareHighlightedLineSource oldAwareSource)
+                {
+                    oldAwareSource.SetTextView(null);
+                }
                 _highlightedLineSource.SetDocument(null);
             }
 
@@ -363,8 +380,16 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
 
             if (_highlightedLineSource is not null)
             {
+                if (_highlightedLineSource is ITextViewAwareHighlightedLineSource awareSource)
+                {
+                    awareSource.SetTextView(this);
+                }
                 _highlightedLineSource.SetDocument(_document);
                 _highlightedLineSource.HighlightingInvalidated += OnHighlightedLineSourceInvalidated;
+                if (_highlightedLineSource is IRangeInvalidatingHighlightedLineSource rangeSource)
+                {
+                    rangeSource.HighlightingRangeInvalidated += OnHighlightedLineSourceRangeInvalidated;
+                }
             }
 
             _pendingFullRebuild = true;
@@ -568,7 +593,20 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
     {
         _pendingFullRebuild = true;
         _highlightingDataInvalidated = true;
+        _dirtyHighlightedLines.Clear();
         LogFlash("full queued: external highlighting invalidated");
+        RefreshViewport();
+    }
+
+    private void OnHighlightedLineSourceRangeInvalidated(object? sender, HighlightedLineRangeInvalidatedEventArgs e)
+    {
+        _highlightingDataInvalidated = true;
+        for (int lineNumber = e.StartLineNumber; lineNumber <= e.EndLineNumber; lineNumber++)
+        {
+            _dirtyHighlightedLines.Add(lineNumber);
+        }
+
+        LogFlash($"range queued: external highlighting invalidated lines={e.StartLineNumber}-{e.EndLineNumber}");
         RefreshViewport();
     }
 
@@ -613,6 +651,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
         LogFlash("full queued: OnLoaded");
         RefreshViewport();
         UpdatePlatformInputBridge();
+        PublishScrollOffset();
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -843,6 +882,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             _lastVisibleLineNumber = 0;
             _prevFirstVisualRow = -1;
             _prevLastVisualRow = -1;
+            PublishVisibleLinesState(0, -1);
             return;
         }
 
@@ -867,10 +907,17 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             _firstVisibleLineNumber = _visibleDocLines[firstVisualRow];
             _lastVisibleLineNumber  = _visibleDocLines[lastVisualRow];
         }
+        PublishVisibleLinesState(firstVisualRow, lastVisualRow);
 
         int selectionStart = Math.Min(SelectionStartOffset, SelectionEndOffset);
         int selectionEnd = Math.Max(SelectionStartOffset, SelectionEndOffset);
         bool hasSelection = selectionStart != selectionEnd;
+        bool themeChanged = !ReferenceEquals(Theme, _prevTheme);
+        bool highlighterChanged = !ReferenceEquals(_highlightedLineSource, _prevHighlightedLineSource);
+        bool highlightingInvalidated = _highlightingDataInvalidated;
+        HashSet<int>? dirtyHighlightedLines = _dirtyHighlightedLines.Count > 0
+            ? new HashSet<int>(_dirtyHighlightedLines)
+            : null;
 
         // ── Partial-update fast path ────────────────────────────────────────────
         // When only caret/selection positions changed (no text, fold, or theme
@@ -879,6 +926,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
         // + sequential Add() that cause Skia to emit intermediate blank frames.
         bool canPartialUpdate =
             !_pendingFullRebuild
+            && !themeChanged
+            && !highlighterChanged
             && firstVisualRow == _prevFirstVisualRow
             && lastVisualRow  == _prevLastVisualRow
             && _lines.Count   == (lastVisualRow - firstVisualRow + 1);
@@ -922,28 +971,99 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
                 var    newSelectionMargin  = new Thickness(newSelectionLeft, 0, 0, 0);
 
                 var oldVm = _lines[i];
-                // Mutate the existing VM in-place — INPC setters fire only for changed values.
-                oldVm.CaretOpacity     = newCaretOpacity;
-                oldVm.HighlightOpacity = newHighlightOpacity;
-                oldVm.CaretMargin      = newCaretMargin;
-                oldVm.SelectionMargin  = newSelectionMargin;
-                oldVm.SelectionWidth   = newSelectionWidth;
-                oldVm.SelectionOpacity = newSelectionOpacity;
-                oldVm.PreeditUnderlineMargin = new Thickness(preeditUnderlineLeft, 0, 0, 0);
-                oldVm.PreeditUnderlineWidth = preeditUnderlineWidth;
-                oldVm.PreeditUnderlineOpacity = preeditUnderlineOpacity;
-                oldVm.PreeditVisualStart = preeditVisualStart;
-                oldVm.PreeditVisualEnd = preeditVisualEnd;
+                bool requiresHighlightRefresh = highlightingInvalidated
+                    && dirtyHighlightedLines?.Contains(lineNumber) == true;
+                if (!requiresHighlightRefresh)
+                {
+                    // Mutate the existing VM in-place — INPC setters fire only for changed values.
+                    oldVm.CaretOpacity     = newCaretOpacity;
+                    oldVm.HighlightOpacity = newHighlightOpacity;
+                    oldVm.CaretMargin      = newCaretMargin;
+                    oldVm.SelectionMargin  = newSelectionMargin;
+                    oldVm.SelectionWidth   = newSelectionWidth;
+                    oldVm.SelectionOpacity = newSelectionOpacity;
+                    oldVm.PreeditUnderlineMargin = new Thickness(preeditUnderlineLeft, 0, 0, 0);
+                    oldVm.PreeditUnderlineWidth = preeditUnderlineWidth;
+                    oldVm.PreeditUnderlineOpacity = preeditUnderlineOpacity;
+                    oldVm.PreeditVisualStart = preeditVisualStart;
+                    oldVm.PreeditVisualEnd = preeditVisualEnd;
+                    continue;
+                }
+
+                string displayText = lineText.Length == 0 ? " " : lineText;
+                FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
+
+                HighlightedLine? highlightedLine = null;
+                try
+                {
+                    highlightedLine = _highlightedLineSource?.HighlightLine(lineNumber)
+                        ?? (_highlightedLineSourceExplicitlySet ? null : _highlighter?.HighlightLine(lineNumber));
+                }
+                catch
+                {
+                    /* ignore errors during highlighting */
+                }
+                LogFlash($"partial line={lineNumber} highlightedLine={(highlightedLine == null ? "null" : $"{highlightedLine.Sections.Count} sections")}");
+
+                System.Collections.Generic.IReadOnlyList<ReferenceSegment>? lineRefs = null;
+                if (ReferenceSegmentSource is { } refSrc)
+                {
+                    var segs = refSrc.GetSegments(line.Offset, line.EndOffset);
+                    if (segs.Count > 0)
+                    {
+                        var converted = new System.Collections.Generic.List<ReferenceSegment>(segs.Count);
+                        foreach (var seg in segs)
+                        {
+                            int logStart = Math.Max(0, seg.StartOffset - line.Offset);
+                            int logEnd   = Math.Min(lineText.Length, seg.EndOffset - line.Offset);
+                            int visStart = TextLineViewModel.LogicalToVisualColumn(lineText, logStart);
+                            int visEnd   = TextLineViewModel.LogicalToVisualColumn(lineText, logEnd);
+                            converted.Add(new ReferenceSegment
+                            {
+                                StartOffset = visStart,
+                                EndOffset   = visEnd,
+                                Reference   = seg.Reference,
+                                IsLocal     = seg.IsLocal,
+                            });
+                        }
+                        lineRefs = converted;
+                    }
+                }
+
+                oldVm.UpdateFrom(new TextLineViewModel(
+                    line.LineNumber,
+                    displayText,
+                    newCaretOpacity,
+                    newHighlightOpacity,
+                    newCaretMargin,
+                    newSelectionMargin,
+                    newSelectionWidth,
+                    newSelectionOpacity,
+                    new Thickness(preeditUnderlineLeft, 0, 0, 0),
+                    preeditUnderlineWidth,
+                    preeditUnderlineOpacity,
+                    Theme,
+                    ShowLineNumbers,
+                    WordWrap,
+                    (LineNumbersForeground as SolidColorBrush)?.Color,
+                    (SelectionBrush as SolidColorBrush)?.Color,
+                    (SelectionBorder as SolidColorBrush)?.Color,
+                    SelectionCornerRadius,
+                    foldMarker,
+                    highlightedLine,
+                    lineRefs,
+                    preeditVisualStart,
+                    preeditVisualEnd));
             }
+            _highlightingDataInvalidated = false;
+            _dirtyHighlightedLines.Clear();
             return;
         }
 
         // ── Full rebuild ────────────────────────────────────────────────────────
-        bool themeChanged = !ReferenceEquals(Theme, _prevTheme);
-        bool highlighterChanged = !ReferenceEquals(_highlightedLineSource, _prevHighlightedLineSource);
-        bool highlightingInvalidated = _highlightingDataInvalidated;
         _pendingFullRebuild = false;
         _highlightingDataInvalidated = false;
+        _dirtyHighlightedLines.Clear();
         _prevFirstVisualRow = firstVisualRow;
         _prevLastVisualRow  = lastVisualRow;
         _prevTheme          = Theme;
@@ -999,7 +1119,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
             if (canReuseExisting
                 && !themeChanged
                 && !highlighterChanged
-                && !highlightingInvalidated
+                && (!highlightingInvalidated || dirtyHighlightedLines?.Contains(lineNumber) != true)
                 && _lines[i].Text == displayText
                 && _lines[i].FoldMarker == foldMarker
                 && ReferenceSegmentSource is null)   // ref-segment source changes handled by _pendingFullRebuild
@@ -1104,6 +1224,35 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider
 
         TopSpacer.Height = firstVisualRow * LineHeight;
         BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
+    }
+
+    private void PublishVisibleLinesState(int firstVisualRow, int lastVisualRow)
+    {
+        bool shouldPublish = !_visibleLinesPublished
+            || _prevFirstVisualRow != firstVisualRow
+            || _prevLastVisualRow != lastVisualRow;
+        if (!shouldPublish)
+        {
+            return;
+        }
+
+        _visibleLinesPublished = true;
+        VisibleLinesChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void PublishScrollOffset()
+    {
+        double horizontalOffset = TextScrollViewer.HorizontalOffset;
+        double verticalOffset = TextScrollViewer.VerticalOffset;
+        if (Math.Abs(horizontalOffset - _lastPublishedHorizontalOffset) < 0.001
+            && Math.Abs(verticalOffset - _lastPublishedVerticalOffset) < 0.001)
+        {
+            return;
+        }
+
+        _lastPublishedHorizontalOffset = horizontalOffset;
+        _lastPublishedVerticalOffset = verticalOffset;
+        ScrollOffsetChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void GetPreeditVisualRange(DocumentLine line, string lineText, out int visualStart, out int visualEnd)

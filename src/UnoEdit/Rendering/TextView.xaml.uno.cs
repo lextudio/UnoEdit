@@ -201,6 +201,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private readonly HashSet<int> _dirtyHighlightedLines = new();
 
     private static void LogFlash(string msg) { HighlightLogger.Log("Flash", msg); }
+    private static void LogRender(string msg) { HighlightLogger.Log("Render", msg); }
     private double _characterWidth = DefaultCharacterWidth;
     private List<int> _visibleDocLines = new();
     private double _lastPublishedHorizontalOffset;
@@ -749,6 +750,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private void OnScrollViewerViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
     {
+        LogRender($"view-changed intermediate={e.IsIntermediate} h={TextScrollViewer.HorizontalOffset:0.###} v={TextScrollViewer.VerticalOffset:0.###} viewportH={TextScrollViewer.ViewportHeight:0.###} lines={_lines.Count}");
         RefreshViewport();
         UpdatePlatformInputBridge();
     }
@@ -907,6 +909,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _firstVisibleLineNumber = _visibleDocLines[firstVisualRow];
             _lastVisibleLineNumber  = _visibleDocLines[lastVisualRow];
         }
+        LogRender($"viewport rows={firstVisualRow}-{lastVisualRow} totalRows={totalVisualRows} visibleLines={_firstVisibleLineNumber}-{_lastVisibleLineNumber} linesCount={_lines.Count} pendingFull={_pendingFullRebuild}");
         PublishVisibleLinesState(firstVisualRow, lastVisualRow);
 
         int selectionStart = Math.Min(SelectionStartOffset, SelectionEndOffset);
@@ -1214,12 +1217,14 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             for (int i = 0; i < expectedCount; i++)
                 _lines[i].UpdateFrom(newVms[i]);
             LogFlash($"  in-place UpdateFrom: {expectedCount} items");
+            LogVisibleLineNumbers("in-place", newVms);
         }
         else
         {
             _lines.Clear();
             foreach (var vm in newVms)
                 _lines.Add(vm);
+            LogVisibleLineNumbers("replace", newVms);
         }
 
         TopSpacer.Height = firstVisualRow * LineHeight;
@@ -1237,6 +1242,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         _visibleLinesPublished = true;
+        LogRender($"publish-visible rows={firstVisualRow}-{lastVisualRow} docLines={_firstVisibleLineNumber}-{_lastVisibleLineNumber}");
         VisibleLinesChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -1252,7 +1258,26 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         _lastPublishedHorizontalOffset = horizontalOffset;
         _lastPublishedVerticalOffset = verticalOffset;
+        LogRender($"publish-scroll h={horizontalOffset:0.###} v={verticalOffset:0.###}");
         ScrollOffsetChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void LogVisibleLineNumbers(string phase, IReadOnlyList<TextLineViewModel> lines)
+    {
+        if (!HighlightLogger.Enabled || lines.Count == 0)
+        {
+            return;
+        }
+
+        int previewCount = Math.Min(lines.Count, 6);
+        var preview = new string[previewCount];
+        for (int i = 0; i < previewCount; i++)
+        {
+            preview[i] = $"{i}:{lines[i].LineNumber}";
+        }
+
+        string suffix = lines.Count > previewCount ? ",..." : string.Empty;
+        LogRender($"{phase} vm-line-numbers [{string.Join(",", preview)}{suffix}]");
     }
 
     private void GetPreeditVisualRange(DocumentLine line, string lineText, out int visualStart, out int visualEnd)
@@ -1380,7 +1405,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             return 0;
         }
 
-        double absoluteY = y + TextScrollViewer.VerticalOffset;
+        // `point` is measured relative to the content StackPanel (which already includes
+        // TopSpacer.Height). Adding `TextScrollViewer.VerticalOffset` double-counts the
+        // scroll offset; use the content-relative Y directly.
+        double absoluteY = y;
         int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocLines.Count - 1);
         int targetLine = _visibleDocLines.Count > 0 ? _visibleDocLines[visualRow] : 1;
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
@@ -1390,7 +1418,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int logicalColumn = GetLogicalColumnFromDisplayX(lineText, documentX);
         int targetColumn = Math.Clamp(logicalColumn + 1, 1, documentLine.Length + 1);
         _desiredColumn = targetColumn;
-        return _document.GetOffset(targetLine, targetColumn);
+        int offset = _document.GetOffset(targetLine, targetColumn);
+        LogRender($"hit-test x={x:0.###} y={y:0.###} absY={absoluteY:0.###} visualRow={visualRow} targetLine={targetLine} docX={documentX:0.###} logicalColumn={logicalColumn} targetColumn={targetColumn} lineLength={documentLine.Length} offset={offset}");
+        return offset;
     }
 
     partial void InitializePlatformInputBridge();

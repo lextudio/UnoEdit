@@ -475,6 +475,9 @@ public sealed partial class TextView
 
     internal void UpdateCaretAndSelection(int targetOffset, bool extendSelection)
     {
+        int oldCurrentOffset = CurrentOffset;
+        int oldSelectionStart = SelectionStartOffset;
+        int oldSelectionEnd = SelectionEndOffset;
         BatchRefresh(() =>
         {
             if (extendSelection)
@@ -492,6 +495,8 @@ public sealed partial class TextView
             CurrentOffset = targetOffset;
             _desiredColumn = _document?.GetLocation(CurrentOffset).Column ?? 1;
         });
+        TextLocation? location = _document?.GetLocation(CurrentOffset);
+        LogRender($"caret-update targetOffset={targetOffset} extend={extendSelection} oldCurrent={oldCurrentOffset} newCurrent={CurrentOffset} oldSelection={oldSelectionStart}-{oldSelectionEnd} newSelection={SelectionStartOffset}-{SelectionEndOffset} line={location?.Line} column={location?.Column} anchor={_selectionAnchorOffset}");
     }
 
     internal bool HasSelection()

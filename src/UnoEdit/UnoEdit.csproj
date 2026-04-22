@@ -164,17 +164,17 @@
 
     <!-- Phase 5: Uno-specific Rendering forks (WPF TextFormatting removed; Brush-based API kept) -->
     <Compile Include="Rendering\VisualLine.uno.cs" />
-    <Compile Include="Rendering\VisualLineText.cs" />
+    <Compile Include="Rendering\ITextView.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineText.cs"                   Link="Rendering\VisualLineText.cs" />
     <Compile Include="Rendering\VisualLineElementTextRunProperties.cs" />
     <Compile Include="Rendering\VisualLineElement.cs" />
-    <Compile Include="Rendering\ITextRunConstructionContext.cs" />
-    <Compile Include="Rendering\IVisualLineTransformer.cs" />
-    <Compile Include="Rendering\ITextViewConnect.cs" />
-    <Compile Include="Rendering\IBackgroundRenderer.cs" />
-    <Compile Include="Rendering\ITextView.cs" />
-    <Compile Include="Rendering\VisualLineElementGenerator.cs" />
-    <Compile Include="Rendering\ColorizingTransformer.cs" />
-    <Compile Include="Rendering\DocumentColorizingTransformer.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\ITextRunConstructionContext.cs"      Link="Rendering\ITextRunConstructionContext.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\IVisualLineTransformer.cs"            Link="Rendering\IVisualLineTransformer.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\ITextViewConnect.cs"                  Link="Rendering\ITextViewConnect.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\IBackgroundRenderer.cs"               Link="Rendering\IBackgroundRenderer.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineElementGenerator.cs"        Link="Rendering\VisualLineElementGenerator.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\ColorizingTransformer.cs"             Link="Rendering\ColorizingTransformer.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\DocumentColorizingTransformer.cs"     Link="Rendering\DocumentColorizingTransformer.cs" />
     <!-- TextView: minimal stub class exposing Document + Options; Uno UI control lives in the app layer -->
     <Compile Include="Rendering\TextView.cs" />
 
@@ -218,8 +218,11 @@
     <!-- Phase 11: DottedLineMargin stub (WPF Shapes not available) -->
     <Compile Include="Editing\DottedLineMargin.cs" />
 
-    <!-- Phase 11 Slice 7: new type stubs -->
-    <Compile Include="Rendering\DefaultTextRunTypographyProperties.cs" />
+    <!-- Phase 14: TextFormatting-shimmed rendering files linked from avalonedit -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\DefaultTextRunTypographyProperties.cs"  Link="Rendering\DefaultTextRunTypographyProperties.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\GlobalTextRunProperties.cs"             Link="Rendering\GlobalTextRunProperties.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineTextParagraphProperties.cs"  Link="Rendering\VisualLineTextParagraphProperties.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\SimpleTextSource.cs"                   Link="Rendering\SimpleTextSource.cs" />
     <Compile Include="Editing\Selection.cs" />
     <Compile Include="Editing\CaretWeakEventHandler.cs" />
     <Compile Include="Editing\InputHandlers.cs" />
@@ -331,6 +334,7 @@
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-desktop' AND '$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="..\..\external\coretext\src\LeXtudio.UI.Text.Core.csproj" />
+    <ProjectReference Include="..\LeXtudio.Windows\LeXtudio.Windows.csproj" />
   </ItemGroup>
 
   <!-- Import native asset targets for project references (NuGet packages import via buildTransitive) -->

@@ -4,6 +4,7 @@ using ICSharpCode.AvalonEdit.Rendering;
 using ICSharpCode.AvalonEdit.TextMate;
 using Microsoft.UI.Dispatching;
 using NUnit.Framework;
+using UnoEdit.Skia.Desktop.Controls;
 
 namespace UnoEdit.Tests.TextMate;
 

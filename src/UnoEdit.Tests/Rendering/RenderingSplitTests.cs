@@ -6,6 +6,7 @@ using ICSharpCode.AvalonEdit.Rendering;
 using ICSharpCode.AvalonEdit.Utils;
 using NUnit.Framework;
 using System.Windows.Media;
+using System.Windows.Media.TextFormatting;
 
 namespace UnoEdit.Tests.Rendering
 {
@@ -74,6 +75,24 @@ namespace UnoEdit.Tests.Rendering
             Assert.That(visualLine.Elements.Single().TextRunProperties, Is.Not.Null);
         }
 
+        [Test]
+        public void VisualLineText_CreateTextRun_UsesTextCharactersShim()
+        {
+            var document = new TextDocument("abcdef");
+            var textView = new TextView { Document = document };
+            var visualLine = new VisualLine(textView, document.GetLineByNumber(1));
+            var context = new TestTextRunConstructionContext(document, textView, visualLine);
+
+            visualLine.ConstructVisualElements(context, Array.Empty<VisualLineElementGenerator>());
+
+            var run = (TextCharacters)visualLine.Elements.Single().CreateTextRun(0, context);
+            var precedingText = visualLine.Elements.Single().GetPrecedingText(3, context);
+
+            Assert.That(run.Length, Is.EqualTo(6));
+            Assert.That(precedingText, Is.Not.Null);
+            Assert.That(precedingText.Length, Is.EqualTo(3));
+        }
+
         sealed class TestTextRunConstructionContext : ITextRunConstructionContext
         {
             public TestTextRunConstructionContext(TextDocument document, TextView textView, VisualLine visualLine)
@@ -92,7 +111,7 @@ namespace UnoEdit.Tests.Rendering
                 return new StringSegment(Document.GetText(offset, length));
             }
 
-            public VisualLineElementTextRunProperties GlobalTextRunProperties { get; } = new VisualLineElementTextRunProperties();
+            public TextRunProperties GlobalTextRunProperties { get; } = new VisualLineElementTextRunProperties();
         }
 
         sealed class TrackingGenerator : VisualLineElementGenerator, ITextViewConnect
@@ -161,6 +180,11 @@ namespace UnoEdit.Tests.Rendering
         {
             public TestVisualLineElement(int length) : base(length, length)
             {
+            }
+
+            public override TextRun CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+            {
+                return new TextCharacters(string.Empty, new VisualLineElementTextRunProperties());
             }
         }
 

@@ -20,56 +20,15 @@ using System;
 using System.Collections.Generic;
 using ICSharpCode.AvalonEdit.Document;
 using System.Windows.Documents;
+using System.Windows.Media.TextFormatting;
 
 namespace ICSharpCode.AvalonEdit.Rendering
 {
 	/// <summary>
 	/// Represents a visual element in the document.
-	/// Uno fork: WPF TextFormatting (TextRun, GetPrecedingText) and WPF mouse-event
-	/// virtual methods removed; portable element API retained.
 	/// </summary>
 	public abstract class VisualLineElement
 	{
-		/// <summary>
-		/// Uno-side replacement for WPF TextRun payloads.
-		/// Carries the text slice, properties and optional metadata needed by higher layers.
-		/// </summary>
-		public sealed class TextRunDescriptor
-		{
-			public TextRunDescriptor(string kind, string text, int startVisualColumn, int length, VisualLineElementTextRunProperties properties, object metadata = null)
-			{
-				Kind = kind ?? string.Empty;
-				Text = text ?? string.Empty;
-				StartVisualColumn = startVisualColumn;
-				Length = length;
-				Properties = properties;
-				Metadata = metadata;
-			}
-
-			public string Kind { get; }
-			public string Text { get; }
-			public int StartVisualColumn { get; }
-			public int Length { get; }
-			public VisualLineElementTextRunProperties Properties { get; }
-			public object Metadata { get; }
-		}
-
-		/// <summary>
-		/// Uno-side replacement for WPF preceding-text objects.
-		/// </summary>
-		public sealed class PrecedingTextDescriptor
-		{
-			public PrecedingTextDescriptor(string text, System.Globalization.CultureInfo culture)
-			{
-				Text = text ?? string.Empty;
-				Culture = culture ?? System.Globalization.CultureInfo.CurrentCulture;
-			}
-
-			public string Text { get; }
-			public int Length => Text.Length;
-			public System.Globalization.CultureInfo Culture { get; }
-		}
-
 		/// <summary>
 		/// Creates a new VisualLineElement.
 		/// </summary>
@@ -125,6 +84,19 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		internal void SetTextRunPropertiesForTests(VisualLineElementTextRunProperties p)
 		{
 			SetTextRunProperties(p);
+		}
+
+		/// <summary>
+		/// Creates the TextRun for this line element.
+		/// </summary>
+		public abstract TextRun CreateTextRun(int startVisualColumn, ITextRunConstructionContext context);
+
+		/// <summary>
+		/// Retrieves the text span immediately before the visual column.
+		/// </summary>
+		public virtual TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context)
+		{
+			return null;
 		}
 
 		/// <summary>
@@ -241,18 +213,6 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// </summary>
 		public virtual bool HandlesLineBorders {
 			get { return false; }
-		}
-
-		/// <summary>Creates the text run for this element.</summary>
-		public virtual object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
-		{
-			return new TextRunDescriptor("element", string.Empty, startVisualColumn, 0, TextRunProperties);
-		}
-
-		/// <summary>Gets the preceding text.</summary>
-		public virtual object GetPrecedingText(int visualColumnLimit, ITextRunConstructionContext context)
-		{
-			return new PrecedingTextDescriptor(string.Empty, TextRunProperties?.CultureInfo);
 		}
 	}
 }

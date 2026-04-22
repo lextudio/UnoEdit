@@ -1,0 +1,22 @@
+<Project Sdk="Uno.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-desktop</TargetFramework>
+    <RootNamespace>LeXtudio.Windows</RootNamespace>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>LeXtudio</Authors>
+    <Company>LeXtudio</Company>
+    <Version>$(GitVersion_SemVer)</Version>
+    <Description>Uno Platform-friendly shims for System.Windows.*, System.Windows.Media.*, and System.Windows.Documents.* — the WPF namespace surface needed to port WPF code to Uno without modifying source files.</Description>
+    <PackageId>LeXtudio.Windows</PackageId>
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <NoWarn>$(NoWarn);1591;8632</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -16,6 +16,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+using System.Windows.Media.TextFormatting;
+
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Utils;
 
@@ -23,7 +25,6 @@ namespace ICSharpCode.AvalonEdit.Rendering
 {
 	/// <summary>
 	/// Contains information relevant for text run creation.
-	/// UnoEdit exposes a global run-property bag instead of WPF's TextRunProperties.
 	/// </summary>
 	public interface ITextRunConstructionContext
 	{
@@ -50,6 +51,6 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>
 		/// Gets the global text run properties for the current construction pass.
 		/// </summary>
-		VisualLineElementTextRunProperties GlobalTextRunProperties { get; }
+		TextRunProperties GlobalTextRunProperties { get; }
 	}
 }

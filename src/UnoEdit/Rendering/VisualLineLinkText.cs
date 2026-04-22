@@ -2,6 +2,7 @@
 // Ported to UnoEdit — WPF rendering dependencies removed.
 
 using System;
+using System.Windows.Media.TextFormatting;
 
 namespace ICSharpCode.AvalonEdit.Rendering
 {
@@ -27,22 +28,16 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <inheritdoc/>
-		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+		public override TextRun CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
 		{
 			if (context != null) {
 				TextRunProperties.SetForegroundBrush(context.TextView.LinkTextForegroundBrush);
 				TextRunProperties.SetBackgroundBrush(context.TextView.LinkTextBackgroundBrush);
 				if (context.TextView.LinkTextUnderline)
-					TextRunProperties.SetTextDecorations("Underline");
+					TextRunProperties.SetTextDecorations(System.Windows.Media.TextDecorations.Underline);
 			}
 
-			var baseRun = base.CreateTextRun(startVisualColumn, context) as TextRunDescriptor;
-			if (baseRun == null)
-				return new TextRunDescriptor("link", string.Empty, startVisualColumn, 0, TextRunProperties,
-					new LinkRunMetadata(NavigateUri, TargetName, RequireControlModifierForClick));
-
-			return new TextRunDescriptor("link", baseRun.Text, baseRun.StartVisualColumn, baseRun.Length, baseRun.Properties,
-				new LinkRunMetadata(NavigateUri, TargetName, RequireControlModifierForClick));
+			return base.CreateTextRun(startVisualColumn, context);
 		}
 
 		public sealed class LinkRunMetadata
@@ -57,6 +52,15 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			public Uri NavigateUri { get; }
 			public string TargetName { get; }
 			public bool RequireControlModifierForClick { get; }
+		}
+
+		protected override VisualLineText CreateInstance(int length)
+		{
+			return new VisualLineLinkText(ParentVisualLine, length) {
+				NavigateUri = NavigateUri,
+				TargetName = TargetName,
+				RequireControlModifierForClick = RequireControlModifierForClick
+			};
 		}
 	}
 }

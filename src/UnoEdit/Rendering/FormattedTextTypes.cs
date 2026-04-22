@@ -2,13 +2,12 @@
 // Ported to UnoEdit — WPF rendering dependencies removed.
 
 using System;
+using System.Windows.Media.TextFormatting;
 using Windows.Foundation;
 using Microsoft.UI.Xaml;
 
 namespace ICSharpCode.AvalonEdit.Rendering
 {
-	/// <summary>Compatibility enum for WPF's LineBreakCondition.</summary>
-	public enum LineBreakCondition { BreakDesired, BreakPossible, BreakRestrained, BreakAlways }
 
 	/// <summary>
 	/// VisualLineElement that displays prepared formatted text within UnoEdit's reduced text-formatting model.
@@ -54,7 +53,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public LineBreakCondition BreakAfter { get; set; }
 
 		/// <inheritdoc/>
-		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+		public override TextRun CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
 		{
 			return new FormattedTextRun(this, context?.GlobalTextRunProperties ?? TextRunProperties);
 		}
@@ -69,10 +68,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// <summary>
 	/// TextRun for <see cref="FormattedTextElement"/> within UnoEdit's reduced formatting model.
 	/// </summary>
-	public class FormattedTextRun
+	public class FormattedTextRun : TextEmbeddedObject
 	{
 		/// <summary>Creates a FormattedTextRun.</summary>
-		public FormattedTextRun(FormattedTextElement element, object properties)
+		public FormattedTextRun(FormattedTextElement element, TextRunProperties properties)
 		{
 			Element = element;
 			Properties = properties;
@@ -82,37 +81,33 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public FormattedTextElement Element { get; }
 
 		/// <summary>Gets the break condition before.</summary>
-		public LineBreakCondition BreakBefore => LineBreakCondition.BreakDesired;
+		public override LineBreakCondition BreakBefore => Element.BreakBefore;
 
 		/// <summary>Gets the break condition after.</summary>
-		public LineBreakCondition BreakAfter => LineBreakCondition.BreakDesired;
+		public override LineBreakCondition BreakAfter => Element.BreakAfter;
 
 		/// <summary>Gets whether this has a fixed size.</summary>
-		public bool HasFixedSize => true;
+		public override bool HasFixedSize => true;
 
 		/// <summary>Gets the prepared text content used by this run.</summary>
-		public object CharacterBufferReference => Element.PreparedText?.Text ?? string.Empty;
+		public override CharacterBufferReference CharacterBufferReference => CharacterBufferReference.Empty;
 
 		/// <summary>Gets the length.</summary>
-		public int Length => 1;
+		public override int Length => Element.VisualLength;
 
 		/// <summary>Gets the run properties.</summary>
-		public object Properties { get; }
+		public override TextRunProperties Properties { get; }
 
 		/// <summary>Formats the run into a lightweight descriptor consumable by the Uno renderer.</summary>
-		public object Format(double remainingParagraphWidth)
+		public override TextEmbeddedObjectMetrics Format(double remainingParagraphWidth)
 		{
-			return new VisualLineElement.TextRunDescriptor(
-				"formatted",
-				Element.PreparedText?.Text ?? string.Empty,
-				0,
-				Length,
-				Element.TextRunProperties,
-				new FormattedTextElement.FormattedRunMetadata(remainingParagraphWidth, Element.PreparedText));
+			string text = Element.PreparedText?.Text ?? string.Empty;
+			double width = Math.Max(1d, text.Length);
+			return new TextEmbeddedObjectMetrics(width, 1d, 1d);
 		}
 
 		/// <summary>Computes the bounding box based on prepared text length.</summary>
-		public Rect ComputeBoundingBox(bool rightToLeft, bool sideways)
+		public override Rect ComputeBoundingBox(bool rightToLeft, bool sideways)
 		{
 			string text = Element.PreparedText?.Text ?? string.Empty;
 			double width = Math.Max(1d, text.Length);
@@ -120,18 +115,15 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>Draws the run into a recording drawing context.</summary>
-		public void Draw(object drawingContext, object origin, bool rightToLeft, bool sideways)
+		public override void Draw(System.Windows.Media.DrawingContext drawingContext, Point origin, bool rightToLeft, bool sideways)
 		{
-			if (drawingContext is System.Windows.Media.DrawingContext dc)
+			drawingContext?.Record("formatted-text", new
 			{
-				dc.Record("formatted-text", new
-				{
-					Text = Element.PreparedText?.Text ?? string.Empty,
-					Origin = origin,
-					RightToLeft = rightToLeft,
-					Sideways = sideways
-				});
-			}
+				Text = Element.PreparedText?.Text ?? string.Empty,
+				Origin = origin,
+				RightToLeft = rightToLeft,
+				Sideways = sideways
+			});
 		}
 	}
 
@@ -150,7 +142,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <inheritdoc/>
-		public override object CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
+		public override TextRun CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
 		{
 			return new InlineObjectRun(VisualLength, context?.GlobalTextRunProperties ?? TextRunProperties, Element) {
 				VisualLine = context?.VisualLine
@@ -161,10 +153,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// <summary>
 	/// TextRun for <see cref="InlineObjectElement"/> within UnoEdit's reduced formatting model.
 	/// </summary>
-	public class InlineObjectRun
+	public class InlineObjectRun : TextEmbeddedObject
 	{
 		/// <summary>Creates a new InlineObjectRun.</summary>
-		public InlineObjectRun(int length, object properties, UIElement element)
+		public InlineObjectRun(int length, TextRunProperties properties, UIElement element)
 		{
 			Length = length;
 			Element = element;
@@ -178,51 +170,43 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public VisualLine VisualLine { get; internal set; }
 
 		/// <summary>Gets the break condition before.</summary>
-		public LineBreakCondition BreakBefore => LineBreakCondition.BreakDesired;
+		public override LineBreakCondition BreakBefore => LineBreakCondition.BreakDesired;
 
 		/// <summary>Gets the break condition after.</summary>
-		public LineBreakCondition BreakAfter => LineBreakCondition.BreakDesired;
+		public override LineBreakCondition BreakAfter => LineBreakCondition.BreakDesired;
 
 		/// <summary>Gets whether this has a fixed size.</summary>
-		public bool HasFixedSize => true;
+		public override bool HasFixedSize => true;
 
 		/// <summary>Gets the inline element referenced by this run.</summary>
-		public object CharacterBufferReference => Element;
+		public override CharacterBufferReference CharacterBufferReference => CharacterBufferReference.Empty;
 
 		/// <summary>Gets the length.</summary>
-		public int Length { get; }
+		public override int Length { get; }
 
 		/// <summary>Gets the run properties.</summary>
-		public object Properties { get; }
+		public override TextRunProperties Properties { get; }
 
 		/// <summary>Formats the run into a lightweight descriptor consumable by the Uno renderer.</summary>
-		public object Format(double remainingParagraphWidth)
+		public override TextEmbeddedObjectMetrics Format(double remainingParagraphWidth)
 		{
-			return new VisualLineElement.TextRunDescriptor(
-				"inline-object",
-				string.Empty,
-				0,
-				Length,
-				Properties as VisualLineElementTextRunProperties,
-				new { RemainingParagraphWidth = remainingParagraphWidth, Element, VisualLine });
+			double width = Math.Max(1d, Length);
+			return new TextEmbeddedObjectMetrics(width, 1d, 1d);
 		}
 
 		/// <summary>Computes the bounding box for the inline object.</summary>
-		public Rect ComputeBoundingBox(bool rightToLeft, bool sideways) => new Rect(0, 0, Math.Max(1d, Length), 1d);
+		public override Rect ComputeBoundingBox(bool rightToLeft, bool sideways) => new Rect(0, 0, Math.Max(1d, Length), 1d);
 
 		/// <summary>Draws the run into a recording drawing context.</summary>
-		public void Draw(object drawingContext, object origin, bool rightToLeft, bool sideways)
+		public override void Draw(System.Windows.Media.DrawingContext drawingContext, Point origin, bool rightToLeft, bool sideways)
 		{
-			if (drawingContext is System.Windows.Media.DrawingContext dc)
+			drawingContext?.Record("inline-object", new
 			{
-				dc.Record("inline-object", new
-				{
-					Element,
-					Origin = origin,
-					RightToLeft = rightToLeft,
-					Sideways = sideways
-				});
-			}
+				Element,
+				Origin = origin,
+				RightToLeft = rightToLeft,
+				Sideways = sideways
+			});
 		}
 	}
 }

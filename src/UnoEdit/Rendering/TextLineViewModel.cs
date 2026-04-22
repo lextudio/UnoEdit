@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
+using UnoEdit.Logging;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -24,6 +25,11 @@ public readonly struct TextRun
 
 public sealed class TextLineViewModel : INotifyPropertyChanged
 {
+    private static void LogRender(string message)
+    {
+        HighlightLogger.Log("Render", message);
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
     private void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     // Default foreground color (#E2E8F0) — used only when no theme is provided (static builds/tests).
@@ -202,6 +208,14 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         {
             Text = source.Text;
             Notify(nameof(Text));
+        }
+        if (LineNumber != source.LineNumber)
+        {
+            string oldLineNumber = LineNumber;
+            LineNumber = source.LineNumber;
+            Notify(nameof(LineNumber));
+            Notify(nameof(Number));
+            LogRender($"vm line-number updated {oldLineNumber} -> {LineNumber} text='{Text}'");
         }
         if (ShowLineNumbers != source.ShowLineNumbers)
         {

@@ -99,14 +99,17 @@ public sealed partial class TextView
         FocusPlatformInputBridge();
 
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
+        LogRender($"pointer-pressed x={point.X:0.###} y={point.Y:0.###} vOffset={TextScrollViewer.VerticalOffset:0.###} hOffset={TextScrollViewer.HorizontalOffset:0.###} firstVisible={FirstVisibleLineNumber} lastVisible={LastVisibleLineNumber} visibleCount={_visibleDocLines.Count}");
         if (TryToggleFoldAtViewportPoint(point.X, point.Y))
         {
+            LogRender("pointer-pressed toggled-fold");
             return true;
         }
 
         int targetOffset = GetOffsetFromViewPoint(point.X, point.Y);
         bool extendSelection = IsShiftPressed();
         bool ctrlClick = IsControlPressed();
+        LogRender($"pointer-pressed mapped targetOffset={targetOffset} extend={extendSelection} ctrl={ctrlClick}");
 
         if (ctrlClick && ReferenceSegmentSource is { } source)
         {
@@ -114,6 +117,7 @@ public sealed partial class TextView
                 .FirstOrDefault(candidate => candidate.Contains(targetOffset));
             if (segment is not null)
             {
+                LogRender($"pointer-pressed navigation-request start={segment.StartOffset} end={segment.EndOffset}");
                 NavigationRequested?.Invoke(this, segment);
                 return true;
             }
@@ -148,6 +152,7 @@ public sealed partial class TextView
 
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
         int targetOffset = GetOffsetFromViewPoint(point.X, point.Y);
+        LogRender($"pointer-moved x={point.X:0.###} y={point.Y:0.###} targetOffset={targetOffset} anchor={_selectionAnchorOffset}");
 
         BatchRefresh(() =>
         {
@@ -165,6 +170,8 @@ public sealed partial class TextView
             return false;
         }
 
+        var point = e.GetCurrentPoint(ContentStackPanel).Position;
+        LogRender($"pointer-released x={point.X:0.###} y={point.Y:0.###} currentOffset={CurrentOffset} selection={SelectionStartOffset}-{SelectionEndOffset}");
         _isPointerSelecting = false;
         ReleasePointerCapture(e.Pointer);
         return true;
@@ -196,8 +203,10 @@ public sealed partial class TextView
         {
             return false;
         }
-
-        double absoluteY = y + TextScrollViewer.VerticalOffset;
+        // `point` is measured relative to the content StackPanel (which already includes the
+        // TopSpacer height). Adding `TextScrollViewer.VerticalOffset` double-counts the
+        // scroll offset and yields the wrong visual row. Use the content-relative Y directly.
+        double absoluteY = y;
         int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocLines.Count - 1);
         return TryToggleFoldAtDocumentLine(_visibleDocLines[visualRow]);
     }

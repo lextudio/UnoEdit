@@ -2,6 +2,7 @@ using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Xaml;
 using NUnit.Framework;
 using Windows.Foundation;
+using System.Windows.Media.TextFormatting;
 
 namespace UnoEdit.Tests.Rendering;
 
@@ -19,11 +20,12 @@ public class FormattedTextTypesTests
         element.SetTextRunPropertiesForTests(properties);
         var run = new FormattedTextRun(element, properties);
 
-        var formatted = (VisualLineElement.TextRunDescriptor)run.Format(120);
+        TextEmbeddedObjectMetrics formatted = run.Format(120);
         Rect bounds = run.ComputeBoundingBox(false, false);
 
-        Assert.That(run.CharacterBufferReference, Is.EqualTo("abc"));
-        Assert.That(formatted.Text, Is.EqualTo("abc"));
+        Assert.That(run.Length, Is.EqualTo(1));
+        Assert.That(formatted.Width, Is.EqualTo(3));
+        Assert.That(formatted.Height, Is.EqualTo(1));
         Assert.That(bounds.Width, Is.EqualTo(3));
         Assert.That(bounds.Height, Is.EqualTo(1));
     }

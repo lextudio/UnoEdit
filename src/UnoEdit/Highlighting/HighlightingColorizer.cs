@@ -128,18 +128,17 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 			}
 			if (color.FontFamily != null || color.FontStyle != null || color.FontWeight != null)
 			{
-				var current = element.TextRunProperties.Typeface as VisualLineElementTextRunProperties.TypefaceDescriptor
-					?? VisualLineElementTextRunProperties.TypefaceDescriptor.Default;
-				element.TextRunProperties.SetTypeface(new VisualLineElementTextRunProperties.TypefaceDescriptor(
-					color.FontFamily?.ToString() ?? current.FontFamily,
-					color.FontStyle?.ToString() ?? current.Style,
-					color.FontWeight?.ToString() ?? current.Weight,
+				var current = element.TextRunProperties.Typeface ?? new System.Windows.Media.Typeface("Default");
+				element.TextRunProperties.SetTypeface(new System.Windows.Media.Typeface(
+					color.FontFamily ?? current.FontFamily,
+					color.FontStyle ?? current.Style,
+					color.FontWeight ?? current.Weight,
 					current.Stretch));
 			}
 			if (color.Underline == true)
-				element.TextRunProperties.SetTextDecorations("Underline");
+				element.TextRunProperties.SetTextDecorations(System.Windows.Media.TextDecorations.Underline);
 			if (color.Strikethrough == true)
-				element.TextRunProperties.SetTextDecorations("Strikethrough");
+				element.TextRunProperties.SetTextDecorations(System.Windows.Media.TextDecorations.Strikethrough);
 			if (color.FontSize.HasValue)
 				element.TextRunProperties.SetFontRenderingEmSize(color.FontSize.Value);
 		}

@@ -10,6 +10,8 @@ namespace ICSharpCode.AvalonEdit.Utils
 {
 	public static partial class ExtensionMethods
 	{
+		public static void CheckIsFrozen(object freezable) { }
+
 		/// <summary>Epsilon used for IsClose() implementations.</summary>
 		public const double Epsilon = 0.01;
 

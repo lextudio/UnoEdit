@@ -28,10 +28,11 @@ global using Rect                              = Windows.Foundation.Rect;
 global using Size                              = Windows.Foundation.Size;
 global using Point                             = Windows.Foundation.Point;
 global using Thickness                         = Microsoft.UI.Xaml.Thickness;
+global using FlowDirection                     = Microsoft.UI.Xaml.FlowDirection;
+global using TextAlignment                     = Microsoft.UI.Xaml.TextAlignment;
 global using TextWrapping                      = Microsoft.UI.Xaml.TextWrapping;
 global using Brush                             = Microsoft.UI.Xaml.Media.Brush;
 global using GeneralTransform                  = Microsoft.UI.Xaml.Media.GeneralTransform;
 global using SolidColorBrush                   = Microsoft.UI.Xaml.Media.SolidColorBrush;
 global using UserControl                       = Microsoft.UI.Xaml.Controls.UserControl;
 global using ScrollBarVisibility               = Microsoft.UI.Xaml.Controls.ScrollBarVisibility;
-

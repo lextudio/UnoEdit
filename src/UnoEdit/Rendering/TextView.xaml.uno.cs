@@ -1189,6 +1189,18 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         // whether to update in-place (avoids Clear() which flashes a blank frame)
         // or do a full Clear+Add (only needed when the row count changes).
         bool canReuseExisting = _lines.Count == expectedCount;
+        Dictionary<int, TextLineViewModel>? reusableViewModelsByLineNumber = null;
+        if (canReuseExisting && !themeChanged && !highlighterChanged && ReferenceSegmentSource is null)
+        {
+            reusableViewModelsByLineNumber = new Dictionary<int, TextLineViewModel>(_lines.Count);
+            foreach (var existingVm in _lines)
+            {
+                if (int.TryParse(existingVm.LineNumber, out int existingLineNumber))
+                {
+                    reusableViewModelsByLineNumber[existingLineNumber] = existingVm;
+                }
+            }
+        }
         var newVms = new TextLineViewModel[expectedCount];
         for (int i = 0; i < expectedCount; i++)
         {
@@ -1229,15 +1241,18 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             // Runs (and ReferenceSegments) via WithCaretAndSelection.  HighlightedTextBlock will then
             // skip its Inlines rebuild because the Runs reference is identical, eliminating
             // the brief blank-text flash that otherwise occurs on every caret/selection change.
-            if (canReuseExisting
-                && !themeChanged
-                && !highlighterChanged
-                && (!highlightingInvalidated || dirtyHighlightedLines?.Contains(lineNumber) != true)
-                && _lines[i].Text == displayText
-                && _lines[i].FoldMarker == foldMarker
-                && ReferenceSegmentSource is null)   // ref-segment source changes handled by _pendingFullRebuild
+            TextLineViewModel? reusableVm = null;
+            if (reusableViewModelsByLineNumber is not null)
             {
-                newVms[i] = _lines[i].WithCaretAndSelection(
+                reusableViewModelsByLineNumber.TryGetValue(lineNumber, out reusableVm);
+            }
+
+            if (reusableVm is not null
+                && (!highlightingInvalidated || dirtyHighlightedLines?.Contains(lineNumber) != true)
+                && reusableVm.Text == displayText
+                && reusableVm.FoldMarker == foldMarker)
+            {
+                newVms[i] = reusableVm.WithCaretAndSelection(
                     isCaretLine && _caretVisible ? 1d : 0d,
                     isCaretLine ? 0.18d : 0d,
                     new Thickness(caretLeft,        0, 0, 0),

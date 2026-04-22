@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Diagnostics;
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
@@ -203,6 +204,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private static void LogFlash(string msg) { HighlightLogger.Log("Flash", msg); }
     private static void LogRender(string msg) { HighlightLogger.Log("Render", msg); }
+    private static void LogPerf(string msg) { HighlightLogger.Log("Perf", msg); }
     private double _characterWidth = DefaultCharacterWidth;
     private List<int> _visibleDocLines = new();
     private double _lastPublishedHorizontalOffset;
@@ -814,15 +816,23 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private void OnScrollViewerViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
     {
-        LogRender($"view-changed intermediate={e.IsIntermediate} h={TextScrollViewer.HorizontalOffset:0.###} v={TextScrollViewer.VerticalOffset:0.###} viewportH={TextScrollViewer.ViewportHeight:0.###} lines={_lines.Count}");
+        bool hasWindow = TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow);
+        int rowDelta = hasWindow && _prevFirstVisualRow >= 0
+            ? firstVisualRow - _prevFirstVisualRow
+            : 0;
+        LogRender($"view-changed intermediate={e.IsIntermediate} h={TextScrollViewer.HorizontalOffset:0.###} v={TextScrollViewer.VerticalOffset:0.###} viewportH={TextScrollViewer.ViewportHeight:0.###} lines={_lines.Count} window={(hasWindow ? $"{firstVisualRow}-{lastVisualRow}" : "n/a")} delta={rowDelta}");
         PublishScrollOffset();
         if (CanSkipScrollRefresh())
         {
+            LogPerf($"scroll-skip intermediate={e.IsIntermediate} window={(hasWindow ? $"{firstVisualRow}-{lastVisualRow}" : "n/a")} delta={rowDelta}");
             UpdatePlatformInputBridge();
             return;
         }
 
-        RefreshViewport();
+        var sw = Stopwatch.StartNew();
+        RefreshViewport(e.IsIntermediate ? "scroll-intermediate" : "scroll-final");
+        sw.Stop();
+        LogPerf($"scroll-refresh intermediate={e.IsIntermediate} window={(hasWindow ? $"{firstVisualRow}-{lastVisualRow}" : "n/a")} delta={rowDelta} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
         UpdatePlatformInputBridge();
     }
 
@@ -946,7 +956,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
     }
 
-    private void RefreshViewport()
+    private void RefreshViewport(string reason = "unspecified")
     {
         if (_suppressRefreshDepth > 0)
         {
@@ -962,28 +972,34 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             return;
         }
 
+        var sw = Stopwatch.StartNew();
+        bool reran = false;
         _isRefreshingViewport = true;
         try
         {
-            RefreshViewportCore();
+            RefreshViewportCore(reason);
             // A re-entrant ModelTokensChanged callback (fired synchronously by ForceTokenization
             // inside HighlightLine) may have set _pendingFullRebuild while we were executing the
             // line loop above.  Run one additional pass — still inside the re-entrant guard — to
             // pick up the fresh tokenization results without scheduling a separate UI cycle.
             if (_pendingFullRebuild)
             {
+                reran = true;
                 LogFlash("re-run: re-entrant highlight invalidation pending");
-                RefreshViewportCore();
+                RefreshViewportCore(reason + "+rerun");
             }
         }
         finally
         {
             _isRefreshingViewport = false;
+            sw.Stop();
+            LogPerf($"refresh reason={reason} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###} rerun={reran} lineVmCount={_lines.Count}");
         }
     }
 
-    private void RefreshViewportCore()
+    private void RefreshViewportCore(string reason)
     {
+        var sw = Stopwatch.StartNew();
 
         if (_document is null)
         {
@@ -995,6 +1011,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _prevFirstVisualRow = -1;
             _prevLastVisualRow = -1;
             PublishVisibleLinesState(0, -1);
+            sw.Stop();
+            LogPerf($"refresh-core reason={reason} path=empty elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
             return;
         }
 
@@ -1170,6 +1188,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             }
             _highlightingDataInvalidated = false;
             _dirtyHighlightedLines.Clear();
+            sw.Stop();
+            LogPerf($"refresh-core reason={reason} path=partial rows={firstVisualRow}-{lastVisualRow} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
             return;
         }
 
@@ -1189,15 +1209,16 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         // whether to update in-place (avoids Clear() which flashes a blank frame)
         // or do a full Clear+Add (only needed when the row count changes).
         bool canReuseExisting = _lines.Count == expectedCount;
-        Dictionary<int, TextLineViewModel>? reusableViewModelsByLineNumber = null;
+        Dictionary<int, (TextLineViewModel ViewModel, int Index)>? reusableViewModelsByLineNumber = null;
         if (canReuseExisting && !themeChanged && !highlighterChanged && ReferenceSegmentSource is null)
         {
-            reusableViewModelsByLineNumber = new Dictionary<int, TextLineViewModel>(_lines.Count);
-            foreach (var existingVm in _lines)
+            reusableViewModelsByLineNumber = new Dictionary<int, (TextLineViewModel ViewModel, int Index)>(_lines.Count);
+            for (int existingIndex = 0; existingIndex < _lines.Count; existingIndex++)
             {
+                var existingVm = _lines[existingIndex];
                 if (int.TryParse(existingVm.LineNumber, out int existingLineNumber))
                 {
-                    reusableViewModelsByLineNumber[existingLineNumber] = existingVm;
+                    reusableViewModelsByLineNumber[existingLineNumber] = (existingVm, existingIndex);
                 }
             }
         }
@@ -1242,9 +1263,14 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             // skip its Inlines rebuild because the Runs reference is identical, eliminating
             // the brief blank-text flash that otherwise occurs on every caret/selection change.
             TextLineViewModel? reusableVm = null;
+            bool reusableVmMoved = false;
             if (reusableViewModelsByLineNumber is not null)
             {
-                reusableViewModelsByLineNumber.TryGetValue(lineNumber, out reusableVm);
+                if (reusableViewModelsByLineNumber.TryGetValue(lineNumber, out var reusableEntry))
+                {
+                    reusableVm = reusableEntry.ViewModel;
+                    reusableVmMoved = reusableEntry.Index != i;
+                }
             }
 
             if (reusableVm is not null
@@ -1263,7 +1289,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     preeditUnderlineWidth,
                     preeditUnderlineOpacity,
                     preeditVisualStart,
-                    preeditVisualEnd);
+                    preeditVisualEnd,
+                    forceClone: reusableVmMoved);
                 continue;
             }
 
@@ -1354,6 +1381,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         TopSpacer.Height = firstVisualRow * LineHeight;
         BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
+        sw.Stop();
+        LogPerf($"refresh-core reason={reason} path=full rows={firstVisualRow}-{lastVisualRow} expectedCount={expectedCount} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
     }
 
     private void PublishVisibleLinesState(int firstVisualRow, int lastVisualRow)

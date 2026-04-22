@@ -161,9 +161,11 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         Thickness caretMargin,
         Thickness selectionMargin, double selectionWidth, double selectionOpacity,
         Thickness preeditUnderlineMargin, double preeditUnderlineWidth, double preeditUnderlineOpacity,
-        int preeditVisualStart, int preeditVisualEnd)
+        int preeditVisualStart, int preeditVisualEnd,
+        bool forceClone = false)
     {
-        if (Math.Abs(CaretOpacity - caretOpacity) < 0.001
+        if (!forceClone
+            && Math.Abs(CaretOpacity - caretOpacity) < 0.001
             && Math.Abs(HighlightOpacity - highlightOpacity) < 0.001
             && CaretMargin.Left == caretMargin.Left
             && Math.Abs(SelectionOpacity - selectionOpacity) < 0.001

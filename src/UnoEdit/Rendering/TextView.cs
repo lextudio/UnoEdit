@@ -43,6 +43,9 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		TextDocument document;
 		HeightTree heightTree;
 
+		// Cached helpers for prepared formatted text/textline objects.
+		internal TextViewCachedElements cachedElements;
+
 		public TextView()
 		{
 			services.AddService(typeof(TextView), this);
@@ -470,6 +473,81 @@ namespace ICSharpCode.AvalonEdit.Rendering
 
 			Layers.Add(layer);
 		}
+
+		// ----------------------------------------------------------------
+		// Inline object handling (host-side surface support)
+		// ----------------------------------------------------------------
+		List<InlineObjectRun> inlineObjects = new List<InlineObjectRun>();
+
+		/// <summary>
+		/// Adds a new inline object. Concrete UI layer may implement HostAddVisual to attach the element.
+		/// </summary>
+		internal void AddInlineObject(InlineObjectRun inlineObject)
+		{
+			if (inlineObject == null) throw new ArgumentNullException(nameof(inlineObject));
+
+			// Remove inline object if its already added (recreation scenarios)
+			bool alreadyAdded = false;
+			for (int i = 0; i < inlineObjects.Count; i++) {
+				if (inlineObjects[i].Element == inlineObject.Element) {
+					RemoveInlineObjectRun(inlineObjects[i], true);
+					inlineObjects.RemoveAt(i);
+					alreadyAdded = true;
+					break;
+				}
+			}
+
+			inlineObjects.Add(inlineObject);
+				if (!alreadyAdded) {
+					var host = Document?.ServiceProvider.GetService(typeof(IInlineObjectHost)) as IInlineObjectHost;
+					if (host != null) {
+						host.AttachInlineElement(inlineObject.Element);
+					}
+				}
+		}
+
+		List<VisualLine> visualLinesWithOutstandingInlineObjects = new List<VisualLine>();
+
+		internal void RemoveInlineObjects(VisualLine visualLine)
+		{
+			if (visualLine == null) return;
+			if (visualLine.hasInlineObjects) {
+				visualLinesWithOutstandingInlineObjects.Add(visualLine);
+			}
+		}
+
+		/// <summary>
+		/// Remove the inline objects that were marked for removal.
+		/// </summary>
+		internal void RemoveInlineObjectsNow()
+		{
+			if (visualLinesWithOutstandingInlineObjects.Count == 0)
+				return;
+			inlineObjects.RemoveAll(
+				ior => {
+					if (visualLinesWithOutstandingInlineObjects.Contains(ior.VisualLine)) {
+						RemoveInlineObjectRun(ior, false);
+						return true;
+					}
+					return false;
+				});
+			visualLinesWithOutstandingInlineObjects.Clear();
+		}
+
+		// Caller of RemoveInlineObjectRun will remove it from inlineObjects collection.
+		void RemoveInlineObjectRun(InlineObjectRun ior, bool keepElement)
+		{
+			if (ior == null) return;
+			ior.VisualLine = null;
+			if (!keepElement) {
+				var host = Document?.ServiceProvider.GetService(typeof(IInlineObjectHost)) as IInlineObjectHost;
+				if (host != null) {
+					host.DetachInlineElement(ior.Element);
+				}
+			}
+		}
+
+
 
 		/// <summary>Collapses lines between the start and end document lines using the shared height-tree backend.</summary>
 		public CollapsedLineSection CollapseLines(DocumentLine start, DocumentLine end)

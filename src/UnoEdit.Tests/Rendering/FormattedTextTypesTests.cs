@@ -15,19 +15,21 @@ public class FormattedTextTypesTests
         var properties = new VisualLineElementTextRunProperties();
         var element = new FormattedTextElement(3)
         {
-            PreparedText = (FormattedTextElement.PreparedTextDescriptor)FormattedTextElement.PrepareText("formatter", "abc", properties)
+            PreparedText = FormattedTextElement.PrepareText(TextFormatter.Create(), "abc", properties)
         };
         element.SetTextRunPropertiesForTests(properties);
         var run = new FormattedTextRun(element, properties);
 
         TextEmbeddedObjectMetrics formatted = run.Format(120);
         Rect bounds = run.ComputeBoundingBox(false, false);
+        double preparedWidth = element.PreparedText.WidthIncludingTrailingWhitespace;
+        double preparedHeight = element.PreparedText.Height;
 
         Assert.That(run.Length, Is.EqualTo(1));
-        Assert.That(formatted.Width, Is.EqualTo(3));
-        Assert.That(formatted.Height, Is.EqualTo(1));
-        Assert.That(bounds.Width, Is.EqualTo(3));
-        Assert.That(bounds.Height, Is.EqualTo(1));
+        Assert.That(formatted.Width, Is.EqualTo(preparedWidth).Within(0.001));
+        Assert.That(formatted.Height, Is.EqualTo(preparedHeight).Within(0.001));
+        Assert.That(bounds.Width, Is.EqualTo(preparedWidth).Within(0.001));
+        Assert.That(bounds.Height, Is.EqualTo(preparedHeight).Within(0.001));
     }
 
     [Test]
@@ -36,7 +38,7 @@ public class FormattedTextTypesTests
         var properties = new VisualLineElementTextRunProperties();
         var element = new FormattedTextElement(1)
         {
-            PreparedText = (FormattedTextElement.PreparedTextDescriptor)FormattedTextElement.PrepareText("formatter", "x", properties)
+            PreparedText = FormattedTextElement.PrepareText(TextFormatter.Create(), "x", properties)
         };
         element.SetTextRunPropertiesForTests(properties);
         var formattedRun = new FormattedTextRun(element, properties);
@@ -47,7 +49,7 @@ public class FormattedTextTypesTests
         inlineRun.Draw(drawingContext, new Point(3, 4), true, false);
 
         Assert.That(drawingContext.Operations.Count, Is.EqualTo(2));
-        Assert.That(((System.Windows.Media.DrawingContext.DrawOperation)drawingContext.Operations[0]).Kind, Is.EqualTo("formatted-text"));
+        Assert.That(((System.Windows.Media.DrawingContext.DrawOperation)drawingContext.Operations[0]).Kind, Is.EqualTo("text-line"));
         Assert.That(((System.Windows.Media.DrawingContext.DrawOperation)drawingContext.Operations[1]).Kind, Is.EqualTo("inline-object"));
     }
 }

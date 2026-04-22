@@ -21,7 +21,7 @@ using Windows.Foundation;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
-public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextView
+public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextView, IInlineObjectHost
 {
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(
@@ -230,6 +230,22 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         SizeChanged += OnSizeChanged;
         ApplyThemeToChrome();
         InitializePlatformInputBridge();
+    }
+
+    // Inline object host implementation registered into Document.ServiceProvider
+    public void AttachInlineElement(UIElement element)
+    {
+        if (element == null) return;
+        if (InlineObjectsCanvas == null) return;
+        if (!InlineObjectsCanvas.Children.Contains(element))
+            InlineObjectsCanvas.Children.Add(element);
+    }
+
+    public void DetachInlineElement(UIElement element)
+    {
+        if (element == null) return;
+        if (InlineObjectsCanvas == null) return;
+        InlineObjectsCanvas.Children.Remove(element);
     }
 
     public TextDocument? Document
@@ -537,6 +553,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (oldDocument is not null)
         {
             oldDocument.TextChanged -= HandleDocumentTextChanged;
+            // Remove any previously-registered inline-host service
+            if (oldDocument.ServiceProvider is ServiceContainer oldContainer) {
+                oldContainer.RemoveService(typeof(IInlineObjectHost));
+            }
         }
 
         _document = newDocument;
@@ -545,6 +565,18 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         if (newDocument is not null)
         {
+            // Register this control as the inline-object host on the document's service provider so
+            // shared rendering code can attach/detach inline UIElements via IInlineObjectHost.
+            try {
+                var container = newDocument.ServiceProvider as ServiceContainer;
+                if (container == null) {
+                    container = new ServiceContainer();
+                    newDocument.ServiceProvider = container;
+                }
+                container.AddService(typeof(IInlineObjectHost), this);
+            } catch {
+                // swallow if service registration fails for any reason
+            }
             newDocument.TextChanged += HandleDocumentTextChanged;
             CurrentOffset = Math.Min(CurrentOffset, newDocument.TextLength);
             SelectionStartOffset = Math.Min(SelectionStartOffset, newDocument.TextLength);

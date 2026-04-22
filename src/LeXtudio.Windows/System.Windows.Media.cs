@@ -41,6 +41,7 @@ namespace System.Windows.Media
         public override int GetHashCode() => HashCode.Combine(A, R, G, B);
         public static bool operator ==(Color a, Color b) => a.Equals(b);
         public static bool operator !=(Color a, Color b) => !a.Equals(b);
+        public static implicit operator global::Windows.UI.Color(Color color) => global::Windows.UI.Color.FromArgb(color.A, color.R, color.G, color.B);
         public override string ToString() =>
             A == 255
                 ? string.Format(Globalization.CultureInfo.InvariantCulture, "#{0:X2}{1:X2}{2:X2}", R, G, B)
@@ -83,6 +84,23 @@ namespace System.Windows.Media
         public static Color SaddleBrown   => Color.FromRgb(139, 69, 19);
         public static Color Sienna        => Color.FromRgb(160, 82, 45);
         public static Color SlateGray     => Color.FromRgb(112, 128, 144);
+    }
+
+    public static class Brushes
+    {
+        public static Brush Black => new SolidColorBrush(Colors.Black);
+        public static Brush White => new SolidColorBrush(Colors.White);
+        public static Brush Gray => new SolidColorBrush(Colors.Gray);
+        public static Brush DarkGray => new SolidColorBrush(Colors.DarkGray);
+        public static Brush LightGray => new SolidColorBrush(Colors.LightGray);
+        public static Brush Transparent => new SolidColorBrush(Colors.Transparent);
+    }
+
+    public static class FreezableExtensions
+    {
+        public static void Freeze(this Brush brush)
+        {
+        }
     }
 
     /// <summary>
@@ -256,6 +274,9 @@ namespace System.Windows.Media
 
         public virtual void DrawGeometry(Brush brush, Pen pen, object geometry)
             => Record("draw-geometry", new { Brush = brush, Pen = pen, Geometry = geometry });
+
+        public virtual void DrawRoundedRectangle(Brush brush, Pen pen, Rect rect, double radiusX, double radiusY)
+            => Record("draw-rounded-rectangle", new { Brush = brush, Pen = pen, Rect = rect, RadiusX = radiusX, RadiusY = radiusY });
 
         public virtual void PushOpacity(double opacity)
             => Record("push-opacity", opacity);

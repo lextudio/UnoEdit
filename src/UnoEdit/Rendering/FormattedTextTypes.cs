@@ -2,6 +2,7 @@
 // Ported to UnoEdit — WPF rendering dependencies removed.
 
 using System;
+using System.Globalization;
 using System.Windows.Media.TextFormatting;
 using Windows.Foundation;
 using Microsoft.UI.Xaml;
@@ -14,37 +15,29 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// </summary>
 	public class FormattedTextElement : VisualLineElement
 	{
-		public sealed class PreparedTextDescriptor
-		{
-			public PreparedTextDescriptor(object formatter, string text, object properties)
-			{
-				Formatter = formatter;
-				Text = text ?? string.Empty;
-				Properties = properties;
-			}
-
-			public object Formatter { get; }
-			public string Text { get; }
-			public object Properties { get; }
-		}
-
 		public sealed class FormattedRunMetadata
 		{
-			public FormattedRunMetadata(double remainingParagraphWidth, PreparedTextDescriptor? preparedText)
+			public FormattedRunMetadata(double remainingParagraphWidth, TextLine preparedText)
 			{
 				RemainingParagraphWidth = remainingParagraphWidth;
 				PreparedText = preparedText;
 			}
 
 			public double RemainingParagraphWidth { get; }
-			public PreparedTextDescriptor? PreparedText { get; }
+			public TextLine PreparedText { get; }
 		}
 
 		/// <summary>Creates a FormattedTextElement from text/document content.</summary>
 		public FormattedTextElement(int documentLength) : base(1, documentLength) { }
 
+		/// <summary>Creates a FormattedTextElement from already-prepared text.</summary>
+		public FormattedTextElement(TextLine textLine, int documentLength) : this(documentLength)
+		{
+			PreparedText = textLine;
+		}
+
 		/// <summary>Gets or sets prepared text associated with this element.</summary>
-		public PreparedTextDescriptor? PreparedText { get; set; }
+		public TextLine PreparedText { get; set; }
 
 		/// <summary>Gets/sets the line break condition before this element.</summary>
 		public LineBreakCondition BreakBefore { get; set; }
@@ -59,9 +52,13 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>Prepares text for later formatting and drawing in the Uno compatibility pipeline.</summary>
-		public static object PrepareText(object formatter, string text, object properties)
+		public static TextLine PrepareText(object formatter, string text, object properties)
 		{
-			return new PreparedTextDescriptor(formatter, text, properties);
+			var textFormatter = formatter as TextFormatter ?? TextFormatter.Create();
+			var runProperties = properties as TextRunProperties ?? new VisualLineElementTextRunProperties();
+			var source = new PreparedTextSource(text ?? string.Empty, runProperties);
+			var paragraph = new PreparedTextParagraphProperties(runProperties);
+			return textFormatter.FormatLine(source, 0, double.PositiveInfinity, paragraph, null);
 		}
 	}
 
@@ -101,29 +98,35 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Formats the run into a lightweight descriptor consumable by the Uno renderer.</summary>
 		public override TextEmbeddedObjectMetrics Format(double remainingParagraphWidth)
 		{
-			string text = Element.PreparedText?.Text ?? string.Empty;
-			double width = Math.Max(1d, text.Length);
-			return new TextEmbeddedObjectMetrics(width, 1d, 1d);
+			TextLine textLine = Element.PreparedText;
+			if (textLine == null)
+				return new TextEmbeddedObjectMetrics(Math.Max(1d, Element.VisualLength), 1d, 1d);
+
+			return new TextEmbeddedObjectMetrics(
+				Math.Max(1d, textLine.WidthIncludingTrailingWhitespace),
+				Math.Max(1d, textLine.Height),
+				Math.Max(1d, textLine.Baseline));
 		}
 
 		/// <summary>Computes the bounding box based on prepared text length.</summary>
 		public override Rect ComputeBoundingBox(bool rightToLeft, bool sideways)
 		{
-			string text = Element.PreparedText?.Text ?? string.Empty;
-			double width = Math.Max(1d, text.Length);
-			return new Rect(0, 0, width, 1d);
+			TextLine textLine = Element.PreparedText;
+			if (textLine == null)
+				return new Rect(0, 0, Math.Max(1d, Element.VisualLength), 1d);
+
+			return new Rect(0, 0, Math.Max(1d, textLine.WidthIncludingTrailingWhitespace), Math.Max(1d, textLine.Height));
 		}
 
 		/// <summary>Draws the run into a recording drawing context.</summary>
 		public override void Draw(System.Windows.Media.DrawingContext drawingContext, Point origin, bool rightToLeft, bool sideways)
 		{
-			drawingContext?.Record("formatted-text", new
-			{
-				Text = Element.PreparedText?.Text ?? string.Empty,
-				Origin = origin,
-				RightToLeft = rightToLeft,
-				Sideways = sideways
-			});
+			if (Element.PreparedText != null) {
+				Element.PreparedText.Draw(drawingContext, origin, InvertAxes.None);
+				return;
+			}
+
+			drawingContext?.Record("formatted-text", new { Origin = origin, RightToLeft = rightToLeft, Sideways = sideways });
 		}
 	}
 
@@ -208,5 +211,56 @@ namespace ICSharpCode.AvalonEdit.Rendering
 				Sideways = sideways
 			});
 		}
+	}
+
+	sealed class PreparedTextSource : TextSource
+	{
+		readonly string text;
+		readonly TextRunProperties properties;
+
+		public PreparedTextSource(string text, TextRunProperties properties)
+		{
+			this.text = text ?? string.Empty;
+			this.properties = properties;
+		}
+
+		public override TextRun GetTextRun(int textSourceCharacterIndex)
+		{
+			if (textSourceCharacterIndex >= text.Length)
+				return new TextEndOfParagraph(1);
+
+			return new TextCharacters(text, textSourceCharacterIndex, text.Length - textSourceCharacterIndex, properties);
+		}
+
+		public override TextSpan<CultureSpecificCharacterBufferRange> GetPrecedingText(int textSourceCharacterIndexLimit)
+		{
+			int length = Math.Max(0, Math.Min(textSourceCharacterIndexLimit, text.Length));
+			var range = new CharacterBufferRange(text, 0, length);
+			return new TextSpan<CultureSpecificCharacterBufferRange>(length, new CultureSpecificCharacterBufferRange(CultureInfo.CurrentCulture, range));
+		}
+
+		public override int GetTextEffectCharacterIndexFromTextSourceCharacterIndex(int textSourceCharacterIndex)
+		{
+			return textSourceCharacterIndex;
+		}
+	}
+
+	sealed class PreparedTextParagraphProperties : TextParagraphProperties
+	{
+		readonly TextRunProperties properties;
+
+		public PreparedTextParagraphProperties(TextRunProperties properties)
+		{
+			this.properties = properties;
+		}
+
+		public override FlowDirection FlowDirection => FlowDirection.LeftToRight;
+		public override TextAlignment TextAlignment => TextAlignment.Left;
+		public override double LineHeight => 0;
+		public override bool FirstLineInParagraph => true;
+		public override TextRunProperties DefaultTextRunProperties => properties;
+		public override TextWrapping TextWrapping => TextWrapping.NoWrap;
+		public override TextMarkerProperties TextMarkerProperties => null;
+		public override double Indent => 0;
 	}
 }

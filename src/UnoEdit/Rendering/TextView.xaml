@@ -28,13 +28,14 @@
                   VerticalAlignment="Top">
         <Border x:Name="TopSpacer" Height="0" />
 
-        <ItemsControl x:Name="LinesItemsControl">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <StackPanel />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
+        <Grid>
+          <ItemsControl x:Name="LinesItemsControl">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
             <!--
               x:DataType is intentionally omitted: all bindings below use classic {Binding}
               (reflection-based), which is more reliable in Uno Platform Skia than compiled
@@ -119,7 +120,11 @@
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
-        </ItemsControl>
+          </ItemsControl>
+
+          <!-- Overlay for inline UIElements created by InlineObjectRun -->
+          <Canvas x:Name="InlineObjectsCanvas" IsHitTestVisible="True" />
+        </Grid>
 
         <Border x:Name="BottomSpacer" Height="0" />
 

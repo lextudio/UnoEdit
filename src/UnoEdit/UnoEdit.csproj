@@ -89,6 +89,8 @@
     <Compile Include="Rendering\TextView.PlatformInput.cs" />
     <Compile Include="Rendering\TextView.EditOperations.uno.cs" />
     <Compile Include="Rendering\TextView.InputHandlers.uno.cs" />
+    <Compile Include="Rendering\IInlineObjectHost.cs" />
+    <Compile Include="Rendering\TextViewCachedElements.cs" />
     <Compile Include="Logging\PlatformImeLogger.cs" />
     <Compile Include="Rendering\EditorTextMetrics.cs" />
     <Compile Include="Rendering\TextLineViewModel.cs" />
@@ -200,6 +202,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeNode.cs" Link="Utils\RopeNode.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RopeTextReader.cs" Link="Utils\RopeTextReader.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
+    <Compile Include="Utils\TextFormatterFactory.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
     <Compile Include="Utils\PropertyChangedWeakEventManager.cs" />
 
@@ -223,6 +226,10 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\GlobalTextRunProperties.cs"             Link="Rendering\GlobalTextRunProperties.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineTextParagraphProperties.cs"  Link="Rendering\VisualLineTextParagraphProperties.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\SimpleTextSource.cs"                   Link="Rendering\SimpleTextSource.cs" />
+
+    <!-- Additional TextFormatting-linked helpers to enable more AvalonEdit renderers -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineTextSource.cs" Link="Rendering\VisualLineTextSource.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\SingleCharacterElementGenerator.cs" Link="Rendering\SingleCharacterElementGenerator.cs" />
     <Compile Include="Editing\Selection.cs" />
     <Compile Include="Editing\CaretWeakEventHandler.cs" />
     <Compile Include="Editing\InputHandlers.cs" />

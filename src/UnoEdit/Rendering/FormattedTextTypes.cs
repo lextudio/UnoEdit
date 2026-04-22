@@ -15,6 +15,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// </summary>
 	public class FormattedTextElement : VisualLineElement
 	{
+		internal System.Windows.Media.FormattedText formattedText;
+		internal string text;
+		internal TextLine textLine;
+
 		public sealed class FormattedRunMetadata
 		{
 			public FormattedRunMetadata(double remainingParagraphWidth, TextLine preparedText)
@@ -28,16 +32,36 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>Creates a FormattedTextElement from text/document content.</summary>
-		public FormattedTextElement(int documentLength) : base(1, documentLength) { }
+		public FormattedTextElement(int documentLength) : base(1, documentLength)
+		{
+			BreakBefore = LineBreakCondition.BreakPossible;
+			BreakAfter = LineBreakCondition.BreakPossible;
+		}
+
+		/// <summary>Creates a FormattedTextElement from raw text.</summary>
+		public FormattedTextElement(string text, int documentLength) : this(documentLength)
+		{
+			this.text = text ?? throw new ArgumentNullException(nameof(text));
+		}
 
 		/// <summary>Creates a FormattedTextElement from already-prepared text.</summary>
 		public FormattedTextElement(TextLine textLine, int documentLength) : this(documentLength)
 		{
-			PreparedText = textLine;
+			PreparedText = textLine ?? throw new ArgumentNullException(nameof(textLine));
+		}
+
+		/// <summary>Creates a FormattedTextElement from formatted text.</summary>
+		public FormattedTextElement(System.Windows.Media.FormattedText text, int documentLength) : this(documentLength)
+		{
+			formattedText = text ?? throw new ArgumentNullException(nameof(text));
 		}
 
 		/// <summary>Gets or sets prepared text associated with this element.</summary>
-		public TextLine PreparedText { get; set; }
+		public TextLine PreparedText
+		{
+			get => textLine;
+			set => textLine = value;
+		}
 
 		/// <summary>Gets/sets the line break condition before this element.</summary>
 		public LineBreakCondition BreakBefore { get; set; }
@@ -48,6 +72,11 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <inheritdoc/>
 		public override TextRun CreateTextRun(int startVisualColumn, ITextRunConstructionContext context)
 		{
+			if (textLine == null && text != null && context != null) {
+				var formatter = Utils.TextFormatterFactory.Create(context.TextView);
+				textLine = PrepareText(formatter, text, TextRunProperties);
+				text = null;
+			}
 			return new FormattedTextRun(this, context?.GlobalTextRunProperties ?? TextRunProperties);
 		}
 
@@ -99,6 +128,14 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public override TextEmbeddedObjectMetrics Format(double remainingParagraphWidth)
 		{
 			TextLine textLine = Element.PreparedText;
+			System.Windows.Media.FormattedText formattedText = Element.formattedText;
+			if (formattedText != null) {
+				return new TextEmbeddedObjectMetrics(
+					Math.Max(1d, formattedText.WidthIncludingTrailingWhitespace),
+					Math.Max(1d, formattedText.Height),
+					Math.Max(1d, formattedText.Baseline));
+			}
+
 			if (textLine == null)
 				return new TextEmbeddedObjectMetrics(Math.Max(1d, Element.VisualLength), 1d, 1d);
 
@@ -112,6 +149,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public override Rect ComputeBoundingBox(bool rightToLeft, bool sideways)
 		{
 			TextLine textLine = Element.PreparedText;
+			System.Windows.Media.FormattedText formattedText = Element.formattedText;
+			if (formattedText != null)
+				return new Rect(0, 0, Math.Max(1d, formattedText.WidthIncludingTrailingWhitespace), Math.Max(1d, formattedText.Height));
+
 			if (textLine == null)
 				return new Rect(0, 0, Math.Max(1d, Element.VisualLength), 1d);
 
@@ -121,7 +162,14 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Draws the run into a recording drawing context.</summary>
 		public override void Draw(System.Windows.Media.DrawingContext drawingContext, Point origin, bool rightToLeft, bool sideways)
 		{
+			if (Element.formattedText != null) {
+				origin.Y -= Element.formattedText.Baseline;
+				drawingContext?.DrawText(Element.formattedText, origin);
+				return;
+			}
+
 			if (Element.PreparedText != null) {
+				origin.Y -= Element.PreparedText.Baseline;
 				Element.PreparedText.Draw(drawingContext, origin, InvertAxes.None);
 				return;
 			}
@@ -158,6 +206,8 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// </summary>
 	public class InlineObjectRun : TextEmbeddedObject
 	{
+		internal InlineElementMetrics desiredMetrics;
+
 		/// <summary>Creates a new InlineObjectRun.</summary>
 		public InlineObjectRun(int length, TextRunProperties properties, UIElement element)
 		{
@@ -193,12 +243,20 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Formats the run into a lightweight descriptor consumable by the Uno renderer.</summary>
 		public override TextEmbeddedObjectMetrics Format(double remainingParagraphWidth)
 		{
-			double width = Math.Max(1d, Length);
-			return new TextEmbeddedObjectMetrics(width, 1d, 1d);
+			var metrics = GetInlineMetrics();
+			var size = metrics.Size;
+			double baseline = metrics.Baseline > 0 ? metrics.Baseline : (size.Height > 0 ? size.Height : 1d);
+			return new TextEmbeddedObjectMetrics(Math.Max(1d, size.Width), Math.Max(1d, size.Height), baseline);
 		}
 
 		/// <summary>Computes the bounding box for the inline object.</summary>
-		public override Rect ComputeBoundingBox(bool rightToLeft, bool sideways) => new Rect(0, 0, Math.Max(1d, Length), 1d);
+		public override Rect ComputeBoundingBox(bool rightToLeft, bool sideways)
+		{
+			var metrics = GetInlineMetrics();
+			var size = metrics.Size;
+			double baseline = metrics.Baseline > 0 ? metrics.Baseline : (size.Height > 0 ? size.Height : 1d);
+			return new Rect(0, -baseline, Math.Max(1d, size.Width), Math.Max(1d, size.Height));
+		}
 
 		/// <summary>Draws the run into a recording drawing context.</summary>
 		public override void Draw(System.Windows.Media.DrawingContext drawingContext, Point origin, bool rightToLeft, bool sideways)
@@ -210,6 +268,21 @@ namespace ICSharpCode.AvalonEdit.Rendering
 				RightToLeft = rightToLeft,
 				Sideways = sideways
 			});
+		}
+
+		InlineElementMetrics GetInlineMetrics()
+		{
+			if (desiredMetrics.Size.Width > 0 || desiredMetrics.Size.Height > 0)
+				return desiredMetrics;
+
+			if (Element is FrameworkElement frameworkElement) {
+				if (frameworkElement.DesiredSize.Width > 0 || frameworkElement.DesiredSize.Height > 0)
+					return new InlineElementMetrics(frameworkElement.DesiredSize, frameworkElement.DesiredSize.Height);
+				if (frameworkElement.ActualWidth > 0 || frameworkElement.ActualHeight > 0)
+					return new InlineElementMetrics(new Windows.Foundation.Size(frameworkElement.ActualWidth, frameworkElement.ActualHeight), frameworkElement.ActualHeight);
+			}
+
+			return new InlineElementMetrics(new Windows.Foundation.Size(Math.Max(1d, Length), 1d), 1d);
 		}
 	}
 

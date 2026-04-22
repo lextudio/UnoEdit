@@ -93,6 +93,22 @@ namespace UnoEdit.Tests.Rendering
             Assert.That(precedingText.Length, Is.EqualTo(3));
         }
 
+        [Test]
+        public void LinkElementGenerator_ConstructsVisualLineLinkText()
+        {
+            var document = new TextDocument("see https://example.com now");
+            var textView = new TextView { Document = document };
+            var visualLine = new VisualLine(textView, document.GetLineByNumber(1));
+            var context = new TestTextRunConstructionContext(document, textView, visualLine);
+            var generator = new LinkElementGenerator();
+
+            visualLine.ConstructVisualElements(context, new[] { generator });
+
+            Assert.That(visualLine.Elements.Count, Is.EqualTo(3));
+            Assert.That(visualLine.Elements[1], Is.TypeOf<VisualLineLinkText>());
+            Assert.That(((VisualLineLinkText)visualLine.Elements[1]).NavigateUri, Is.EqualTo(new Uri("https://example.com")));
+        }
+
         sealed class TestTextRunConstructionContext : ITextRunConstructionContext
         {
             public TestTextRunConstructionContext(TextDocument document, TextView textView, VisualLine visualLine)

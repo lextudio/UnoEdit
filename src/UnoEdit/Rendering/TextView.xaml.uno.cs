@@ -248,6 +248,15 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         InlineObjectsCanvas.Children.Remove(element);
     }
 
+    public InlineElementMetrics MeasureInlineElement(UIElement element)
+    {
+        if (element == null)
+            return new InlineElementMetrics(new Size(0, 0), 0);
+
+        element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return new InlineElementMetrics(element.DesiredSize, element.DesiredSize.Height);
+    }
+
     public TextDocument? Document
     {
         get => (TextDocument?)GetValue(DocumentProperty);

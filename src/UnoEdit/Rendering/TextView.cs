@@ -498,11 +498,12 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			}
 
 			inlineObjects.Add(inlineObject);
-				if (!alreadyAdded) {
-					var host = Document?.ServiceProvider.GetService(typeof(IInlineObjectHost)) as IInlineObjectHost;
-					if (host != null) {
-						host.AttachInlineElement(inlineObject.Element);
-					}
+				var host = Document?.ServiceProvider.GetService(typeof(IInlineObjectHost)) as IInlineObjectHost;
+				if (!alreadyAdded && host != null) {
+					host.AttachInlineElement(inlineObject.Element);
+				}
+				if (host != null) {
+					inlineObject.desiredMetrics = host.MeasureInlineElement(inlineObject.Element);
 				}
 		}
 

@@ -241,7 +241,8 @@
     <Compile Include="Rendering\BackgroundGeometryBuilder.cs" />
     <Compile Include="Rendering\FormattedTextTypes.cs" />
     <Compile Include="Rendering\VisualLineLinkText.cs" />
-    <Compile Include="Rendering\LinkElementGenerator.cs" />
+    <Compile Include="Rendering\VisualLineLinkText.uno.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\LinkElementGenerator.cs" Link="Rendering\LinkElementGenerator.cs" />
     <Compile Include="Rendering\MouseHoverLogic.cs" />
     <Compile Include="Folding\FoldingElementGenerator.cs" />
     <Compile Include="Highlighting\HighlightedInlineBuilder.cs" />

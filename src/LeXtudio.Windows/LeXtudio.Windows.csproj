@@ -1,6 +1,7 @@
 <Project Sdk="Uno.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0-desktop</TargetFramework>
+    <TargetFrameworks>net9.0-desktop</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
     <RootNamespace>LeXtudio.Windows</RootNamespace>
     <Nullable>disable</Nullable>
     <LangVersion>latest</LangVersion>

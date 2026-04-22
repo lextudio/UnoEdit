@@ -2,7 +2,7 @@ Param(
     [string]$OutDir = ".\dist",
     [string]$Configuration = "Release",
     [string]$DesktopTFM = "net10.0-desktop",
-    [string[]]$Projects = @('src\UnoEdit\UnoEdit.csproj','src\UnoEdit.TextMate\UnoEdit.TextMate.csproj')
+    [string[]]$Projects = @('src\UnoEdit\UnoEdit.csproj','src\UnoEdit.TextMate\UnoEdit.TextMate.csproj','src\LeXtudio.Windows\LeXtudio.Windows.csproj')
 )
 
 Set-StrictMode -Version Latest

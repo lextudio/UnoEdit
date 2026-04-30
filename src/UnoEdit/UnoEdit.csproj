@@ -15,7 +15,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <NoWarn>$(NoWarn);1574;1591;8632;UNO0006</NoWarn>
-    <UseNuGetPackage>false</UseNuGetPackage>
+    <UseNuGetPackage>true</UseNuGetPackage>
     
     <!-- NuGet package metadata -->
     <PackageId>LeXtudio.UnoEdit</PackageId>

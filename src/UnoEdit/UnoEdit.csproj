@@ -14,6 +14,8 @@
     <LangVersion>latest</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultUnoItems>false</EnableDefaultUnoItems>
     <NoWarn>$(NoWarn);1574;1591;8632;UNO0006</NoWarn>
     <UseNuGetPackage>true</UseNuGetPackage>
     
@@ -45,7 +47,6 @@
   <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
     <UseWinUI>true</UseWinUI>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <DefineConstants>$(DefineConstants);WINDOWS_APP_SDK</DefineConstants>
     <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>

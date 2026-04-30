@@ -31,6 +31,111 @@ function Resolve-ProjectPath([string]$proj) {
     throw "Project file not found: $proj"
 }
 
+function Get-AssemblyReferenceNames([string]$AssemblyPath) {
+    try {
+        Add-Type -AssemblyName System.Reflection.Metadata -ErrorAction Stop
+
+        $stream = [System.IO.File]::OpenRead($AssemblyPath)
+        try {
+            $peReader = [System.Reflection.PortableExecutable.PEReader]::new($stream)
+            try {
+                $metadataReader = [System.Reflection.Metadata.PEReaderExtensions]::GetMetadataReader($peReader)
+                $names = New-Object System.Collections.Generic.List[string]
+                foreach ($handle in $metadataReader.AssemblyReferences) {
+                    $assemblyRef = $metadataReader.GetAssemblyReference($handle)
+                    $names.Add($metadataReader.GetString($assemblyRef.Name))
+                }
+
+                return $names
+            } finally {
+                $peReader.Dispose()
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    } catch {
+        throw "Failed to analyze assembly references for '$AssemblyPath': $($_.Exception.Message)"
+    }
+}
+
+function Get-TypeDefinitionNames([string]$AssemblyPath) {
+    try {
+        Add-Type -AssemblyName System.Reflection.Metadata -ErrorAction Stop
+
+        $stream = [System.IO.File]::OpenRead($AssemblyPath)
+        try {
+            $peReader = [System.Reflection.PortableExecutable.PEReader]::new($stream)
+            try {
+                $metadataReader = [System.Reflection.Metadata.PEReaderExtensions]::GetMetadataReader($peReader)
+                $names = New-Object System.Collections.Generic.List[string]
+                foreach ($handle in $metadataReader.TypeDefinitions) {
+                    $typeDefinition = $metadataReader.GetTypeDefinition($handle)
+                    $namespace = $metadataReader.GetString($typeDefinition.Namespace)
+                    $name = $metadataReader.GetString($typeDefinition.Name)
+                    if ($namespace) {
+                        $names.Add("$namespace.$name")
+                    } else {
+                        $names.Add($name)
+                    }
+                }
+
+                return $names
+            } finally {
+                $peReader.Dispose()
+            }
+        } finally {
+            $stream.Dispose()
+        }
+    } catch {
+        throw "Failed to analyze type definitions for '$AssemblyPath': $($_.Exception.Message)"
+    }
+}
+
+function Test-UnoEditPackageArtifacts([string]$PackagePath) {
+    if ((Split-Path -Leaf $PackagePath) -notmatch '^LeXtudio\.UnoEdit\.\d.*\.nupkg$') {
+        return
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $extractRoot = Join-Path ([System.IO.Path]::GetTempPath()) "unoedit_pkg_verify_$([guid]::NewGuid())"
+    New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+    try {
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($PackagePath, $extractRoot)
+        $desktopAssemblies = @(Get-ChildItem -Path (Join-Path $extractRoot 'lib') -Recurse -Filter 'UnoEdit.dll' -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match 'net[0-9.]+-desktop' })
+
+        if (-not $desktopAssemblies -or $desktopAssemblies.Count -eq 0) {
+            throw "Package $PackagePath does not contain a desktop UnoEdit.dll asset."
+        }
+
+        foreach ($assembly in $desktopAssemblies) {
+            Write-Host "  Inspecting assembly: $($assembly.FullName)"
+            $referenceNames = @(Get-AssemblyReferenceNames $assembly.FullName)
+            Write-Host "    Reference count: $($referenceNames.Count)"
+            if ($referenceNames.Count -gt 0) {
+                Write-Host "    References: $($referenceNames -join ', ')"
+            } else {
+                Write-Host "    (no assembly references found)"
+            }
+
+            if ($referenceNames -contains 'Microsoft.WinUI') {
+                throw "Desktop asset $($assembly.FullName) references Microsoft.WinUI. Desktop assets must reference Uno.UI instead."
+            }
+
+            $typeNames = @(Get-TypeDefinitionNames $assembly.FullName)
+            $winUITypes = @($typeNames | Where-Object { $_ -like 'UnoEdit.WinUI.Controls.*' })
+            if ($winUITypes.Count -gt 0) {
+                throw "Desktop asset $($assembly.FullName) contains WinUI-only control types: $($winUITypes -join ', ')"
+            }
+        }
+    } finally {
+        if (Test-Path $extractRoot) {
+            Remove-Item -LiteralPath $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 # Create temporary staging directories (MSBuild's OutDir and PackageOutputPath must be isolated)
 $repoRoot = $PSScriptRoot
 $buildOutDir = Join-Path $repoRoot ".build_out"
@@ -65,8 +170,11 @@ if ($msbuild) {
         Write-Host "Packing $projFull with MSBuild..."
         Write-Host "  Build output: $buildOutDir"
         Write-Host "  Package staging: $pkgStaging"
-        # NOTE: OutDir must be a temp directory to prevent DLL/PDB/XML files from going to dist
-        $msbuildArgs = @($projFull, '/t:Restore;Pack', "/p:Configuration=$Configuration", "/p:OutDir=$buildOutDir", "/p:PackageOutputPath=$pkgStaging")
+        # NOTE: use BaseOutputPath instead of OutDir so multi-targeted projects keep
+        # per-TFM output folders. A shared OutDir lets inner builds overwrite each
+        # other, which can put WinUI assemblies into desktop package assets.
+        $projectBuildOutDir = Join-Path $buildOutDir ([System.IO.Path]::GetFileNameWithoutExtension($projFull))
+        $msbuildArgs = @($projFull, '/t:Restore;Pack', "/p:Configuration=$Configuration", "/p:BaseOutputPath=$projectBuildOutDir\", "/p:PackageOutputPath=$pkgStaging")
         Write-Host "  Starting MSBuild process at $(Get-Date -Format 'HH:mm:ss.fff')..."
         try {
             $proc = Start-Process -FilePath $msbuild -ArgumentList $msbuildArgs -NoNewWindow -PassThru -RedirectStandardOutput ([System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "msbuild_out_$([guid]::NewGuid()).log")) -RedirectStandardError ([System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "msbuild_err_$([guid]::NewGuid()).log"))
@@ -100,8 +208,8 @@ if ($msbuild) {
 Write-Host "Extracting package files (.nupkg/.snupkg) from staging at $(Get-Date -Format 'HH:mm:ss.fff')..."
 Write-Host "  Staging directory: $pkgStaging"
 Write-Host "  Checking for files..."
-$packages = Get-ChildItem -Path $pkgStaging -File -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer -and ($_.Extension -eq '.nupkg' -or $_.Extension -eq '.snupkg') }
-$allFilesInStaging = Get-ChildItem -Path $pkgStaging -File -ErrorAction SilentlyContinue
+$packages = @(Get-ChildItem -Path $pkgStaging -File -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer -and ($_.Extension -eq '.nupkg' -or $_.Extension -eq '.snupkg') })
+$allFilesInStaging = @(Get-ChildItem -Path $pkgStaging -File -ErrorAction SilentlyContinue)
 Write-Host "  Total files in staging: $($allFilesInStaging.Count)"
 if ($allFilesInStaging) {
     $allFilesInStaging | ForEach-Object { Write-Host "    - $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)" }
@@ -112,6 +220,18 @@ if (-not $packages -or $packages.Count -eq 0) {
     Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue
     exit 1
+}
+
+Write-Host "Verifying package artifacts..."
+foreach ($pkg in $packages | Where-Object { $_.Extension -eq '.nupkg' }) {
+    try {
+        Test-UnoEditPackageArtifacts $pkg.FullName
+    } catch {
+        Write-Error $_.Exception.Message
+        Remove-Item -LiteralPath $buildOutDir -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $pkgStaging -Recurse -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
 }
 
 Write-Host "Moving package files ($($packages.Count) file(s)) to output directory at $(Get-Date -Format 'HH:mm:ss.fff')..."

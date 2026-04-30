@@ -7,6 +7,8 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultUnoItems>false</EnableDefaultUnoItems>
     
     <!-- NuGet package metadata -->
     <PackageId>LeXtudio.UnoEdit.TextMate</PackageId>

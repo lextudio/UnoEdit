@@ -1,7 +1,7 @@
 <Project>
   <ItemGroup>
     <!-- Pin patched Tmds.DBus.Protocol to avoid GHSA-xrw6-gwf8-vvr9 (CVE-2026-39959) -->
-    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.92.0" />
     <PackageVersion Include="UnoEdit" Version="0.1.1-master.1+5" />
     <PackageVersion Include="UnoEdit.TextMate" Version="0.1.1-master.1+5" />
     <!-- Uno RuntimeTests engine (source package — embeds headless MSTest runner) -->

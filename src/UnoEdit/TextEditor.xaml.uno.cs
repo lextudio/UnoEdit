@@ -609,8 +609,12 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost
             return;
         }
 
-        TextLocation location = Document.GetLocation(CurrentOffset);
-        int selectionLength = Math.Abs(SelectionEndOffset - SelectionStartOffset);
+        int textLength = Document.TextLength;
+        int currentOffset = Math.Clamp(CurrentOffset, 0, textLength);
+        int selectionStart = Math.Clamp(SelectionStartOffset, 0, textLength);
+        int selectionEnd = Math.Clamp(SelectionEndOffset, 0, textLength);
+        TextLocation location = Document.GetLocation(currentOffset);
+        int selectionLength = Math.Abs(selectionEnd - selectionStart);
         string selectionSummary = selectionLength > 0 ? $"  Sel {selectionLength}" : string.Empty;
         SummaryTextBlock.Text = $"{Document.LineCount} lines  {Document.TextLength} chars  Ln {location.Line}, Col {location.Column}{selectionSummary}";
     }

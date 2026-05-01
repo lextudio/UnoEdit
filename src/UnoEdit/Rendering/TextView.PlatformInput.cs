@@ -1,5 +1,6 @@
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using UnoEdit.Logging;
 
 namespace UnoEdit.Skia.Desktop.Controls;
@@ -11,8 +12,11 @@ public sealed partial class TextView
     private bool _isComposing;
     private int _compositionStartOffset;
     private int _compositionLength;
+    private bool _platformInputFocused;
 
     private CoreTextEditContext _coreTextEditContext;
+
+    private bool CanAcceptPlatformInput => _platformInputFocused && HasEditorXamlFocus();
 
     partial void InitializePlatformInputBridge()
     {
@@ -20,6 +24,8 @@ public sealed partial class TextView
         Unloaded += CoreTextEditContext_InputUnloaded;
         GotFocus += CoreTextEditContext_InputGotFocus;
         LostFocus += CoreTextEditContext_InputLostFocus;
+        RootBorder.GotFocus += CoreTextEditContext_InputGotFocus;
+        RootBorder.LostFocus += CoreTextEditContext_InputLostFocus;
     }
 
     partial void UpdatePlatformInputBridge()
@@ -67,36 +73,18 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_InputGotFocus(object sender, RoutedEventArgs e)
     {
-        if (_coreTextEditContext is not null)
-        {
-            try
-            {
-                _coreTextEditContext.NotifyFocusEnter();
-            }
-            catch (Exception ex)
-            {
-                PlatformImeLogger.Log($"CoreText focus enter failed: {ex.Message}");
-            }
-        }
+        SetPlatformInputFocused(true);
     }
 
     private void CoreTextEditContext_InputLostFocus(object sender, RoutedEventArgs e)
     {
-        if (_coreTextEditContext is not null)
-        {
-            try
-            {
-                _coreTextEditContext.NotifyFocusLeave();
-            }
-            catch (Exception ex)
-            {
-                PlatformImeLogger.Log($"CoreText focus leave failed: {ex.Message}");
-            }
-        }
+        SetPlatformInputFocused(false);
     }
 
     private void DisposeCoreTextEditContext()
     {
+        _platformInputFocused = false;
+
         if (_coreTextEditContext is null)
         {
             return;
@@ -143,7 +131,7 @@ public sealed partial class TextView
 #endif
 
             bool attached = _coreTextEditContext.AttachToCurrentWindow(Window.Current);
-            if (attached)
+            if (attached && _platformInputFocused)
             {
                 _coreTextEditContext.NotifyFocusEnter();
             }
@@ -159,26 +147,86 @@ public sealed partial class TextView
         }
     }
 
-    partial void FocusPlatformInputBridge()
+    private bool HasEditorXamlFocus()
     {
-        if (_coreTextEditContext is null)
+        XamlRoot? xamlRoot = RootBorder.XamlRoot;
+        if (xamlRoot is null)
         {
+            return FocusState != FocusState.Unfocused;
+        }
+
+        object? focusedElement = FocusManager.GetFocusedElement(xamlRoot);
+        return ReferenceEquals(focusedElement, this)
+            || ReferenceEquals(focusedElement, RootBorder);
+    }
+
+    private void SetPlatformInputFocused(bool isFocused)
+    {
+        if (_platformInputFocused == isFocused)
+        {
+            SetCaretVisible(isFocused);
+            if (isFocused && EnsureCoreTextEditContext())
+            {
+                UpdatePlatformInputBridge();
+            }
+
             return;
         }
 
-        try
+        _platformInputFocused = isFocused;
+        SetCaretVisible(isFocused);
+
+        if (isFocused)
         {
-            _coreTextEditContext.NotifyFocusEnter();
-            UpdatePlatformInputBridge();
+            if (!EnsureCoreTextEditContext())
+            {
+                return;
+            }
+
+            try
+            {
+                _coreTextEditContext.NotifyFocusEnter();
+                UpdatePlatformInputBridge();
+            }
+            catch (Exception ex)
+            {
+                PlatformImeLogger.Log($"CoreText focus enter failed: {ex.Message}");
+            }
+
+            return;
         }
-        catch (Exception ex)
+
+        HandleCompositionEnd();
+
+        if (_coreTextEditContext is not null)
         {
-            PlatformImeLogger.Log($"CoreText NotifyFocusEnter failed: {ex.Message}");
+            try
+            {
+                _coreTextEditContext.NotifyFocusLeave();
+            }
+            catch (Exception ex)
+            {
+                PlatformImeLogger.Log($"CoreText focus leave failed: {ex.Message}");
+            }
         }
+    }
+
+    partial void FocusPlatformInputBridge()
+    {
+        SetPlatformInputFocused(true);
     }
 
     private void CoreTextEditContext_CompositionStarted(CoreTextEditContext sender, CoreTextCompositionStartedEventArgs args)
     {
+        if (!_platformInputFocused)
+        {
+            PlatformImeLogger.Log("CoreText CompositionStarted ignored because editor is not focused.");
+            return;
+        }
+
+        _platformInputFocused = true;
+        SetCaretVisible(true);
+
         PlatformImeLogger.Log(
             $"CoreText CompositionStarted BEFORE: current={CurrentOffset} selStart={SelectionStartOffset} selEnd={SelectionEndOffset} " +
             $"composing={_isComposing} compStart={_compositionStartOffset} compLen={_compositionLength} docLen={_document?.TextLength ?? -1}");
@@ -197,6 +245,9 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_FocusRemoved(CoreTextEditContext? sender, object result)
     {
+        _platformInputFocused = false;
+        SetCaretVisible(false);
+
         try
         {
             if (FocusState != FocusState.Unfocused)
@@ -227,7 +278,7 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_TextUpdating(CoreTextEditContext sender, CoreTextTextUpdatingEventArgs args)
     {
-        if (_document is null || IsReadOnly)
+        if (_document is null || IsReadOnly || !CanAcceptPlatformInput)
         {
             return;
         }
@@ -267,16 +318,16 @@ public sealed partial class TextView
                 {
                     _document.Insert(start, text);
                 }
-            }
 
-            int newTextLength = _document.TextLength;
-            int newSelStart = Math.Clamp(args.NewSelection.StartCaretPosition, 0, newTextLength);
-            int newSelEnd = Math.Clamp(args.NewSelection.EndCaretPosition, 0, newTextLength);
-            _selectionAnchorOffset = newSelStart;
-            SelectionStartOffset = Math.Min(newSelStart, newSelEnd);
-            SelectionEndOffset = Math.Max(newSelStart, newSelEnd);
-            CurrentOffset = newSelEnd;
-            _desiredColumn = _document.GetLocation(CurrentOffset).Column;
+                int newTextLength = _document.TextLength;
+                int newSelStart = Math.Clamp(args.NewSelection.StartCaretPosition, 0, newTextLength);
+                int newSelEnd = Math.Clamp(args.NewSelection.EndCaretPosition, 0, newTextLength);
+                _selectionAnchorOffset = newSelStart;
+                SelectionStartOffset = Math.Min(newSelStart, newSelEnd);
+                SelectionEndOffset = Math.Max(newSelStart, newSelEnd);
+                CurrentOffset = newSelEnd;
+                _desiredColumn = _document.GetLocation(CurrentOffset).Column;
+            }
 
             if (_isComposing)
             {
@@ -309,7 +360,7 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_SelectionUpdating(CoreTextEditContext sender, CoreTextSelectionUpdatingEventArgs args)
     {
-        if (_document is null)
+        if (_document is null || !CanAcceptPlatformInput)
         {
             return;
         }
@@ -341,7 +392,7 @@ public sealed partial class TextView
 
     private bool TryForwardKeyToPlatformIme(Windows.System.VirtualKey key, bool controlPressed, bool shiftPressed, char? unicodeKey = null)
     {
-        if (_coreTextEditContext is null)
+        if (_coreTextEditContext is null || !_platformInputFocused)
         {
             return false;
         }
@@ -353,6 +404,11 @@ public sealed partial class TextView
 
     private void CoreTextEditContext_CommandReceived(object sender, CoreTextCommandReceivedEventArgs args)
     {
+        if (!CanAcceptPlatformInput)
+        {
+            return;
+        }
+
         string command = args.Command;
         PlatformImeLogger.Log($"CommandReceived: {command}");
         bool handled = command switch

@@ -198,7 +198,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private IHighlightedLineSource? _prevHighlightedLineSource;
     // Set when the current highlighter fires HighlightingInvalidated (e.g. theme change within the source).
     private bool _highlightingDataInvalidated;
-    private bool _caretVisible = true;
+    private bool _caretVisible;
     private readonly HashSet<int> _dirtyHighlightedLines = new();
     private bool _highlightRangeRefreshQueued;
     private bool _awaitingHighlightedLineSourceReady;
@@ -232,6 +232,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         LinesItemsControl.ItemsSource = _lines;
         Loaded += OnLoaded;
         SizeChanged += OnSizeChanged;
+        GotFocus += OnTextViewGotFocus;
+        LostFocus += OnTextViewLostFocus;
         ApplyThemeToChrome();
         InitializePlatformInputBridge();
     }
@@ -475,6 +477,16 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         _caretVisible = isVisible;
         RefreshViewport();
+    }
+
+    private void OnTextViewGotFocus(object sender, RoutedEventArgs e)
+    {
+        SetCaretVisible(true);
+    }
+
+    private void OnTextViewLostFocus(object sender, RoutedEventArgs e)
+    {
+        SetCaretVisible(false);
     }
 
     private static void OnDocumentChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

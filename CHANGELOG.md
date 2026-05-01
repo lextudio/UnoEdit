@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.4.3] - 2026-04-30
+
+- Prevented UnoEdit from breaking other controls
+
+## [v0.4.2] - 2026-04-30
+
+- Fixed packaging issues
+
 ## [v0.4.1] - 2026-04-30
 
 - Bumped dependencies.

@@ -73,6 +73,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\XmlFoldingStrategy.cs" Link="Folding\XmlFoldingStrategy.cs" />
     <Compile Include="Folding\FoldingSection.cs" />
     <Compile Include="Folding\FoldingManager.cs" />
+    <Compile Include="Folding\FoldingMarginMarker.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
 
     <!-- Core Uno control surface now ships from the library itself. -->

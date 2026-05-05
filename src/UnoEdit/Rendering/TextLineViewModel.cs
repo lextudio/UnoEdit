@@ -8,7 +8,7 @@ using UnoEdit.Logging;
 namespace UnoEdit.Skia.Desktop.Controls;
 
 /// <summary>Indicates whether a line has a fold marker and in what state.</summary>
-public enum FoldMarkerKind { None, CanFold, CanExpand }
+public enum FoldMarkerKind { None, CanFold, CanExpand, InsideFold, FoldEnd }
 
 /// <summary>A single colored text segment for a line.</summary>
 public readonly struct TextRun

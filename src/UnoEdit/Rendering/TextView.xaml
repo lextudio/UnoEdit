@@ -4,6 +4,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:UnoEdit.Skia.Desktop.Controls"
+             xmlns:folding="using:ICSharpCode.AvalonEdit.Folding"
              KeyDown="OnRootKeyDown"
              PointerPressed="OnRootPointerPressed"
              PointerMoved="OnRootPointerMoved"
@@ -85,14 +86,13 @@
                   <!-- Line highlight in margin -->
                   <Border Background="{Binding LineHighlightBrush}"
                           Opacity="{Binding HighlightOpacity}" />
-                  <TextBlock Text="{Binding FoldMarkerGlyph}"
-                             FontSize="{StaticResource UnoEditorGlyphFontSize}"
-                             HorizontalAlignment="Center"
-                             VerticalAlignment="Center"
-                             Foreground="{Binding GutterForegroundBrush}"
-                             AutomationProperties.Name="{Binding FoldMarkerAutomationName}"
-                             PointerPressed="OnFoldGlyphPointerPressed"
-                             IsHitTestVisible="True" />
+                  <folding:FoldingMarginMarker
+                      FoldMarkerKind="{Binding FoldMarker}"
+                      MarkerBrush="{Binding GutterForegroundBrush}"
+                      AutomationProperties.Name="{Binding FoldMarkerAutomationName}"
+                      PointerPressed="OnFoldGlyphPointerPressed"
+                      IsHitTestVisible="True"
+                      HorizontalAlignment="Left" />
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

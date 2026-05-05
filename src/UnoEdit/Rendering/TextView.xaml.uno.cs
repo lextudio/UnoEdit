@@ -1699,16 +1699,34 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         return idx; // negative means hidden
     }
 
-    /// <summary>Determine the fold-marker kind for a document line (whether it starts a fold).</summary>
+    /// <summary>Determine the fold-marker kind for a document line.</summary>
     private FoldMarkerKind GetFoldMarkerKind(DocumentLine line)
     {
         var fm = FoldingManager;
         if (fm is null) return FoldMarkerKind.None;
+
+        // Priority 1: a fold starts on this line (box marker)
         foreach (var section in fm.AllFoldings)
         {
             if (section.StartOffset >= line.Offset && section.StartOffset <= line.EndOffset)
                 return section.IsFolded ? FoldMarkerKind.CanExpand : FoldMarkerKind.CanFold;
         }
+
+        // Priority 2: an expanded fold ends on this line (L-shaped end marker)
+        foreach (var section in fm.AllFoldings)
+        {
+            if (!section.IsFolded && section.EndOffset >= line.Offset && section.EndOffset <= line.EndOffset
+                && section.StartOffset < line.Offset)
+                return FoldMarkerKind.FoldEnd;
+        }
+
+        // Priority 3: inside an expanded fold region (vertical connecting line)
+        foreach (var section in fm.AllFoldings)
+        {
+            if (!section.IsFolded && section.StartOffset < line.Offset && section.EndOffset > line.EndOffset)
+                return FoldMarkerKind.InsideFold;
+        }
+
         return FoldMarkerKind.None;
     }
 

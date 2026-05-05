@@ -1,8 +1,9 @@
-﻿<Window
+<Window
     x:Class="UnoEdit.WinUI.Sample.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:editor="using:UnoEdit.WinUI.Controls"
+    xmlns:pg="using:UnoEdit.PropertyGrid"
     Title="UnoEdit WinUI 3 Sample">
     <Grid Padding="20" RowSpacing="16">
         <Grid.RowDefinitions>
@@ -59,9 +60,31 @@
                        TextWrapping="WrapWholeWords" />
         </Border>
 
-        <!-- Editor (no XAML event bindings — wired in code-behind) -->
-        <editor:TextEditor x:Name="Editor"
-                           AutomationProperties.AutomationId="MainEditor"
-                           Grid.Row="2" />
+        <!-- Editor + Property panel -->
+        <Grid Grid.Row="2" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <editor:TextEditor x:Name="Editor"
+                               AutomationProperties.AutomationId="MainEditor" />
+
+            <!-- Property panel -->
+            <Grid Grid.Column="1" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <ComboBox x:Name="PropertyObjectComboBox"
+                          HorizontalAlignment="Stretch"
+                          SelectionChanged="OnPropertyObjectChanged">
+                    <ComboBoxItem Content="TextEditor" />
+                    <ComboBoxItem Content="Options" />
+                </ComboBox>
+                <pg:PropertyGridControl x:Name="PropertyGrid"
+                                        Grid.Row="1" />
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

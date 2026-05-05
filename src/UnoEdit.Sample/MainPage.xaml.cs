@@ -42,7 +42,21 @@ public sealed partial class MainPage : Page
             ThemeToggle.Content = "🌙 Dark";
         }
         Editor.FoldingManager = _foldingManager;
-        Editor.HighlightedLineSource = _textMateHighlighter;
+        HighlighterComboBox.SelectedIndex = 1;
+        var def = HighlightingManager.Instance.GetDefinitionByExtension(".cs");
+        Editor.HighlightedLineSource = def != null ? new XshdHighlightedLineSource(def) : null;
+        PropertyGrid.SelectedObject = Editor;
+
+        // Force editor refresh by re-assigning Options when changes are detected
+        var origOptions = Editor.Options;
+        origOptions.PropertyChanged += (s, e) =>
+        {
+            Console.WriteLine($"[Sample] Options.{e.PropertyName} changed");
+            var options = Editor.Options;
+            Editor.Options = null;
+            Editor.Options = options;
+        };
+
         // Wire search and simple completion hooks for the sample host.
         Editor.TextArea.TextEntered += OnTextAreaTextEntered;
         Editor.TextArea.TextEntering += OnTextAreaTextEntering;
@@ -60,6 +74,12 @@ public sealed partial class MainPage : Page
     private void UpdateFoldings()
     {
         _foldingStrategy.UpdateFoldings(_foldingManager, _document);
+    }
+
+    private void OnPropertyObjectChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PropertyGrid == null || Editor == null) return;
+        PropertyGrid.SelectedObject = PropertyObjectComboBox.SelectedIndex == 1 ? Editor.Options : Editor;
     }
 
     private void OnHighlighterChanged(object sender, SelectionChangedEventArgs e)

@@ -55,8 +55,21 @@ public sealed partial class MainWindow : Window
         Editor.FoldingManager = _foldingManager;
 
         // Set initial selection and apply highlighting now that Editor is ready.
-        HighlighterComboBox.SelectedIndex = 0;
-        ApplyHighlighter(0);
+        HighlighterComboBox.SelectedIndex = 1;
+        ApplyHighlighter(1);
+
+        PropertyObjectComboBox.SelectedIndex = 0;
+        PropertyGrid.SelectedObject = Editor;
+
+        // Force editor refresh by re-assigning Options when changes are detected
+        var origOptions = Editor.Options;
+        origOptions.PropertyChanged += (s, e) =>
+        {
+            Console.WriteLine($"[Sample] Options.{e.PropertyName} changed");
+            var options = Editor.Options;
+            Editor.Options = null;
+            Editor.Options = options;
+        };
 
         // Wire events in code-behind (not in XAML) to avoid XAML parser failures
         // with non-standard event delegate types on the custom control.
@@ -82,6 +95,12 @@ public sealed partial class MainWindow : Window
     }
 
     // --- Toolbar handlers ---
+
+    private void OnPropertyObjectChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PropertyGrid == null || Editor == null) return;
+        PropertyGrid.SelectedObject = PropertyObjectComboBox.SelectedIndex == 1 ? Editor.Options : Editor;
+    }
 
     private void OnHighlighterChanged(object sender, SelectionChangedEventArgs e)
     {

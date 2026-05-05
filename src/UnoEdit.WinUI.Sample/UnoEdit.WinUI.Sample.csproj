@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\UnoEdit\UnoEdit.csproj" />
     <ProjectReference Include="..\UnoEdit.TextMate\UnoEdit.TextMate.csproj" />
+    <ProjectReference Include="..\UnoEdit.PropertyGrid\UnoEdit.PropertyGrid.csproj" />
   </ItemGroup>
 
   <ItemGroup>

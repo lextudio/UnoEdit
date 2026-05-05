@@ -1,0 +1,37 @@
+<UserControl
+    x:Class="UnoEdit.PropertyGrid.PropertyEditorControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <!-- Boolean editor -->
+        <CheckBox x:Name="BoolEditor"
+                  IsChecked="{x:Bind BoolValue, Mode=TwoWay}"
+                  Visibility="{x:Bind BoolEditorVisibility, Mode=OneWay}" />
+
+        <!-- String editor -->
+        <TextBox x:Name="StringEditor"
+                 Text="{x:Bind StringValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 PlaceholderText="(empty)"
+                 Visibility="{x:Bind StringEditorVisibility, Mode=OneWay}" />
+
+        <!-- Number editor -->
+        <TextBox x:Name="NumberEditor"
+                 Text="{x:Bind NumberValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 InputScope="Number"
+                 Visibility="{x:Bind NumberEditorVisibility, Mode=OneWay}" />
+
+        <!-- Enum editor -->
+        <ComboBox x:Name="EnumEditor"
+                  ItemsSource="{x:Bind EnumValues, Mode=OneWay}"
+                  SelectedItem="{x:Bind EnumValue, Mode=TwoWay}"
+                  Visibility="{x:Bind EnumEditorVisibility, Mode=OneWay}" />
+
+        <!-- Read-only display -->
+        <TextBlock x:Name="ReadOnlyEditor"
+                   Text="{x:Bind ReadOnlyValue, Mode=OneWay}"
+                   Opacity="0.6"
+                   FontStyle="Italic"
+                   Visibility="{x:Bind ReadOnlyEditorVisibility, Mode=OneWay}" />
+    </Grid>
+</UserControl>

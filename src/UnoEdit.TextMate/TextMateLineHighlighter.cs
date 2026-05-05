@@ -183,7 +183,6 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 			if (tokens.Count == 0) {
 				LogTM($"HighlightLine lineNumber={lineNumber} tokens=empty");
-				lineHighlightCache[lineNumber] = new CachedLineHighlight { HighlightedLine = null, IsComplete = true };
 				return null;
 			}
 
@@ -213,7 +212,6 @@ namespace ICSharpCode.AvalonEdit.TextMate
 
 			LogTM($"HighlightLine lineNumber={lineNumber} sectionCount={highlightedLine.Sections.Count}");
 			if (highlightedLine.Sections.Count == 0) {
-				lineHighlightCache[lineNumber] = new CachedLineHighlight { HighlightedLine = null, IsComplete = true };
 				return null;
 			}
 

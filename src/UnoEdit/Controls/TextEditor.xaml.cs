@@ -90,6 +90,7 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
             new PropertyMetadata(ScrollBarVisibility.Auto));
 
     private TextDocument? _attachedDocument;
+    private TextEditorOptions? _currentOptions;
 
     public TextEditor()
     {
@@ -102,6 +103,10 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
         PART_TextArea.PointerExited       += (s, e) => { PreviewMouseHoverStopped?.Invoke(this, EventArgs.Empty); MouseHoverStopped?.Invoke(this, EventArgs.Empty); };
         KeyDown += OnEditorKeyDown;
         ApplyThemeToChrome();
+
+        // Listen to property changes on the Options object
+        Options.PropertyChanged += OnOptionsPropertyChanged;
+        _currentOptions = Options;
     }
 
     // ── Public Properties ────────────────────────────────────────────────────
@@ -455,8 +460,28 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
     private static void OnOptionsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var editor = (TextEditor)d;
-        editor.PART_TextArea.Options = (e.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+        var newOptions = (e.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+
+        // Unsubscribe from old Options' PropertyChanged
+        if (editor._currentOptions != null)
+        {
+            editor._currentOptions.PropertyChanged -= editor.OnOptionsPropertyChanged;
+        }
+
+        // Set new Options
+        editor.PART_TextArea.Options = newOptions;
+        editor._currentOptions = newOptions;
+
+        // Subscribe to new Options' PropertyChanged
+        newOptions.PropertyChanged += editor.OnOptionsPropertyChanged;
+
         editor.OptionChanged?.Invoke(editor, new PropertyChangedEventArgs(null));
+    }
+
+    private void OnOptionsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Options property changes are automatically synced to PART_TextArea.Options
+        // since they share the same object reference. No manual syncing needed here.
     }
 
     private static void OnIsReadOnlyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

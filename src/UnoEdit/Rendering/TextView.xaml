@@ -28,48 +28,64 @@
                   VerticalAlignment="Top">
         <Border x:Name="TopSpacer" Height="0" />
 
-        <Grid>
-          <ItemsControl x:Name="LinesItemsControl">
+        <Grid x:Name="EditorGrid">
+          <Grid.ColumnDefinitions>
+            <!--
+              LineNumberColumn: shown/hidden by ShowLineNumbers.
+              FoldMarginColumn: always visible (mirrors AvalonEdit where FoldingMargin
+                                stays in LeftMargins independently of ShowLineNumbers).
+              TextColumn: text content with a small left gap.
+            -->
+            <ColumnDefinition x:Name="LineNumberColumn" Width="Auto" />
+            <ColumnDefinition x:Name="FoldMarginColumn" Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+
+          <!--
+            Line-number margin.
+            Visibility toggled by ShowLineNumbers in code-behind.
+            Width=40 to fit right-aligned line numbers.
+          -->
+          <ItemsControl x:Name="LineNumberItemsControl" Width="40">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <StackPanel />
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
-            <!--
-              x:DataType is intentionally omitted: all bindings below use classic {Binding}
-              (reflection-based), which is more reliable in Uno Platform Skia than compiled
-              x:Bind. Adding x:DataType here would trigger compiled-binding code generation
-              against a type that was previously co-located in the code-behind, causing
-              silent binding failures in the Skia renderer.
-            -->
-            <DataTemplate>
-              <Grid Height="{StaticResource UnoEditorLineHeight}"
-                    ColumnSpacing="16">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="56" />
-                  <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <!-- Line highlight (current-line background) -->
-                <Border Grid.ColumnSpan="2"
-                        Background="{Binding LineHighlightBrush}"
-                        Opacity="{Binding HighlightOpacity}" />
-
-                <!-- Gutter: line number + fold marker -->
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="40" />
-                    <ColumnDefinition Width="16" />
-                  </Grid.ColumnDefinitions>
+              <DataTemplate>
+                <Grid Height="{StaticResource UnoEditorLineHeight}">
+                  <!-- Line highlight in margin -->
+                  <Border Background="{Binding LineHighlightBrush}"
+                          Opacity="{Binding HighlightOpacity}" />
                   <TextBlock Text="{Binding Number}"
                              FontSize="{StaticResource UnoEditorTextFontSize}"
                              HorizontalTextAlignment="Right"
                              Foreground="{Binding GutterForegroundBrush}"
                              Padding="0,0,2,0"
                              VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding FoldMarkerGlyph}"
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!--
+            Fold-marker margin. Always visible regardless of ShowLineNumbers.
+            Width=16 for the fold glyph.
+          -->
+          <ItemsControl x:Name="FoldMarginItemsControl" Grid.Column="1" Width="16">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Height="{StaticResource UnoEditorLineHeight}">
+                  <!-- Line highlight in margin -->
+                  <Border Background="{Binding LineHighlightBrush}"
+                          Opacity="{Binding HighlightOpacity}" />
+                  <TextBlock Text="{Binding FoldMarkerGlyph}"
                              FontSize="{StaticResource UnoEditorGlyphFontSize}"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center"
@@ -78,52 +94,74 @@
                              PointerPressed="OnFoldGlyphPointerPressed"
                              IsHitTestVisible="True" />
                 </Grid>
-
-                <!-- Text column -->
-                <local:HighlightedTextBlock Grid.Column="1"
-                                            ViewModel="{Binding}"
-                                            FontSize="{StaticResource UnoEditorTextFontSize}"
-                                            VerticalAlignment="Center" />
-
-                <!-- Selection highlight -->
-                <Border Grid.Column="1"
-                        Height="{StaticResource UnoEditorOverlayHeight}"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center"
-                        Background="{Binding SelectionBrush}"
-                        BorderBrush="{Binding SelectionBorderBrush}"
-                        BorderThickness="{Binding SelectionBorderThickness}"
-                        CornerRadius="{Binding SelectionCornerRadius}"
-                        Margin="{Binding SelectionMargin}"
-                        Width="{Binding SelectionWidth}"
-                        Opacity="{Binding SelectionOpacity}" />
-
-                <!-- Explicit IME preedit underline for Uno/Skia -->
-                <Border Grid.Column="1"
-                        Height="1.5"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Bottom"
-                        Background="{Binding PreeditUnderlineBrush}"
-                        Margin="{Binding PreeditUnderlineMargin}"
-                        Width="{Binding PreeditUnderlineWidth}"
-                        Opacity="{Binding PreeditUnderlineOpacity}" />
-
-                <!-- Caret -->
-                <Border Grid.Column="1"
-                        Width="{StaticResource UnoEditorCaretWidth}"
-                        Height="{StaticResource UnoEditorOverlayHeight}"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center"
-                        Background="{Binding CaretBrush}"
-                        Margin="{Binding CaretMargin}"
-                        Opacity="{Binding CaretOpacity}" />
-              </Grid>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
           </ItemsControl>
 
-          <!-- Overlay for inline UIElements created by InlineObjectRun -->
-          <Canvas x:Name="InlineObjectsCanvas" IsHitTestVisible="True" />
+          <!-- Text content column -->
+          <Grid Grid.Column="2">
+            <ItemsControl x:Name="LinesItemsControl">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <!--
+                  x:DataType is intentionally omitted: all bindings below use classic {Binding}
+                  (reflection-based), which is more reliable in Uno Platform Skia than compiled
+                  x:Bind. Adding x:DataType here would trigger compiled-binding code generation
+                  against a type that was previously co-located in the code-behind, causing
+                  silent binding failures in the Skia renderer.
+                -->
+                <DataTemplate>
+                  <Grid Height="{StaticResource UnoEditorLineHeight}">
+                    <!-- Line highlight (current-line background) -->
+                    <Border Background="{Binding LineHighlightBrush}"
+                            Opacity="{Binding HighlightOpacity}" />
+
+                    <!-- Text -->
+                    <local:HighlightedTextBlock ViewModel="{Binding}"
+                                                FontSize="{StaticResource UnoEditorTextFontSize}"
+                                                VerticalAlignment="Center" />
+
+                    <!-- Selection highlight -->
+                    <Border Height="{StaticResource UnoEditorOverlayHeight}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Background="{Binding SelectionBrush}"
+                            BorderBrush="{Binding SelectionBorderBrush}"
+                            BorderThickness="{Binding SelectionBorderThickness}"
+                            CornerRadius="{Binding SelectionCornerRadius}"
+                            Margin="{Binding SelectionMargin}"
+                            Width="{Binding SelectionWidth}"
+                            Opacity="{Binding SelectionOpacity}" />
+
+                    <!-- Explicit IME preedit underline for Uno/Skia -->
+                    <Border Height="1.5"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Bottom"
+                            Background="{Binding PreeditUnderlineBrush}"
+                            Margin="{Binding PreeditUnderlineMargin}"
+                            Width="{Binding PreeditUnderlineWidth}"
+                            Opacity="{Binding PreeditUnderlineOpacity}" />
+
+                    <!-- Caret -->
+                    <Border Width="{StaticResource UnoEditorCaretWidth}"
+                            Height="{StaticResource UnoEditorOverlayHeight}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Background="{Binding CaretBrush}"
+                            Margin="{Binding CaretMargin}"
+                            Opacity="{Binding CaretOpacity}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Overlay for inline UIElements created by InlineObjectRun -->
+            <Canvas x:Name="InlineObjectsCanvas" IsHitTestVisible="True" />
+          </Grid>
         </Grid>
 
         <Border x:Name="BottomSpacer" Height="0" />

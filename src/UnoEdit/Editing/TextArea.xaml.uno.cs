@@ -155,9 +155,16 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
     /// </summary>
     public MouseSelectionMode MouseSelectionMode { get; internal set; } = MouseSelectionMode.None;
 
+    private TextEditorOptions? _currentOptions;
+
     public TextArea()
     {
         this.InitializeComponent();
+
+        // Listen to property changes on the Options object
+        Options.PropertyChanged += OnOptionsPropertyChanged;
+        _currentOptions = Options;
+
         _caret = new Caret(
             bringIntoView: () => ScrollToLine(_caret.Line),
             setOffset: offset => {
@@ -331,8 +338,29 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
     private static void OnOptionsChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textArea = (TextArea)dependencyObject;
-        textArea.PART_TextView.Options = (args.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+        var newOptions = (args.NewValue as TextEditorOptions) ?? new TextEditorOptions();
+
+        // Unsubscribe from old Options' PropertyChanged
+        if (textArea._currentOptions != null)
+        {
+            textArea._currentOptions.PropertyChanged -= textArea.OnOptionsPropertyChanged;
+        }
+
+        // Set new Options
+        textArea.PART_TextView.Options = newOptions;
+        textArea._currentOptions = newOptions;
+
+        // Subscribe to new Options' PropertyChanged
+        newOptions.PropertyChanged += textArea.OnOptionsPropertyChanged;
+
         textArea.OptionChanged?.Invoke(textArea, new PropertyChangedEventArgs(null));
+    }
+
+    private void OnOptionsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // Options properties are synced to PART_TextView.Options which shares the same object reference
+        // so changes are automatically reflected. We can trigger a general update if needed.
+        OptionChanged?.Invoke(this, e);
     }
 
     private static void OnIsReadOnlyChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

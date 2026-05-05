@@ -22,7 +22,8 @@ public class PropertyItemViewModel : INotifyPropertyChanged
         get => _value;
         set
         {
-            if (_value != value)
+            PropertyGridLogger.Log($"VM.Value setter [{PropertyName}]: incoming={value}, current=_value={_value}, equal={Equals(_value, value)}");
+            if (!Equals(_value, value))
             {
                 _value = value;
                 if (CanWrite)
@@ -30,14 +31,16 @@ public class PropertyItemViewModel : INotifyPropertyChanged
                     try
                     {
                         _property.SetValue(_instance, value);
-                        Console.WriteLine($"[PropertyGrid] Set {PropertyName} = {value}");
+                        PropertyGridLogger.Log($"VM.Value setter [{PropertyName}]: SetValue succeeded, reading back={_property.GetValue(_instance)}");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[PropertyGrid] Error setting {PropertyName}: {ex.Message}");
+                        PropertyGridLogger.Log($"VM.Value setter [{PropertyName}]: SetValue FAILED: {ex.Message}");
                     }
                 }
+                PropertyGridLogger.Log($"VM.Value setter [{PropertyName}]: firing PropertyChanged(Value)");
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+                PropertyGridLogger.Log($"VM.Value setter [{PropertyName}]: PropertyChanged(Value) done");
             }
         }
     }
@@ -74,16 +77,22 @@ public class PropertyItemViewModel : INotifyPropertyChanged
 
         if (instance is INotifyPropertyChanged inpc)
         {
+            PropertyGridLogger.Log($"VM [{property.Name}]: subscribing to INPC on {instance.GetType().Name}");
             inpc.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == property.Name)
                 {
                     try
                     {
-                        _value = property.GetValue(_instance);
+                        var newVal = property.GetValue(_instance);
+                        PropertyGridLogger.Log($"VM [{property.Name}]: INPC back-sync fired, newVal={newVal}, old _value={_value}");
+                        _value = newVal;
                         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        PropertyGridLogger.Log($"VM [{property.Name}]: INPC back-sync exception: {ex.Message}");
+                    }
                 }
             };
         }

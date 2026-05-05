@@ -29,6 +29,7 @@ public partial class App : Application
     {
         try
         {
+            UnoEdit.PropertyGrid.PropertyGridLogger.Reset();
             LoadUnoEditorResources();
             _window = new MainWindow();
             _window.Activate();

@@ -15,6 +15,14 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    // Guards against the feedback loop: BoolValue.set → ViewModel.Value →
+    // PropertyChanged("Value") → NotifyEditorBindingsChanged → x:Bind forward
+    // sets IsChecked programmatically → WinUI defers a reverse correction that
+    // overwrites the value we just set (~50 ms later).
+    // When true, OnViewModelPropertyChanged skips NotifyEditorBindingsChanged
+    // because the UI already reflects the correct state.
+    private bool _updatingFromUI;
+
     public PropertyItemViewModel? ViewModel
     {
         get => (PropertyItemViewModel?)GetValue(ViewModelProperty);
@@ -33,19 +41,33 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
             oldVm.PropertyChanged -= control.OnViewModelPropertyChanged;
         if (e.NewValue is PropertyItemViewModel newVm)
             newVm.PropertyChanged += control.OnViewModelPropertyChanged;
+        control.NotifyEditorBindingsChanged();
         control.UpdateEditorVisibility();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(PropertyItemViewModel.Value))
+        PropertyGridLogger.Log($"Editor [{ViewModel?.PropertyName}]: OnViewModelPropertyChanged e={e.PropertyName}, Value now={ViewModel?.Value}, updatingFromUI={_updatingFromUI}");
+        if (e.PropertyName == nameof(PropertyItemViewModel.Value) && !_updatingFromUI)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BoolValue)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StringValue)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NumberValue)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EnumValue)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ReadOnlyValue)));
+            NotifyEditorBindingsChanged();
         }
+    }
+
+    private void NotifyEditorBindingsChanged()
+    {
+        PropertyGridLogger.Log($"Editor [{ViewModel?.PropertyName}]: NotifyEditorBindingsChanged, BoolValue={BoolValue}");
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BoolValue)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StringValue)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NumberValue)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EnumValue)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EnumValues)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ReadOnlyValue)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(BoolEditorVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StringEditorVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NumberEditorVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EnumEditorVisibility)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ReadOnlyEditorVisibility)));
     }
 
     private void UpdateEditorVisibility()
@@ -119,13 +141,20 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
 
     public bool BoolValue
     {
-        get => ViewModel?.Value is bool b && b;
+        get
+        {
+            var v = ViewModel?.Value is bool b && b;
+            PropertyGridLogger.Log($"Editor [{ViewModel?.PropertyName}]: BoolValue GET => {v} (raw Value={ViewModel?.Value})");
+            return v;
+        }
         set
         {
+            PropertyGridLogger.Log($"Editor [{ViewModel?.PropertyName}]: BoolValue SET => {value}");
             if (ViewModel != null)
             {
-                Console.WriteLine($"[PropertyEditor] BoolValue setter: {ViewModel.PropertyName} = {value}");
-                ViewModel.Value = value;
+                _updatingFromUI = true;
+                try { ViewModel.Value = value; }
+                finally { _updatingFromUI = false; }
             }
         }
     }
@@ -136,7 +165,11 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
         set
         {
             if (ViewModel != null)
-                ViewModel.Value = value;
+            {
+                _updatingFromUI = true;
+                try { ViewModel.Value = value; }
+                finally { _updatingFromUI = false; }
+            }
         }
     }
 
@@ -152,6 +185,7 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
             var isNullable = Nullable.GetUnderlyingType(type) != null;
             var baseType = isNullable ? Nullable.GetUnderlyingType(type)! : type;
 
+            _updatingFromUI = true;
             try
             {
                 if (string.IsNullOrEmpty(value))
@@ -159,7 +193,6 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
                     ViewModel.Value = isNullable ? null : Activator.CreateInstance(baseType);
                     return;
                 }
-
                 ViewModel.Value = baseType == typeof(int)
                     ? int.Parse(value)
                     : baseType == typeof(double)
@@ -167,6 +200,7 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
                     : float.Parse(value);
             }
             catch { }
+            finally { _updatingFromUI = false; }
         }
     }
 
@@ -176,7 +210,11 @@ public sealed partial class PropertyEditorControl : UserControl, INotifyProperty
         set
         {
             if (ViewModel != null)
-                ViewModel.Value = value;
+            {
+                _updatingFromUI = true;
+                try { ViewModel.Value = value; }
+                finally { _updatingFromUI = false; }
+            }
         }
     }
 

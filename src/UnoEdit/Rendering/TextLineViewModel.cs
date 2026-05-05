@@ -70,7 +70,6 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         double preeditUnderlineWidth,
         double preeditUnderlineOpacity,
         TextEditorTheme theme,
-        bool showLineNumbers = true,
         bool wrapText = false,
         Windows.UI.Color? gutterForegroundOverride = null,
         Windows.UI.Color? selectionBrushOverride = null,
@@ -83,7 +82,6 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         int preeditVisualEnd = -1)
     {
         FoldMarker = foldMarker;
-        ShowLineNumbers = showLineNumbers;
         WrapText = wrapText;
         SelectionCornerRadius = selectionCornerRadius;
         LineNumber = number.ToString();
@@ -124,7 +122,6 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         double preeditUnderlineOpacity)
     {
         FoldMarker            = source.FoldMarker;
-        ShowLineNumbers       = source.ShowLineNumbers;
         WrapText              = source.WrapText;
         SelectionCornerRadius = source.SelectionCornerRadius;
         LineNumber            = source.LineNumber;
@@ -219,12 +216,6 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             Notify(nameof(Number));
             LogRender($"vm line-number updated {oldLineNumber} -> {LineNumber} text='{Text}'");
         }
-        if (ShowLineNumbers != source.ShowLineNumbers)
-        {
-            ShowLineNumbers = source.ShowLineNumbers;
-            Notify(nameof(ShowLineNumbers));
-            Notify(nameof(Number));
-        }
         if (WrapText != source.WrapText)
         {
             WrapText = source.WrapText;
@@ -281,13 +272,11 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
 
     public string LineNumber { get; private set; }
 
-    public bool ShowLineNumbers { get; private set; }
-
     public bool WrapText { get; private set; }
 
     public double SelectionCornerRadius { get; private set; }
 
-    public string Number => ShowLineNumbers ? LineNumber : string.Empty;
+    public string Number => LineNumber;
 
     public FoldMarkerKind FoldMarker { get; private set; }
 

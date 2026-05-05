@@ -1,8 +1,12 @@
 <Solution>
+  <Folder Name="/Dependencies/">
+    <Project Path="external/coretext/src/LeXtudio.UI.Text.Core.csproj" />
+    <Project Path="src/LeXtudio.Windows/LeXtudio.Windows.csproj" />
+    <Project Path="src/UnoEdit.PropertyGrid/UnoEdit.PropertyGrid.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/UnoEdit.Sample/UnoEdit.Sample.csproj" />
     <Project Path="src/UnoEdit/UnoEdit.csproj" />
-    <Project Path="external/coretext/src/LeXtudio.UI.Text.Core.csproj" />
     <Project Path="src/UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
     <Project Path="src/UnoEdit.WinUI.Sample/UnoEdit.WinUI.Sample.csproj" />
     <Project Path="src/UnoEdit.Tests/UnoEdit.Tests.csproj" />

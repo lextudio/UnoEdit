@@ -24,7 +24,7 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="local:PropertyItemViewModel">
-                        <Grid ColumnSpacing="8" Margin="0,2">
+                        <Grid ColumnSpacing="8" Margin="0,2" Visibility="{Binding IsVisible}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />

@@ -172,7 +172,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private const double LineHeight = 22d;
     private const double DefaultCharacterWidth = 7.8d;
     private const double TextLeftPadding = 0d;
-    private const double GutterWidth = 72d;
+    private const double GutterWidth = 56d; // 40 (line numbers) + 16 (fold marker)
     private const int OverscanLineCount = 4;
     private TextDocument? _document;
     private DocumentHighlighter? _highlighter;
@@ -229,6 +229,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         FontSize = EditorTextMetrics.FontSize;
         _measurementProbe.FontFamily = EditorTextMetrics.CreateFontFamily();
         _measurementProbe.FontSize = EditorTextMetrics.FontSize;
+        LineNumberItemsControl.ItemsSource = _lines;
+        FoldMarginItemsControl.ItemsSource = _lines;
         LinesItemsControl.ItemsSource = _lines;
         Loaded += OnLoaded;
         SizeChanged += OnSizeChanged;
@@ -529,9 +531,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private static void OnShowLineNumbersChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textView = (TextView)dependencyObject;
-        textView._pendingFullRebuild = true;
-        LogFlash("full queued: show line numbers changed");
-        textView.RefreshViewport();
+        bool show = (bool)args.NewValue;
+        // Mirror AvalonEdit: only the LineNumberMargin is added/removed; FoldingMargin stays.
+        textView.LineNumberItemsControl.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -1287,7 +1289,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     preeditUnderlineWidth,
                     preeditUnderlineOpacity,
                     Theme,
-                    ShowLineNumbers,
                     WordWrap,
                     (LineNumbersForeground as SolidColorBrush)?.Color,
                     (SelectionBrush as SolidColorBrush)?.Color,
@@ -1533,7 +1534,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             preeditUnderlineWidth,
             preeditUnderlineOpacity,
             Theme,
-            ShowLineNumbers,
             WordWrap,
             (LineNumbersForeground as SolidColorBrush)?.Color,
             (SelectionBrush as SolidColorBrush)?.Color,
@@ -1728,7 +1728,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int targetLine = _visibleDocLines.Count > 0 ? _visibleDocLines[visualRow] : 1;
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 
-        double documentX = x + TextScrollViewer.HorizontalOffset - GutterWidth - TextLeftPadding;
+        // Layout: [40 line-nums?][16 fold-margin] = 56 with line nums, 16 without.
+        double gutterOffset = ShowLineNumbers ? GutterWidth : 16d;
+        double documentX = x + TextScrollViewer.HorizontalOffset - gutterOffset - TextLeftPadding;
         string lineText = _document.GetText(documentLine);
         int logicalColumn = GetLogicalColumnFromDisplayX(lineText, documentX);
         int targetColumn = Math.Clamp(logicalColumn + 1, 1, documentLine.Length + 1);

@@ -273,7 +273,7 @@
     <Compile Include="Highlighting\HighlightingColor.cs" />
     <Compile Include="Highlighting\HighlightedLine.cs" />
     <Compile Include="Highlighting\RichText.cs" />
-    <Compile Include="Highlighting\Xshd\V2Loader.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\V2Loader.cs" Link="Highlighting\Xshd\V2Loader.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Resources.cs" Link="Highlighting\Resources\Resources.cs" />
     <Compile Include="Highlighting\IHighlightedLineSource.cs" />
 
@@ -298,12 +298,12 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextModelWriter.cs"                       Link="Highlighting\RichTextModelWriter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PlainRichTextWriter.cs"                              Link="Utils\PlainRichTextWriter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RichTextWriter.cs"                                   Link="Utils\RichTextWriter.cs" />
-    <!-- Xshd: V1/V2 loader support; V2Loader remains forked only for portable system-color handling. -->
+    <!-- Xshd: V1/V2 loader support. -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\HighlightingLoader.cs" Link="Highlighting\Xshd\HighlightingLoader.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\V1Loader.cs" Link="Highlighting\Xshd\V1Loader.cs" />
     <!-- Xshd: portable files -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\IXshdVisitor.cs"         Link="Highlighting\Xshd\IXshdVisitor.cs" />
-    <!-- SaveXshdVisitor and V1Loader omitted — V1 format not supported, serialization not needed -->
+    <!-- SaveXshdVisitor remains local for portable serialization. -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XmlHighlightingDefinition.cs" Link="Highlighting\Xshd\XmlHighlightingDefinition.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdColor.cs"            Link="Highlighting\Xshd\XshdColor.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdElement.cs"          Link="Highlighting\Xshd\XshdElement.cs" />

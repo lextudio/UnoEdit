@@ -1,4 +1,5 @@
 using System.Xml;
+using System.IO;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Highlighting.Xshd;
@@ -40,6 +41,26 @@ public class HighlightingBehaviorTests
 
         Assert.That(result.Lines.Count, Is.EqualTo(2));
         Assert.That(result.Lines[0].Text, Is.EqualTo("alpha"));
+    }
+
+    [Test]
+    public void XshdLoader_AcceptsSystemColorBrushReferences()
+    {
+        const string xshd = """
+<SyntaxDefinition name="SystemColorTest" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+  <Color name="SystemText" foreground="SystemColors.ControlText" />
+  <RuleSet>
+    <Keywords color="SystemText">
+      <Word>keyword</Word>
+    </Keywords>
+  </RuleSet>
+</SyntaxDefinition>
+""";
+
+        using var reader = XmlReader.Create(new StringReader(xshd));
+        var definition = HighlightingLoader.Load(reader, HighlightingManager.Instance);
+
+        Assert.That(definition.GetNamedColor("SystemText")?.Foreground?.GetColor(), Is.Not.Null);
     }
 
 }

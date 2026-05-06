@@ -3,6 +3,7 @@
 
 using System;
 using System.Globalization;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Windows.Media;
 
@@ -69,5 +70,79 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 
 		/// <inheritdoc/>
 		public override int GetHashCode() => _color.GetHashCode();
+	}
+
+	[Serializable]
+	sealed class SystemColorHighlightingBrush : HighlightingBrush, ISerializable
+	{
+		readonly PropertyInfo property;
+
+		public SystemColorHighlightingBrush(PropertyInfo property)
+		{
+			this.property = property ?? throw new ArgumentNullException(nameof(property));
+		}
+
+		public override Color? GetColor()
+		{
+			if (TryGetKnownColor(property.Name, out var color))
+				return color;
+
+			return property.GetValue(null, null) is SolidColorBrush brush
+				? System.Windows.Media.Color.FromArgb(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B)
+				: null;
+		}
+
+		public override Brush GetBrush(object context)
+		{
+			return property.GetValue(null, null) as Brush;
+		}
+
+		public override string ToString() => property.Name;
+
+		SystemColorHighlightingBrush(SerializationInfo info, StreamingContext context)
+		{
+			property = typeof(System.Windows.SystemColors).GetProperty(info.GetString("propertyName"));
+			if (property == null)
+				throw new ArgumentException("Error deserializing SystemColorHighlightingBrush");
+		}
+
+		void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+		{
+			info.AddValue("propertyName", property.Name);
+		}
+
+		public override bool Equals(object? obj)
+		{
+			return obj is SystemColorHighlightingBrush other && object.Equals(property, other.property);
+		}
+
+		public override int GetHashCode() => property.GetHashCode();
+
+		static bool TryGetKnownColor(string propertyName, out Color color)
+		{
+			switch (propertyName)
+			{
+				case "ControlTextBrush":
+				case "WindowTextBrush":
+					color = Colors.Black;
+					return true;
+				case "HighlightTextBrush":
+				case "WindowBrush":
+					color = Colors.White;
+					return true;
+				case "GrayTextBrush":
+					color = Colors.Gray;
+					return true;
+				case "ControlBrush":
+					color = Colors.LightGray;
+					return true;
+				case "HighlightBrush":
+					color = Colors.Blue;
+					return true;
+				default:
+					color = default;
+					return false;
+			}
+		}
 	}
 }

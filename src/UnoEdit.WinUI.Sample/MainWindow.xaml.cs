@@ -99,7 +99,12 @@ public sealed partial class MainWindow : Window
     private void OnPropertyObjectChanged(object sender, SelectionChangedEventArgs e)
     {
         if (PropertyGrid == null || Editor == null) return;
-        PropertyGrid.SelectedObject = PropertyObjectComboBox.SelectedIndex == 1 ? Editor.Options : Editor;
+        PropertyGrid.SelectedObject = PropertyObjectComboBox.SelectedIndex switch
+        {
+            1 => Editor.TextArea,
+            2 => Editor.Options,
+            _ => Editor,
+        };
     }
 
     private void OnHighlighterChanged(object sender, SelectionChangedEventArgs e)

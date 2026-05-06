@@ -79,6 +79,7 @@
                   SelectedIndex="0"
                   SelectionChanged="OnPropertyObjectChanged">
           <ComboBoxItem Content="TextEditor" />
+          <ComboBoxItem Content="TextArea" />
           <ComboBoxItem Content="Options" />
         </ComboBox>
         <pg:PropertyGridControl x:Name="PropertyGrid"

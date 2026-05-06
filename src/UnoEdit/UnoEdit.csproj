@@ -213,8 +213,8 @@
     <!-- Phase 11: ICompletionData — uses object for TextArea to avoid cross-project dep -->
     <Compile Include="CodeCompletion\ICompletionData.cs" />
 
-    <!-- Phase 11: IOverloadProvider — pure interface, no WPF deps (replaces AvalonEdit link) -->
-    <Compile Include="CodeCompletion\IOverloadProvider.cs" />
+    <!-- Phase 16: IOverloadProvider — pure interface, no WPF deps -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\CodeCompletion\IOverloadProvider.cs" Link="CodeCompletion\IOverloadProvider.cs" />
 
     <!-- Phase 11: FileReader — pure IO, no WPF deps -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\FileReader.cs"                 Link="Utils\FileReader.cs" />

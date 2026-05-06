@@ -223,8 +223,8 @@
     <!-- Phase 11: HighlightingColorizer stub (VisualLineElementTextRunProperties WPF methods not available) -->
     <Compile Include="Highlighting\HighlightingColorizer.cs" />
 
-    <!-- Phase 16: DottedLineMargin linked via System.Windows.Shapes.Line shim -->
-    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\DottedLineMargin.cs" Link="Editing\DottedLineMargin.cs" />
+    <!-- Phase 16: DottedLineMargin stays local because WinUI's Line is sealed. -->
+    <Compile Include="Editing\DottedLineMargin.cs" />
 
     <!-- Phase 14: TextFormatting-shimmed rendering files linked from avalonedit -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\DefaultTextRunTypographyProperties.cs"  Link="Rendering\DefaultTextRunTypographyProperties.cs" />

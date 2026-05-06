@@ -170,14 +170,6 @@ namespace System.Windows
     }
 }
 
-namespace System.Windows.Shapes
-{
-    public class Line : Microsoft.UI.Xaml.Shapes.Line
-    {
-        public new System.Windows.Media.PenLineCap StrokeDashCap { get; set; }
-    }
-}
-
 namespace System.Windows
 {
     public static class SystemColors

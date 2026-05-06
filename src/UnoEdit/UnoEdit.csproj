@@ -249,7 +249,8 @@
     <Compile Include="Rendering\VisualLineLinkText.uno.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\LinkElementGenerator.cs" Link="Rendering\LinkElementGenerator.cs" />
     <Compile Include="Rendering\MouseHoverLogic.cs" />
-    <Compile Include="Folding\FoldingElementGenerator.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\FoldingElementGenerator.cs" Link="Folding\FoldingElementGenerator.cs" />
+    <Compile Include="Folding\FoldingElementGenerator.uno.cs" />
     <Compile Include="Highlighting\HighlightedInlineBuilder.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextColorizer.cs" Link="Highlighting\RichTextColorizer.cs" />
     <Compile Include="Highlighting\HtmlClipboard.cs" />

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
+using ICSharpCode.AvalonEdit.Rendering;
 using NUnit.Framework;
 
 namespace UnoEdit.Tests.Folding
@@ -189,6 +190,35 @@ namespace UnoEdit.Tests.Folding
 
             int count = fm.AllFoldings.Count();
             Assert.That(count, Is.EqualTo(2), "Expected two brace-fold sections (outer class + inner method).");
+        }
+
+        [Test]
+        public void FoldingElementGenerator_ConstructElement_ExtendsAcrossOverlappingFoldings()
+        {
+            var doc = MakeDocument("0123456789");
+            var fm = new FoldingManager(doc);
+            fm.CreateFolding(0, 6).IsFolded = true;
+            fm.CreateFolding(3, 9).IsFolded = true;
+            var generator = new FoldingElementGenerator { FoldingManager = fm };
+
+            var element = generator.ConstructElement(0);
+
+            Assert.That(element, Is.TypeOf<FormattedTextElement>());
+            Assert.That(element.DocumentLength, Is.EqualTo(9));
+        }
+
+        [Test]
+        public void FoldingElementGenerator_ConstructElement_UsesFoldedSectionLength()
+        {
+            var doc = MakeDocument("0123456789");
+            var fm = new FoldingManager(doc);
+            fm.CreateFolding(2, 7).IsFolded = true;
+            var generator = new FoldingElementGenerator { FoldingManager = fm };
+
+            var element = generator.ConstructElement(2);
+
+            Assert.That(element, Is.TypeOf<FormattedTextElement>());
+            Assert.That(element.DocumentLength, Is.EqualTo(5));
         }
 
         [Test]

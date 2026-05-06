@@ -250,7 +250,7 @@
     <Compile Include="Rendering\MouseHoverLogic.cs" />
     <Compile Include="Folding\FoldingElementGenerator.cs" />
     <Compile Include="Highlighting\HighlightedInlineBuilder.cs" />
-    <Compile Include="Highlighting\RichTextColorizer.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextColorizer.cs" Link="Highlighting\RichTextColorizer.cs" />
     <Compile Include="Highlighting\HtmlClipboard.cs" />
     <Compile Include="Utils\DocumentPrinter.cs" />
     <Compile Include="Highlighting\Xshd\SaveXshdVisitor.cs" />

@@ -4,12 +4,12 @@ namespace UnoEdit.Skia.Desktop.Controls;
 
 public sealed partial class HighlightedTextBlock : UserControl
 {
-    public static readonly DependencyProperty ViewModelProperty =
+    public static readonly DependencyProperty LineViewModelProperty =
         DependencyProperty.Register(
-            nameof(ViewModel),
+            nameof(LineViewModel),
             typeof(TextLineViewModel),
             typeof(HighlightedTextBlock),
-            new PropertyMetadata(null, OnViewModelChanged));
+            new PropertyMetadata(null, OnLineViewModelChanged));
 
     // Last rendered Runs/refs — used to skip unnecessary Inlines rebuilds when only
     // caret/selection state changed (text content is the same object reference).
@@ -23,13 +23,13 @@ public sealed partial class HighlightedTextBlock : UserControl
         PART_Text.FontSize = EditorTextMetrics.FontSize;
     }
 
-    public TextLineViewModel? ViewModel
+    public TextLineViewModel? LineViewModel
     {
-        get => (TextLineViewModel?)GetValue(ViewModelProperty);
-        set => SetValue(ViewModelProperty, value);
+        get => (TextLineViewModel?)GetValue(LineViewModelProperty);
+        set => SetValue(LineViewModelProperty, value);
     }
 
-    private static void OnViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    private static void OnLineViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var block = (HighlightedTextBlock)d;
         // Unsubscribe from old VM's INPC.
@@ -45,9 +45,9 @@ public sealed partial class HighlightedTextBlock : UserControl
     {
         if (e.PropertyName is nameof(TextLineViewModel.Runs)
             or nameof(TextLineViewModel.ReferenceSegments))
-            RefreshInlines(ViewModel);
+            RefreshInlines(LineViewModel);
         else if (e.PropertyName is nameof(TextLineViewModel.WrapText))
-            ApplyWrapping(ViewModel);
+            ApplyWrapping(LineViewModel);
     }
 
     private void RefreshInlines(TextLineViewModel? vm)

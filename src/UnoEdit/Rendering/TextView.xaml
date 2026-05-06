@@ -121,7 +121,7 @@
                             Opacity="{Binding HighlightOpacity}" />
 
                     <!-- Text -->
-                    <local:HighlightedTextBlock ViewModel="{Binding}"
+                    <local:HighlightedTextBlock LineViewModel="{Binding}"
                                                 FontSize="{StaticResource UnoEditorTextFontSize}"
                                                 VerticalAlignment="Center" />
 

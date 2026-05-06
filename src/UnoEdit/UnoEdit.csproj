@@ -71,8 +71,9 @@
     <!-- Folding: NewFolding replaced by link; local fork removed -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\NewFolding.cs" Link="Folding\NewFolding.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\XmlFoldingStrategy.cs" Link="Folding\XmlFoldingStrategy.cs" />
-    <Compile Include="Folding\FoldingSection.cs" />
-    <Compile Include="Folding\FoldingManager.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\FoldingSection.cs" Link="Folding\FoldingSection.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Folding\FoldingManager.cs" Link="Folding\FoldingManager.cs" />
+    <Compile Include="Folding\FoldingManager.uno.cs" />
     <Compile Include="Folding\FoldingMarginMarker.cs" />
     <Compile Include="Folding\BraceFoldingStrategy.cs" />
 

@@ -151,9 +151,9 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Search\Localization.cs"          Link="Search\Localization.cs" />
     <Compile Include="Search\SearchCommands.cs" />
 
-    <!-- Rendering — Phase 3: LayerPosition fork — only change: null 4th arg to RegisterAttached
-         (WinUI3/Uno requires PropertyMetadata; WPF makes it optional) -->
-    <Compile Include="Rendering\LayerPosition.cs" />
+    <!-- Rendering — shared LayerPosition with platform-specific DependencyProperty registration. -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\LayerPosition.cs" Link="Rendering\LayerPosition.cs" />
+    <Compile Include="Rendering\LayerPosition.uno.cs" />
 
     <!-- Rendering — pure data model (no WPF rendering API) -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\CollapsedLineSection.cs"                 Link="Rendering\CollapsedLineSection.cs" />
@@ -244,7 +244,7 @@
     <Compile Include="Snippets\InsertionContext.cs" />
     <Compile Include="Rendering\BackgroundGeometryBuilder.cs" />
     <Compile Include="Rendering\FormattedTextTypes.cs" />
-    <Compile Include="Rendering\VisualLineLinkText.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineLinkText.cs" Link="Rendering\VisualLineLinkText.cs" />
     <Compile Include="Rendering\VisualLineLinkText.uno.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\LinkElementGenerator.cs" Link="Rendering\LinkElementGenerator.cs" />
     <Compile Include="Rendering\MouseHoverLogic.cs" />

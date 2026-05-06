@@ -109,6 +109,49 @@ namespace UnoEdit.Tests.Rendering
             Assert.That(((VisualLineLinkText)visualLine.Elements[1]).NavigateUri, Is.EqualTo(new Uri("https://example.com")));
         }
 
+        [Test]
+        public void VisualLineLinkText_UnoClickability_DependsOnNavigateUri()
+        {
+            var visualLine = CreateVisualLine("link");
+            var link = new TestableVisualLineLinkText(visualLine, 4);
+
+            Assert.That(link.IsClickable(), Is.False);
+
+            link.NavigateUri = new Uri("https://example.com");
+
+            Assert.That(link.IsClickable(), Is.True);
+        }
+
+        [Test]
+        public void VisualLineLinkText_SplitPreservesLinkProperties()
+        {
+            var document = new TextDocument("see https://example.com now");
+            var textView = new TextView { Document = document };
+            var visualLine = new VisualLine(textView, document.GetLineByNumber(1));
+            var context = new TestTextRunConstructionContext(document, textView, visualLine);
+            var generator = new LinkElementGenerator();
+
+            visualLine.ConstructVisualElements(context, new[] { generator });
+			var link = (VisualLineLinkText)visualLine.Elements[1];
+			link.TargetName = "_blank";
+			link.RequireControlModifierForClick = false;
+			var elements = new List<VisualLineElement> { link };
+
+			link.Split(link.VisualColumn + 5, elements, 0);
+
+			var splitLink = (VisualLineLinkText)elements[1];
+            Assert.That(splitLink.NavigateUri, Is.EqualTo(link.NavigateUri));
+            Assert.That(splitLink.TargetName, Is.EqualTo("_blank"));
+            Assert.That(splitLink.RequireControlModifierForClick, Is.False);
+        }
+
+        static VisualLine CreateVisualLine(string text)
+        {
+            var document = new TextDocument(text);
+            var textView = new TextView { Document = document };
+            return new VisualLine(textView, document.GetLineByNumber(1));
+        }
+
         sealed class TestTextRunConstructionContext : ITextRunConstructionContext
         {
             public TestTextRunConstructionContext(TextDocument document, TextView textView, VisualLine visualLine)
@@ -128,6 +171,19 @@ namespace UnoEdit.Tests.Rendering
             }
 
             public TextRunProperties GlobalTextRunProperties { get; } = new VisualLineElementTextRunProperties();
+        }
+
+        sealed class TestableVisualLineLinkText : VisualLineLinkText
+        {
+            public TestableVisualLineLinkText(VisualLine parentVisualLine, int length)
+                : base(parentVisualLine, length)
+            {
+            }
+
+            public bool IsClickable()
+            {
+                return LinkIsClickable();
+            }
         }
 
         sealed class TrackingGenerator : VisualLineElementGenerator, ITextViewConnect

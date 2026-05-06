@@ -16,37 +16,15 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-using System.Diagnostics;
+using System.Windows;
 
 namespace ICSharpCode.AvalonEdit.Rendering
 {
-	public partial class VisualLineLinkText
+	partial class LayerPosition
 	{
-		/// <summary>
-		/// Gets whether the link is currently clickable.
-		/// </summary>
-		/// <remarks>UnoEdit does not currently expose modifier-state checks on visual line elements.</remarks>
-		protected virtual partial bool LinkIsClickable()
+		private static partial DependencyProperty RegisterLayerPositionProperty()
 		{
-			return NavigateUri != null;
-		}
-
-		partial void ApplyLinkTextDecorations()
-		{
-			this.TextRunProperties.SetTextDecorations(System.Windows.Media.TextDecorations.Underline);
-		}
-
-		internal bool TryOpen()
-		{
-			if (!LinkIsClickable())
-				return false;
-
-			try {
-				Process.Start(new ProcessStartInfo { FileName = NavigateUri.ToString(), UseShellExecute = true });
-				return true;
-			} catch {
-				return false;
-			}
+			return DependencyProperty.RegisterAttached("LayerPosition", typeof(LayerPosition), typeof(LayerPosition), null);
 		}
 	}
 }

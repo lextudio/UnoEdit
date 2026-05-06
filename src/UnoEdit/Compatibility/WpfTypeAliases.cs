@@ -31,6 +31,7 @@ global using Thickness                         = Microsoft.UI.Xaml.Thickness;
 global using FlowDirection                     = Microsoft.UI.Xaml.FlowDirection;
 global using TextAlignment                     = Microsoft.UI.Xaml.TextAlignment;
 global using TextWrapping                      = Microsoft.UI.Xaml.TextWrapping;
+global using Stretch                           = Microsoft.UI.Xaml.Media.Stretch;
 global using Brush                             = Microsoft.UI.Xaml.Media.Brush;
 global using GeneralTransform                  = Microsoft.UI.Xaml.Media.GeneralTransform;
 global using SolidColorBrush                   = Microsoft.UI.Xaml.Media.SolidColorBrush;

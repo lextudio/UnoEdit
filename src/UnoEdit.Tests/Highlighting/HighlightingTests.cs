@@ -20,6 +20,16 @@ namespace UnoEdit.Tests.Highlighting
         [TestCase("C++")]
         [TestCase("TSQL")]
         [TestCase("CSS")]
+        [TestCase("ASP/XHTML")]
+        [TestCase("Boo")]
+        [TestCase("Coco")]
+        [TestCase("Patch")]
+        [TestCase("PowerShell")]
+        [TestCase("PHP")]
+        [TestCase("TeX")]
+        [TestCase("MarkDown")]
+        [TestCase("MarkDownWithFontSize")]
+        [TestCase("Json")]
         public void GetDefinition_KnownLanguage_IsNotNull(string name)
         {
             var def = HighlightingManager.Instance.GetDefinition(name);
@@ -32,6 +42,15 @@ namespace UnoEdit.Tests.Highlighting
         [TestCase(".js")]
         [TestCase(".py")]
         [TestCase(".vb")]
+        [TestCase(".aspx")]
+        [TestCase(".boo")]
+        [TestCase(".atg")]
+        [TestCase(".patch")]
+        [TestCase(".ps1")]
+        [TestCase(".php")]
+        [TestCase(".tex")]
+        [TestCase(".md")]
+        [TestCase(".json")]
         public void GetDefinitionByExtension_KnownExtension_IsNotNull(string extension)
         {
             var def = HighlightingManager.Instance.GetDefinitionByExtension(extension);

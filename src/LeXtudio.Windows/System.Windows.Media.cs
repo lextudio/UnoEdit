@@ -103,6 +103,14 @@ namespace System.Windows.Media
         }
     }
 
+    public enum PenLineCap
+    {
+        Flat,
+        Square,
+        Round,
+        Triangle
+    }
+
     /// <summary>
     /// Parses CSS-style color strings (#RGB, #RRGGBB, #AARRGGBB) and a subset of named colors.
     /// Used by the Xshd XSLT loader as a shim for WPF's ColorConverter.

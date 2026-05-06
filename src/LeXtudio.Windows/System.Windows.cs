@@ -169,3 +169,11 @@ namespace System.Windows
         public static FontStretch UltraExpanded  => FontStretch.FromOpenTypeStretch(9);
     }
 }
+
+namespace System.Windows.Shapes
+{
+    public class Line : Microsoft.UI.Xaml.Shapes.Line
+    {
+        public new System.Windows.Media.PenLineCap StrokeDashCap { get; set; }
+    }
+}

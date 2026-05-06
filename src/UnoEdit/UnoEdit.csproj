@@ -222,8 +222,8 @@
     <!-- Phase 11: HighlightingColorizer stub (VisualLineElementTextRunProperties WPF methods not available) -->
     <Compile Include="Highlighting\HighlightingColorizer.cs" />
 
-    <!-- Phase 11: DottedLineMargin stub (WPF Shapes not available) -->
-    <Compile Include="Editing\DottedLineMargin.cs" />
+    <!-- Phase 16: DottedLineMargin linked via System.Windows.Shapes.Line shim -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\DottedLineMargin.cs" Link="Editing\DottedLineMargin.cs" />
 
     <!-- Phase 14: TextFormatting-shimmed rendering files linked from avalonedit -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\DefaultTextRunTypographyProperties.cs"  Link="Rendering\DefaultTextRunTypographyProperties.cs" />
@@ -274,7 +274,7 @@
     <Compile Include="Highlighting\HighlightedLine.cs" />
     <Compile Include="Highlighting\RichText.cs" />
     <Compile Include="Highlighting\Xshd\V2Loader.cs" />
-    <Compile Include="Highlighting\Resources\Resources.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Resources.cs" Link="Highlighting\Resources\Resources.cs" />
     <Compile Include="Highlighting\IHighlightedLineSource.cs" />
 
     <!-- Highlighting: Phase 2 — forks replaced with direct links (no WPF deps) -->
@@ -298,8 +298,9 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\RichTextModelWriter.cs"                       Link="Highlighting\RichTextModelWriter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PlainRichTextWriter.cs"                              Link="Utils\PlainRichTextWriter.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\RichTextWriter.cs"                                   Link="Utils\RichTextWriter.cs" />
-    <!-- Xshd: forked files — HighlightingLoader removes V1Loader ref; V2Loader removes SystemColorHighlightingBrush -->
-    <Compile Include="Highlighting\Xshd\HighlightingLoader.cs" />
+    <!-- Xshd: V1/V2 loader support; V2Loader remains forked only for portable system-color handling. -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\HighlightingLoader.cs" Link="Highlighting\Xshd\HighlightingLoader.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\V1Loader.cs" Link="Highlighting\Xshd\V1Loader.cs" />
     <!-- Xshd: portable files -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\IXshdVisitor.cs"         Link="Highlighting\Xshd\IXshdVisitor.cs" />
     <!-- SaveXshdVisitor and V1Loader omitted — V1 format not supported, serialization not needed -->
@@ -316,32 +317,12 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Xshd\XshdSyntaxDefinition.cs" Link="Highlighting\Xshd\XshdSyntaxDefinition.cs" />
 
     <!-- Embedded xshd resources — logical name must match typeof(Resources).FullName + "." + filename -->
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSharp-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CSharp-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XmlDoc.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.XmlDoc.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\JavaScript-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.JavaScript-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\HTML-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.HTML-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CSS-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CSS-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\CPP-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.CPP-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Java-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.Java-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\Python-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.Python-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\XML-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.XML-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\TSQL-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.TSQL-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\VB-Mode.xshd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.VB-Mode.xshd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV2.xsd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV2.xsd" />
-    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\ModeV1.xsd"
-                      LogicalName="ICSharpCode.AvalonEdit.Highlighting.Resources.ModeV1.xsd" />
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\*.xshd">
+      <LogicalName>ICSharpCode.AvalonEdit.Highlighting.Resources.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\Resources\*.xsd">
+      <LogicalName>ICSharpCode.AvalonEdit.Highlighting.Resources.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

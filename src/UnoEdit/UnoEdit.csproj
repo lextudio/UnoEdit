@@ -94,7 +94,7 @@
     <Compile Include="Rendering\TextView.EditOperations.uno.cs" />
     <Compile Include="Rendering\TextView.InputHandlers.uno.cs" />
     <Compile Include="Rendering\IInlineObjectHost.cs" />
-    <Compile Include="Rendering\TextViewCachedElements.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\TextViewCachedElements.cs" Link="Rendering\TextViewCachedElements.cs" />
     <Compile Include="Logging\PlatformImeLogger.cs" />
     <Compile Include="Rendering\EditorTextMetrics.cs" />
     <Compile Include="Rendering\TextLineViewModel.cs" />
@@ -208,7 +208,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\StringSegment.cs" Link="Utils\StringSegment.cs" />
     <Compile Include="Utils\TextFormatterFactory.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\ThrowUtil.cs" Link="Utils\ThrowUtil.cs" />
-    <Compile Include="Utils\PropertyChangedWeakEventManager.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\PropertyChangedWeakEventManager.cs" Link="Utils\PropertyChangedWeakEventManager.cs" />
 
     <!-- Phase 11: ICompletionData — uses object for TextArea to avoid cross-project dep -->
     <Compile Include="CodeCompletion\ICompletionData.cs" />
@@ -235,7 +235,7 @@
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\VisualLineTextSource.cs" Link="Rendering\VisualLineTextSource.cs" />
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Rendering\SingleCharacterElementGenerator.cs" Link="Rendering\SingleCharacterElementGenerator.cs" />
     <Compile Include="Editing\Selection.cs" />
-    <Compile Include="Editing\CaretWeakEventHandler.cs" />
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Editing\CaretWeakEventHandler.cs" Link="Editing\CaretWeakEventHandler.cs" />
     <Compile Include="Editing\InputHandlers.cs" />
     <Compile Include="Folding\FoldingMargin.cs" />
 

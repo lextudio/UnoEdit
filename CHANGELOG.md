@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.0] - 2026-05-07
+
+- Improved folding indicators to match AvalonEdit better.
+- Enabled more code sharing with AvalonEdit.
+
 ## [v0.5.0] - 2026-05-05
 
 - Revised editor gutter design to match AvalonEdit better.

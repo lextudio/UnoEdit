@@ -120,7 +120,7 @@ public sealed partial class SearchPanel : UserControl
             ? Windows.UI.Color.FromArgb(0xFF, 0x47, 0x56, 0x69)    // #475569
             : Windows.UI.Color.FromArgb(0xFF, 0xE5, 0xE7, 0xEB));  // #E5E7EB
 
-        foreach (var btn in new[] { PreviousButton, NextButton, CloseButton })
+        foreach (var btn in new[] { OptionsButton, PreviousButton, NextButton, CloseButton })
         {
             btn.Resources["ButtonForegroundPointerOver"] = btnFgHover;
             btn.Resources["ButtonForegroundPressed"] = btnFgPressed;
@@ -128,10 +128,9 @@ public sealed partial class SearchPanel : UserControl
             btn.Resources["ButtonBackgroundPressed"] = btnBgPressed;
         }
 
-        // Label TextBlocks are named elements — set directly
-        MatchCaseLabel.Foreground = fg;
-        WholeWordsLabel.Foreground = fg;
-        UseRegexLabel.Foreground = fg;
+        MatchCaseCheckBox.Foreground = fg;
+        WholeWordsCheckBox.Foreground = fg;
+        UseRegexCheckBox.Foreground = fg;
 
         ResultsTextBlock.Foreground = results;
     }

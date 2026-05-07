@@ -37,19 +37,17 @@
           CornerRadius="6"
           BorderThickness="{StaticResource UnoTextEditorBorderThickness}"
           Background="{ThemeResource UnoSearchPanelBackgroundBrush}"
-          BorderBrush="{ThemeResource UnoSearchPanelBorderBrush}">
-    <Grid ColumnSpacing="6" RowSpacing="4">
+          BorderBrush="{ThemeResource UnoSearchPanelBorderBrush}"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Top">
+    <Grid ColumnSpacing="6">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="2*" />
+        <ColumnDefinition Width="150" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
-      </Grid.RowDefinitions>
 
        <TextBox x:Name="SearchTextBox"
          Grid.Column="0"
@@ -63,12 +61,85 @@
          TextChanged="OnSearchTextChanged"
          KeyDown="OnSearchTextBoxKeyDown" />
 
-            <Button x:Name="PreviousButton"
+            <Button x:Name="OptionsButton"
               Grid.Column="1"
-              MinWidth="30" MinHeight="26"
+              Width="28" Height="26"
+              Style="{StaticResource UnoSearchActionButtonStyle}">
+              <PathIcon Width="14"
+                        Height="14"
+                        Data="M3,8 A1,1 0 1 1 3,6 A1,1 0 0 1 3,8 M8,8 A1,1 0 1 1 8,6 A1,1 0 0 1 8,8 M13,8 A1,1 0 1 1 13,6 A1,1 0 0 1 13,8" />
+              <Button.Flyout>
+                <Flyout Placement="Bottom">
+                  <StackPanel Spacing="2">
+                    <CheckBox x:Name="MatchCaseCheckBox"
+                      Content="Match case"
+                      VerticalAlignment="Center"
+                      Margin="0"
+                      Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
+                      Checked="OnOptionChanged"
+                      Unchecked="OnOptionChanged">
+                      <CheckBox.Resources>
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver" Color="#CBD5E1" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#CBD5E1" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#22334155" />
+                      </CheckBox.Resources>
+                    </CheckBox>
+                    <CheckBox x:Name="WholeWordsCheckBox"
+                      Content="Whole words"
+                      VerticalAlignment="Center"
+                      Margin="0"
+                      Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
+                      Checked="OnOptionChanged"
+                      Unchecked="OnOptionChanged">
+                      <CheckBox.Resources>
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver" Color="#CBD5E1" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#CBD5E1" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#22334155" />
+                      </CheckBox.Resources>
+                    </CheckBox>
+                    <CheckBox x:Name="UseRegexCheckBox"
+                      Content="Regex"
+                      VerticalAlignment="Center"
+                      Margin="0"
+                      Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
+                      Checked="OnOptionChanged"
+                      Unchecked="OnOptionChanged">
+                      <CheckBox.Resources>
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver" Color="#CBD5E1" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#CBD5E1" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#94A3B8" />
+                        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#22334155" />
+                      </CheckBox.Resources>
+                    </CheckBox>
+                  </StackPanel>
+                </Flyout>
+              </Button.Flyout>
+              <Button.Resources>
+                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#E5E7EB" />
+                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#CBD5E1" />
+                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#334155" />
+                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#475569" />
+              </Button.Resources>
+            </Button>
+            <Button x:Name="PreviousButton"
+              Grid.Column="2"
+              Width="28" Height="26"
               Style="{StaticResource UnoSearchActionButtonStyle}"
-              Click="OnPreviousClick"
-              Content="↑">
+              Click="OnPreviousClick">
+              <PathIcon Width="14"
+                        Height="14"
+                        Data="M8,3 L3,8 L4.4,9.4 L7,6.8 L7,13 L9,13 L9,6.8 L11.6,9.4 L13,8 Z" />
               <Button.Resources>
                 <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#E5E7EB" />
                 <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#CBD5E1" />
@@ -77,11 +148,13 @@
               </Button.Resources>
             </Button>
             <Button x:Name="NextButton"
-              Grid.Column="2"
-              MinWidth="30" MinHeight="26"
+              Grid.Column="3"
+              Width="28" Height="26"
               Style="{StaticResource UnoSearchActionButtonStyle}"
-              Click="OnNextClick"
-              Content="↓">
+              Click="OnNextClick">
+              <PathIcon Width="14"
+                        Height="14"
+                        Data="M7,3 L9,3 L9,9.2 L11.6,6.6 L13,8 L8,13 L3,8 L4.4,6.6 L7,9.2 Z" />
               <Button.Resources>
                 <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#E5E7EB" />
                 <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#CBD5E1" />
@@ -91,10 +164,12 @@
             </Button>
             <Button x:Name="CloseButton"
               Grid.Column="4"
-              MinWidth="30" MinHeight="26"
+              Width="28" Height="26"
               Style="{StaticResource UnoSearchActionButtonStyle}"
-              Click="OnCloseClick"
-              Content="✕">
+              Click="OnCloseClick">
+              <PathIcon Width="12"
+                        Height="12"
+                        Data="M4.2,3 L8,6.8 L11.8,3 L13,4.2 L9.2,8 L13,11.8 L11.8,13 L8,9.2 L4.2,13 L3,11.8 L6.8,8 L3,4.2 Z" />
               <Button.Resources>
                 <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#E5E7EB" />
                 <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#CBD5E1" />
@@ -102,72 +177,13 @@
                 <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#475569" />
               </Button.Resources>
             </Button>
-
-      <CheckBox x:Name="MatchCaseCheckBox"
-        Grid.Row="1"
-        Grid.Column="0"
-        VerticalAlignment="Center"
-        Margin="0"
-        Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
-        Checked="OnOptionChanged"
-        Unchecked="OnOptionChanged">
-        <CheckBox.Resources>
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver" Color="#CBD5E1" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#CBD5E1" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#22334155" />
-        </CheckBox.Resources>
-        <TextBlock x:Name="MatchCaseLabel" Text="Match case" FontSize="12" />
-      </CheckBox>
-      <CheckBox x:Name="WholeWordsCheckBox"
-        Grid.Row="1"
-        Grid.Column="1"
-        Grid.ColumnSpan="2"
-        VerticalAlignment="Center"
-        Margin="0"
-        Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
-        Checked="OnOptionChanged"
-        Unchecked="OnOptionChanged">
-        <CheckBox.Resources>
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver" Color="#CBD5E1" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#CBD5E1" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#22334155" />
-        </CheckBox.Resources>
-        <TextBlock x:Name="WholeWordsLabel" Text="Whole words" FontSize="12" />
-      </CheckBox>
-      <CheckBox x:Name="UseRegexCheckBox"
-        Grid.Row="1"
-        Grid.Column="3"
-        VerticalAlignment="Center"
-        Margin="0"
-        Style="{StaticResource UnoSearchOptionCheckBoxStyle}"
-        Checked="OnOptionChanged"
-        Unchecked="OnOptionChanged">
-        <CheckBox.Resources>
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUnchecked" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPointerOver" Color="#CBD5E1" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeUncheckedPressed" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#CBD5E1" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#94A3B8" />
-          <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillUncheckedPointerOver" Color="#22334155" />
-        </CheckBox.Resources>
-        <TextBlock x:Name="UseRegexLabel" Text="Regex" FontSize="12" />
-      </CheckBox>
       <TextBlock x:Name="ResultsTextBlock"
-             Grid.Row="1"
              Grid.Column="4"
              Foreground="{ThemeResource UnoSearchPanelResultsBrush}"
              VerticalAlignment="Center"
              HorizontalAlignment="Right"
              FontSize="12"
+             Visibility="Collapsed"
              Text="No results" />
     </Grid>
   </Border>

@@ -107,7 +107,7 @@
     <Page Include="Themes\generic.xaml" />
     <Page Include="Rendering\TextView.xaml" />
     <Page Include="Rendering\HighlightedTextBlock.xaml" />
-    <Page Include="TextEditor.xaml" />
+    <Page Include="TextEditor.xaml" Condition="'$(TargetFramework)' != 'net9.0-windows10.0.19041.0'" />
 
     <!-- Phase 1: pure Level-0 files — no WPF dependencies -->
 
@@ -397,11 +397,10 @@
   </Target>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
-    <!-- WinUI-specific control surface now lives in this project -->
-    <Page Include="Controls\TextEditor.xaml" />
-    <Compile Include="Controls\TextEditor.xaml.cs">
-      <DependentUpon>TextEditor.xaml</DependentUpon>
-    </Compile>
+    <!-- WinUI XAML shell for the unified TextEditor; code-behind is TextEditor.xaml.uno.cs -->
+    <Page Include="Controls\TextEditor.xaml">
+      <DependentUpon>TextEditor.xaml.uno.cs</DependentUpon>
+    </Page>
     <Compile Include="Controls\TextAreaProxy.cs" />
   </ItemGroup>
 

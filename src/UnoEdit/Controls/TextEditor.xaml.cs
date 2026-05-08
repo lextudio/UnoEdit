@@ -25,7 +25,7 @@ namespace UnoEdit.WinUI.Controls;
 /// Delegates all editing and rendering to an inner <see cref="TextArea"/> and
 /// <see cref="SearchPanel"/>.
 /// </summary>
-public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl, ISearchPanelHost
+public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl, ISearchPanelHost, System.ComponentModel.INotifyPropertyChanged
 {
     // ── Dependency Properties ────────────────────────────────────────────────
 
@@ -109,98 +109,130 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
         _currentOptions = Options;
     }
 
+    // ── INotifyPropertyChanged ───────────────────────────────────────────────
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    private void NotifyPropertyChanged(string propertyName)
+        => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+
     // ── Public Properties ────────────────────────────────────────────────────
 
+    [System.ComponentModel.Browsable(false)]
     public TextDocument? Document
     {
         get => (TextDocument?)GetValue(DocumentProperty);
         set => SetValue(DocumentProperty, value);
     }
 
+    [System.ComponentModel.Category("Selection")]
+    [System.ComponentModel.Description("Caret position as a character offset into the document.")]
     public int CurrentOffset
     {
         get => (int)GetValue(CurrentOffsetProperty);
         set => SetValue(CurrentOffsetProperty, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public int SelectionStartOffset
     {
         get => (int)GetValue(SelectionStartOffsetProperty);
         set => SetValue(SelectionStartOffsetProperty, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public int SelectionEndOffset
     {
         get => (int)GetValue(SelectionEndOffsetProperty);
         set => SetValue(SelectionEndOffsetProperty, value);
     }
 
+    [System.ComponentModel.Category("View")]
+    [System.ComponentModel.Description("Colour theme applied to the editor chrome and line numbers.")]
     public TextEditorTheme Theme
     {
         get => (TextEditorTheme)GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public TextEditorOptions Options
     {
         get => (TextEditorOptions)GetValue(OptionsProperty);
         set => SetValue(OptionsProperty, value);
     }
 
+    [System.ComponentModel.Category("Behavior")]
+    [System.ComponentModel.Description("Prevents the user from modifying document content when true.")]
     public bool IsReadOnly
     {
         get => (bool)GetValue(IsReadOnlyProperty);
         set => SetValue(IsReadOnlyProperty, value);
     }
 
+    [System.ComponentModel.Category("Behavior")]
+    [System.ComponentModel.Description("True when the document has changes since the last save.")]
+    [System.ComponentModel.ReadOnly(true)]
     public bool IsModified
     {
         get => (bool)GetValue(IsModifiedProperty);
         set => SetValue(IsModifiedProperty, value);
     }
 
+    [System.ComponentModel.Category("View")]
+    [System.ComponentModel.Description("Show or hide the line number gutter on the left margin.")]
     public bool ShowLineNumbers
     {
         get => (bool)GetValue(ShowLineNumbersProperty);
         set => SetValue(ShowLineNumbersProperty, value);
     }
 
+    [System.ComponentModel.Category("View")]
+    [System.ComponentModel.Description("Wrap long lines to fit within the visible width.")]
     public bool WordWrap
     {
         get => (bool)GetValue(WordWrapProperty);
         set => SetValue(WordWrapProperty, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public IHighlightingDefinition? SyntaxHighlighting
     {
         get => (IHighlightingDefinition?)GetValue(SyntaxHighlightingProperty);
         set => SetValue(SyntaxHighlightingProperty, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public Encoding Encoding
     {
         get => (Encoding)GetValue(EncodingProperty);
         set => SetValue(EncodingProperty, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public Brush? LineNumbersForeground
     {
         get => (Brush?)GetValue(LineNumbersForegroundProperty);
         set => SetValue(LineNumbersForegroundProperty, value);
     }
 
+    [System.ComponentModel.Category("Scrolling")]
+    [System.ComponentModel.Description("Visibility of the horizontal scroll bar.")]
     public ScrollBarVisibility HorizontalScrollBarVisibility
     {
         get => (ScrollBarVisibility)GetValue(HorizontalScrollBarVisibilityProperty);
         set => SetValue(HorizontalScrollBarVisibilityProperty, value);
     }
 
+    [System.ComponentModel.Category("Scrolling")]
+    [System.ComponentModel.Description("Visibility of the vertical scroll bar.")]
     public ScrollBarVisibility VerticalScrollBarVisibility
     {
         get => (ScrollBarVisibility)GetValue(VerticalScrollBarVisibilityProperty);
         set => SetValue(VerticalScrollBarVisibilityProperty, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public string Text
     {
         get => Document?.Text ?? string.Empty;
@@ -215,24 +247,30 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
         }
     }
 
+    [System.ComponentModel.Browsable(false)]
     public int CaretOffset
     {
         get => CurrentOffset;
         set => CurrentOffset = value;
     }
 
+    [System.ComponentModel.Category("Selection")]
+    [System.ComponentModel.Description("Start offset of the current selection.")]
     public int SelectionStart
     {
         get => SelectionLength == 0 ? CurrentOffset : Math.Min(SelectionStartOffset, SelectionEndOffset);
         set => Select(value, SelectionLength);
     }
 
+    [System.ComponentModel.Category("Selection")]
+    [System.ComponentModel.Description("Length of the current selection in characters.")]
     public int SelectionLength
     {
         get => Math.Abs(SelectionEndOffset - SelectionStartOffset);
         set => Select(SelectionStart, value);
     }
 
+    [System.ComponentModel.Browsable(false)]
     public string SelectedText
     {
         get
@@ -251,15 +289,30 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
         }
     }
 
+    [System.ComponentModel.Category("Document")]
+    [System.ComponentModel.Description("Number of lines in the document.")]
+    [System.ComponentModel.ReadOnly(true)]
     public int LineCount => Document?.LineCount ?? 1;
+
+    [System.ComponentModel.Category("Editing")]
+    [System.ComponentModel.Description("True when there are changes that can be undone.")]
+    [System.ComponentModel.ReadOnly(true)]
     public bool CanUndo  => Document?.UndoStack.CanUndo ?? false;
+
+    [System.ComponentModel.Category("Editing")]
+    [System.ComponentModel.Description("True when there are changes that can be redone.")]
+    [System.ComponentModel.ReadOnly(true)]
     public bool CanRedo  => Document?.UndoStack.CanRedo ?? false;
+
+    [System.ComponentModel.Category("View")]
+    [System.ComponentModel.Description("True when the Find/Replace panel is currently visible.")]
+    [System.ComponentModel.ReadOnly(true)]
     public bool IsSearchPanelOpen => PART_SearchPanel.IsOpen;
 
-    /// <summary>Provides direct access to the inner <see cref="UnoEdit.Skia.Desktop.Controls.TextArea"/>.</summary>
+    [System.ComponentModel.Browsable(false)]
     public TextArea TextArea => PART_TextArea;
 
-    /// <summary>Provides direct access to the inner <see cref="UnoEdit.Skia.Desktop.Controls.SearchPanel"/>.</summary>
+    [System.ComponentModel.Browsable(false)]
     public SearchPanel SearchPanel => PART_SearchPanel;
 
     public IReferenceSegmentSource? ReferenceSegmentSource
@@ -455,6 +508,7 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
         editor.PART_TextArea.Theme = theme;
         editor.PART_SearchPanel.UpdateTheme(theme);
         editor.ApplyThemeToChrome();
+        editor.NotifyPropertyChanged(nameof(Theme));
     }
 
     private static void OnOptionsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -485,7 +539,11 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
     }
 
     private static void OnIsReadOnlyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        => ((TextEditor)d).PART_TextArea.IsReadOnly = (bool)e.NewValue;
+    {
+        var editor = (TextEditor)d;
+        editor.PART_TextArea.IsReadOnly = (bool)e.NewValue;
+        editor.NotifyPropertyChanged(nameof(IsReadOnly));
+    }
 
     private static void OnIsModifiedChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -497,10 +555,21 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
     }
 
     private static void OnShowLineNumbersChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        => ((TextEditor)d).PART_TextArea.ShowLineNumbers = (bool)e.NewValue;
+    {
+        var editor = (TextEditor)d;
+        bool show = (bool)e.NewValue;
+        System.Diagnostics.Debug.WriteLine($"[UnoEdit] TextEditor.OnShowLineNumbersChanged: show={show}, PART_TextArea={editor.PART_TextArea?.GetType().Name ?? "NULL"}");
+        if (editor.PART_TextArea is null) return;
+        editor.PART_TextArea.ShowLineNumbers = show;
+        editor.NotifyPropertyChanged(nameof(ShowLineNumbers));
+    }
 
     private static void OnWordWrapChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        => ((TextEditor)d).PART_TextArea.WordWrap = (bool)e.NewValue;
+    {
+        var editor = (TextEditor)d;
+        editor.PART_TextArea.WordWrap = (bool)e.NewValue;
+        editor.NotifyPropertyChanged(nameof(WordWrap));
+    }
 
     private static void OnLineNumbersForegroundChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         => ((TextEditor)d).PART_TextArea.LineNumbersForeground = e.NewValue as Brush;

@@ -1,56 +1,80 @@
+using System;
+using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.TextMate;
 using TextMateSharp.Grammars;
-using UnoEdit.Skia.Desktop.Controls;
-using ICSharpCode.AvalonEdit.CodeCompletion;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using System.Windows.Input;
+using UnoEdit.Skia.Desktop.Controls;
+#if WINDOWS_APP_SDK
+using Microsoft.UI.Windowing;
+using Windows.Graphics;
+#endif
 
 namespace UnoEdit.Skia.Desktop;
 
-public sealed partial class MainPage : Page
+public sealed partial class MainWindow : Window
 {
     private readonly TextDocument _document;
     private readonly FoldingManager _foldingManager;
     private readonly BraceFoldingStrategy _foldingStrategy = new();
     private readonly TextMateLineHighlighter _textMateHighlighter;
-    private readonly RegistryOptions _textMateRegistryOptions;
+    private RegistryOptions _textMateRegistryOptions;
     private bool _isDarkTheme = true;
     private CompletionWindow? _completionWindow;
 
-    public MainPage()
+    public MainWindow()
     {
         this.InitializeComponent();
+
+#if WINDOWS_APP_SDK
+        if (AppWindow is AppWindow aw)
+            aw.Resize(new SizeInt32(1100, 720));
+#endif
 
         _document = new TextDocument(BuildSampleText());
         _foldingManager = new FoldingManager(_document);
         _textMateRegistryOptions = new RegistryOptions(ThemeName.DarkPlus);
         _textMateHighlighter = new TextMateLineHighlighter(_textMateRegistryOptions);
         _textMateHighlighter.SetGrammarByExtension(".cs");
-        // Detect OS theme and apply the matching editor theme on startup.
+
         if (Application.Current.RequestedTheme == ApplicationTheme.Light)
         {
             _isDarkTheme = false;
             _textMateRegistryOptions = new RegistryOptions(ThemeName.LightPlus);
             _textMateHighlighter.SetTheme(ThemeName.LightPlus);
+            ThemeToggle.Content = "\U0001F319 Dark";
         }
+
         Editor.Document = _document;
         if (!_isDarkTheme)
-        {
             Editor.Theme = TextEditorTheme.Light;
-            ThemeToggle.Content = "🌙 Dark";
-        }
+
         Editor.FoldingManager = _foldingManager;
+
         HighlighterComboBox.SelectedIndex = 1;
-        var def = HighlightingManager.Instance.GetDefinitionByExtension(".cs");
-        Editor.HighlightedLineSource = def != null ? new XshdHighlightedLineSource(def) : null;
+        ApplyHighlighter(1);
+
+        PropertyObjectComboBox.SelectedIndex = 0;
         PropertyGrid.SelectedObject = Editor;
 
-        // Wire search and simple completion hooks for the sample host.
+#if WINDOWS_APP_SDK
+        var origOptions = Editor.Options;
+        origOptions.PropertyChanged += (s, e) =>
+        {
+            var options = Editor.Options;
+            Editor.Options = null;
+            Editor.Options = options;
+        };
+#endif
+
         Editor.TextArea.TextEntered += OnTextAreaTextEntered;
         Editor.TextArea.TextEntering += OnTextAreaTextEntering;
         _document.TextChanged += OnDocumentTextChanged;
+
         UpdateFoldings();
         StatsTextBlock.Text = BuildStats(_document);
     }
@@ -79,10 +103,17 @@ public sealed partial class MainPage : Page
 
     private void OnHighlighterChanged(object sender, SelectionChangedEventArgs e)
     {
-        Editor.HighlightedLineSource = HighlighterComboBox.SelectedIndex switch
+        ApplyHighlighter(HighlighterComboBox.SelectedIndex);
+    }
+
+    private void ApplyHighlighter(int index)
+    {
+        if (Editor == null) return;
+        var def = HighlightingManager.Instance.GetDefinitionByExtension(".cs");
+        Editor.HighlightedLineSource = index switch
         {
             0 => _textMateHighlighter,
-            1 => new XshdHighlightedLineSource(HighlightingManager.Instance.GetDefinitionByExtension(".cs")),
+            1 when def != null => new XshdHighlightedLineSource(def),
             _ => null,
         };
     }
@@ -92,7 +123,64 @@ public sealed partial class MainPage : Page
         _isDarkTheme = !_isDarkTheme;
         Editor.Theme = _isDarkTheme ? TextEditorTheme.Dark : TextEditorTheme.Light;
         _textMateHighlighter.SetTheme(_isDarkTheme ? ThemeName.DarkPlus : ThemeName.LightPlus);
-        ThemeToggle.Content = _isDarkTheme ? "☀ Light" : "🌙 Dark";
+        ThemeToggle.Content = _isDarkTheme ? "☀ Light" : "\U0001F319 Dark";
+    }
+
+    private void OnFindClick(object sender, RoutedEventArgs e)
+    {
+        Editor.OpenSearchPanel();
+    }
+
+    private void OnCompleteClick(object sender, RoutedEventArgs e)
+    {
+        ShowCompletion();
+    }
+
+    private void OnTextAreaTextEntered(object? sender, TextCompositionEventArgs e)
+    {
+        if (e?.Text == ".")
+            ShowCompletion();
+    }
+
+    private void OnTextAreaTextEntering(object? sender, TextCompositionEventArgs e)
+    {
+        if (_completionWindow is not null && e?.Text?.Length > 0)
+        {
+            if (!char.IsLetterOrDigit(e.Text[0]) && e.Text[0] != '_')
+                _completionWindow.Close();
+        }
+    }
+
+    private void ShowCompletion()
+    {
+        try
+        {
+            var textArea = Editor.TextArea;
+            var doc = Editor.Document;
+            if (textArea == null || doc == null) return;
+
+            int caret = Editor.CurrentOffset;
+            int start = caret;
+            var text = doc.Text ?? string.Empty;
+            while (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] == '_')) start--;
+
+            _completionWindow?.Close();
+            _completionWindow = new CompletionWindow(textArea);
+            _completionWindow.StartOffset = start;
+            _completionWindow.EndOffset = caret;
+
+            var list = _completionWindow.CompletionList.CompletionData;
+            list.Add(new SampleCompletionData("Describe()", "Return a description string"));
+            list.Add(new SampleCompletionData("Bootstrap", "Sample class name"));
+            list.Add(new SampleCompletionData("DescribeAsync()", "Async variant"));
+
+            _completionWindow.Show();
+            _completionWindow.Closed += (_, _) => _completionWindow = null;
+        }
+        catch
+        {
+            // best-effort sample completion
+        }
     }
 
     private static string BuildSampleText()
@@ -276,7 +364,7 @@ public static class WorkspaceFactory
                         ["tier"] = "reference"
                     })
             },
-            DateTimeOffset.Parse("2026-04-21T18:30:00Z", CultureInfo.InvariantCulture));
+            DateTimeOffset.Parse("2026-04-21T18:30:00Z", System.Globalization.CultureInfo.InvariantCulture));
     }
 }
 """;
@@ -291,77 +379,5 @@ public static class WorkspaceFactory
                $"Lines: {document.LineCount}\n" +
                $"First line length: {firstLine.Length}\n" +
                $"Last line starts at offset: {lastLine.Offset}";
-    }
-
-    private void OnFindClick(object sender, RoutedEventArgs e)
-    {
-        Editor.OpenSearchPanel();
-    }
-
-    private void OnCompleteClick(object sender, RoutedEventArgs e)
-    {
-        ShowCompletion();
-    }
-
-    private void OnTextAreaTextEntered(object? sender, TextCompositionEventArgs e)
-    {
-        if (e?.Text == ".")
-        {
-            ShowCompletion();
-        }
-    }
-
-    private void OnTextAreaTextEntering(object? sender, TextCompositionEventArgs e)
-    {
-        if (_completionWindow != null && e is not null && !string.IsNullOrEmpty(e.Text) && !char.IsLetterOrDigit(e.Text[0]))
-        {
-            _completionWindow.CompletionList.RequestInsertion(e);
-        }
-    }
-
-    private void ShowCompletion()
-    {
-        try
-        {
-            var textArea = Editor.TextArea;
-            var doc = Editor.Document;
-            if (textArea == null || doc == null)
-                return;
-
-            int caret = Editor.CurrentOffset;
-            int start = caret;
-            var text = doc.Text ?? string.Empty;
-            while (start > 0 && (char.IsLetterOrDigit(text[start - 1]) || text[start - 1] == '_')) start--;
-
-            var window = new CompletionWindow(textArea);
-            window.StartOffset = start;
-            window.EndOffset = caret;
-
-            var list = window.CompletionList.CompletionData;
-            list.Add(new SampleCompletionData("Describe()", "Return a description string"));
-            list.Add(new SampleCompletionData("Bootstrap", "Sample class name"));
-            list.Add(new SampleCompletionData("DescribeAsync()", "Async variant"));
-
-            // Wire insertion handler: insert selected item's Text into document.
-            window.CompletionList.InsertionRequested += (s, e) =>
-            {
-                var selected = window.CompletionList.SelectedItem;
-                if (selected is not null)
-                {
-                    int length = Math.Clamp(window.EndOffset - window.StartOffset, 0, doc.TextLength - window.StartOffset);
-                    doc.Replace(window.StartOffset, length, selected.Text);
-                    // Move caret after inserted text
-                    Editor.SetSelection(window.StartOffset, window.StartOffset + selected.Text.Length);
-                }
-            };
-
-            window.Closed += (s, e) => { _completionWindow = null; };
-            _completionWindow = window;
-            window.Show();
-        }
-        catch
-        {
-            // best-effort sample completion; swallow exceptions to avoid breaking sample host
-        }
     }
 }

@@ -1,6 +1,7 @@
 <Project Sdk="Uno.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0-desktop</TargetFramework>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;osx-x64</RuntimeIdentifiers>
 
     <!-- Use a 'Tests' assembly name so the embedded UnitTestsControl discovers test classes
@@ -32,15 +33,26 @@
     <UseNuGetPackage>false</UseNuGetPackage>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <UseWinUI>true</UseWinUI>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <DefineConstants>$(DefineConstants);WINDOWS_APP_SDK</DefineConstants>
+    <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
-    <ProjectReference Include="../UnoEdit.PropertyGrid/UnoEdit.PropertyGrid.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Use central package management to pick the pinned Tmds.DBus.Protocol version -->
-    <PackageReference Include="Tmds.DBus.Protocol" />
+    <PackageReference Include="Tmds.DBus.Protocol" Condition="'$(TargetFramework)' == 'net10.0-desktop'" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'" />
   </ItemGroup>
 
   <!--
@@ -48,15 +60,34 @@
     Tests only execute when UNO_RUNTIME_TESTS_RUN_TESTS env var is set (CI or local).
     See: https://github.com/unoplatform/uno.ui.runtimetests.engine
   -->
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop'">
     <PackageReference Include="DevToolsUno" />
     <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
     <PackageReference Include="MSTest.TestFramework" />
   </ItemGroup>
 
+  <!-- Exclude Uno-only files from WinUI build -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <Compile Remove="RuntimeTestsPage.xaml.cs" />
+    <Page Remove="RuntimeTestsPage.xaml" />
+    <Compile Remove="GlobalUsings.cs" />
+    <Compile Remove="WindowExtensions.cs" />
+    <Compile Remove="Platforms\**" />
+    <Compile Remove="Tests\**" />
+    <!-- Keep UnoEditorResources as loose XAML loaded at runtime from OnLaunched -->
+    <Page Remove="UnoEditorResources.xaml" />
+    <Content Include="UnoEditorResources.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
     <PackageReference Include="UnoEdit" />
     <PackageReference Include="UnoEdit.TextMate" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\propertygrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
   </ItemGroup>
 
 </Project>

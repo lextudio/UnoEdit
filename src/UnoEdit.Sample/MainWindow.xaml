@@ -1,9 +1,9 @@
-<Page x:Class="UnoEdit.Skia.Desktop.MainPage"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:controls="using:UnoEdit.Skia.Desktop.Controls"
-      xmlns:pg="using:UnoEdit.PropertyGrid"
-      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+<Window x:Class="UnoEdit.Skia.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:UnoEdit.Skia.Desktop.Controls"
+        xmlns:pg="using:UnoPropertyGrid"
+        xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
   <Grid Padding="20" RowSpacing="16">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -29,21 +29,20 @@
                     Spacing="8"
                     VerticalAlignment="Center">
           <ComboBox x:Name="HighlighterComboBox"
-                    SelectedIndex="0"
                     SelectionChanged="OnHighlighterChanged">
             <ComboBoxItem Content="TextMate" />
             <ComboBoxItem Content="XSHD" />
             <ComboBoxItem Content="None" />
           </ComboBox>
           <Button x:Name="FindButton"
-            Content="Find"
-            Click="OnFindClick" />
+                  Content="Find"
+                  Click="OnFindClick" />
           <Button x:Name="CompleteButton"
-            Content="Complete"
-            Click="OnCompleteClick" />
+                  Content="Complete"
+                  Click="OnCompleteClick" />
           <ToggleButton x:Name="ThemeToggle"
-            Content="☀ Light"
-            Click="OnThemeToggleClick" />
+                        Content="&#x2600; Light"
+                        Click="OnThemeToggleClick" />
         </StackPanel>
       </Grid>
     </StackPanel>
@@ -59,24 +58,29 @@
     </Border>
 
     <!-- Editor + Property panel -->
-    <Grid Grid.Row="2" ColumnSpacing="16">
+    <Grid Grid.Row="2">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="320" />
+        <ColumnDefinition Width="*" MinWidth="200" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="320" MinWidth="200" />
       </Grid.ColumnDefinitions>
 
       <controls:TextEditor x:Name="Editor"
                            AutomationProperties.AutomationId="MainEditor" />
 
-      <!-- Property panel -->
-      <Grid Grid.Column="1" RowSpacing="8">
+      <toolkit:GridSplitter Grid.Column="1"
+                            Width="8"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Stretch"
+                            ResizeDirection="Columns" />
+
+      <Grid Grid.Column="2" RowSpacing="8">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <ComboBox x:Name="PropertyObjectComboBox"
                   HorizontalAlignment="Stretch"
-                  SelectedIndex="0"
                   SelectionChanged="OnPropertyObjectChanged">
           <ComboBoxItem Content="TextEditor" />
           <ComboBoxItem Content="TextArea" />
@@ -87,4 +91,4 @@
       </Grid>
     </Grid>
   </Grid>
-</Page>
+</Window>

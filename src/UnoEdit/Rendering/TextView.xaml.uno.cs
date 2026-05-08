@@ -532,8 +532,14 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         var textView = (TextView)dependencyObject;
         bool show = (bool)args.NewValue;
+        UnoEdit.Logging.HighlightLogger.Log("ShowLineNumbers", $"TextView.OnShowLineNumbersChanged: show={show}, LineNumberItemsControl={textView.LineNumberItemsControl?.GetType().Name ?? "NULL"}");
         // Mirror AvalonEdit: only the LineNumberMargin is added/removed; FoldingMargin stays.
+        // Set column width explicitly in addition to Visibility so the Auto column remeasures
+        // reliably on the Uno Skia renderer when re-enabling line numbers.
+        if (textView.LineNumberItemsControl is null) return;
         textView.LineNumberItemsControl.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        textView.LineNumberColumn.Width = show ? GridLength.Auto : new GridLength(0);
+        UnoEdit.Logging.HighlightLogger.Log("ShowLineNumbers", $"TextView.OnShowLineNumbersChanged done: Visibility={textView.LineNumberItemsControl.Visibility}, ColumnWidth={textView.LineNumberColumn.Width}");
     }
 
     private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

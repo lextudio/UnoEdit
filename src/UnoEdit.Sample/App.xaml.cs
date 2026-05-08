@@ -1,26 +1,23 @@
 using System;
+using System.IO;
+#if !WINDOWS_APP_SDK
 using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
-using System.IO;
-
 using DevToolsUno;
 using DevToolsUno.Diagnostics;
+#else
+using Microsoft.UI.Xaml.Markup;
+#endif
 
 namespace UnoEdit.Skia.Desktop;
 
 public partial class App : Application
 {
-    /// <summary>
-    /// Initializes the singleton application object. This is the first line of authored code
-    /// executed, and as such is the logical equivalent of main() or WinMain().
-    /// </summary>
     public App()
     {
         this.InitializeComponent();
-
-        // Load UnoEdit theme from library assembly
         LoadUnoEditTheme();
     }
 
@@ -59,143 +56,101 @@ public partial class App : Application
         }
     }
 
-    protected Window? MainWindow { get; private set; }
-    private IDisposable? _devTools;
-
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        MainWindow = new Window();
 #if DEBUG
-        MainWindow.UseStudio();
+        UnoPropertyGrid.PropertyGridLogger.Enabled = true;
+        UnoPropertyGrid.PropertyGridLogger.Reset();
+        UnoEdit.Logging.HighlightLogger.Enabled = true;
+        UnoEdit.Logging.HighlightLogger.Reset();
 #endif
 
-        // Do not repeat app initialization when the Window already has content,
-        // just ensure that the window is active
-        if (MainWindow.Content is not Frame rootFrame)
+#if WINDOWS_APP_SDK
+        try
         {
-            // Create a Frame to act as the navigation context and navigate to the first page
-            rootFrame = new Frame();
-
-            // Place the frame in the current Window
-            MainWindow.Content = rootFrame;
-
-            rootFrame.NavigationFailed += OnNavigationFailed;
+            LoadUnoEditorResources();
+            var window = new MainWindow();
+            window.Activate();
         }
+        catch (Exception ex)
+        {
+            ShowFatal(ex);
+        }
+#else
+        var runTestsEnv = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS");
+        if (!string.IsNullOrEmpty(runTestsEnv)
+            && !runTestsEnv.TrimStart().StartsWith('{')
+            && !bool.TryParse(runTestsEnv, out _))
+        {
+            System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS", "true");
+            runTestsEnv = "true";
+        }
+        bool runTests = !string.IsNullOrEmpty(runTestsEnv) && runTestsEnv != "false" && runTestsEnv != "0";
+
+        if (runTests)
+        {
+            var outputPath = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH");
+            if (string.IsNullOrEmpty(outputPath))
+            {
+                var dir = Path.Combine(AppContext.BaseDirectory, "test-results");
+                Directory.CreateDirectory(dir);
+                outputPath = Path.Combine(dir, "runtime-tests.xml");
+                System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH", outputPath);
+            }
+
+            var testWindow = new Window();
+            var frame = new Frame();
+            testWindow.Content = frame;
+            frame.Navigate(typeof(RuntimeTestsPage), args.Arguments);
+            testWindow.Activate();
+        }
+        else
+        {
+            var mainWindow = new MainWindow();
 #if DEBUG
-        // AttachDevTools requires the window to have a FrameworkElement content root,
-        // so it must be called after MainWindow.Content is set.
-        _devTools = MainWindow.AttachDevTools(new DevToolsOptions
-        {
-            LaunchView = DevToolsViewKind.VisualTree,
-            ShowAsChildWindow = false,
-        });
-
-        MainWindow.Closed += (_, _) =>
-        {
-            _devTools?.Dispose();
-            _devTools = null;
-        };
+            mainWindow.UseStudio();
+            var devTools = mainWindow.AttachDevTools(new DevToolsOptions
+            {
+                LaunchView = DevToolsViewKind.VisualTree,
+                ShowAsChildWindow = false,
+            });
+            mainWindow.Closed += (_, _) => { devTools?.Dispose(); };
 #endif
-
-        if (rootFrame.Content == null)
-        {
-            // When UNO_RUNTIME_TESTS_RUN_TESTS is set (CI headless mode), navigate to
-            // the runtime-tests host page so the engine can discover and run tests.
-            var runTestsEnv = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS");
-            // Normalize "1" / "yes" / any non-JSON non-bool truthy value so the engine doesn't
-            // treat it as a test-name filter.  The engine only clears the value when it parses
-            // as boolean "true"; any other non-JSON string becomes a filter expression.
-            if (!string.IsNullOrEmpty(runTestsEnv)
-                && !runTestsEnv.TrimStart().StartsWith('{')
-                && !bool.TryParse(runTestsEnv, out _))
-            {
-                System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS", "true");
-                runTestsEnv = "true";
-            }
-            bool runTests = !string.IsNullOrEmpty(runTestsEnv) && runTestsEnv != "false" && runTestsEnv != "0";
-
-            if (runTests)
-            {
-                // Diagnostic: report whether test attributes are present on types
-                try
-                {
-                    var entryAsm = typeof(App).GetTypeInfo().Assembly;
-                    Console.WriteLine($"[RuntimeTests-Diag] Entry assembly: {entryAsm.GetName().Name}");
-                    var allTypes = entryAsm.GetTypes();
-                    var classesWithTestClass = allTypes.Count(t => t.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestClass")));
-                    var methodsWithTestMethod = allTypes.Sum(t => t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static).Count(m => m.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestMethod"))));
-                    Console.WriteLine($"[RuntimeTests-Diag] Types={allTypes.Length}, ClassesWithTestClass={classesWithTestClass}, MethodsWithTestMethod={methodsWithTestMethod}");
-
-                    var loaded = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetName().Name + "@" + (a.GetName().Version?.ToString() ?? "n/a"));
-                    Console.WriteLine("[RuntimeTests-Diag] LoadedAssemblies: " + string.Join(", ", loaded));
-
-                        // Show the TestMethodAttribute type that UnitTestsControl would use
-                        try
-                        {
-                            var tmType = typeof(Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute);
-                            Console.WriteLine($"[RuntimeTests-Diag] TMAttr Type: {tmType.FullName} from {tmType.Assembly.FullName}");
-
-                            var sampleTestType = allTypes.FirstOrDefault(t => t.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestClass")));
-                            if (sampleTestType is not null)
-                            {
-                                var m = sampleTestType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
-                                    .FirstOrDefault(m2 => m2.GetCustomAttributes(false).Any(a => a.GetType().Name.Contains("TestMethod")));
-                                if (m is not null)
-                                {
-                                    foreach (var a in m.GetCustomAttributes(false))
-                                    {
-                                        Console.WriteLine($"[RuntimeTests-Diag] MethodAttr: {a.GetType().FullName} from {a.GetType().Assembly.FullName}");
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[RuntimeTests-Diag] Failed to inspect TestMethodAttribute types: {ex}");
-                        }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[RuntimeTests-Diag] Failed to inspect assembly: {ex}");
-                }
-
-                // Ensure the runtime-tests engine has an output destination.
-                // The engine aborts if `UNO_RUNTIME_TESTS_OUTPUT_PATH` is not set,
-                // so provide a sensible default inside the app output folder.
-                var outputPath = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH");
-                if (string.IsNullOrEmpty(outputPath))
-                {
-                    var dir = Path.Combine(AppContext.BaseDirectory, "test-results");
-                    Directory.CreateDirectory(dir);
-                    outputPath = Path.Combine(dir, "runtime-tests.xml");
-                    System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH", outputPath);
-                    Console.WriteLine($"[RuntimeTests] UNO_RUNTIME_TESTS_OUTPUT_PATH not set; using '{outputPath}'");
-                }
-
-                rootFrame.Navigate(typeof(RuntimeTestsPage), args.Arguments);
-            }
-            else
-                rootFrame.Navigate(typeof(MainPage), args.Arguments);
+            mainWindow.SetWindowIcon();
+            mainWindow.Activate();
         }
-
-        MainWindow.SetWindowIcon();
-        // Ensure the current window is active
-        MainWindow.Activate();
+#endif
     }
 
-    /// <summary>
-    /// Invoked when Navigation to a certain page fails
-    /// </summary>
-    /// <param name="sender">The Frame which failed navigation</param>
-    /// <param name="e">Details about the navigation failure</param>
-    void OnNavigationFailed(object sender, NavigationFailedEventArgs e)
+#if WINDOWS_APP_SDK
+    private void LoadUnoEditorResources()
     {
-        throw new InvalidOperationException($"Failed to load {e.SourcePageType.FullName}: {e.Exception}");
+        string resourcePath = Path.Combine(AppContext.BaseDirectory, "UnoEditorResources.xaml");
+        string resourceXaml = File.ReadAllText(resourcePath);
+        var dict = (ResourceDictionary)XamlReader.Load(resourceXaml);
+        this.Resources.MergedDictionaries.Add(dict);
     }
 
-    /// <summary>
-    /// Configures global Uno Platform logging
-    /// </summary>
+    private static void ShowFatal(Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[FATAL] {ex}");
+        Console.Error.WriteLine($"Fatal during launch: {ex}");
+        var w = new Microsoft.UI.Xaml.Window();
+        var tb = new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = $"Startup error:\n{ex.GetType().Name}: {ex.Message}\n\n{ex.StackTrace}",
+            TextWrapping = Microsoft.UI.Xaml.TextWrapping.WrapWholeWords,
+            Margin = new Microsoft.UI.Xaml.Thickness(16),
+            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+            FontSize = 12,
+        };
+        w.Content = new Microsoft.UI.Xaml.Controls.ScrollViewer { Content = tb };
+        w.Title = "UnoEdit Sample — Startup Error";
+        w.Activate();
+    }
+#endif
+
+#if !WINDOWS_APP_SDK
     public static void InitializeLogging()
     {
 #if DEBUG
@@ -262,4 +217,5 @@ public partial class App : Application
 #endif
 #endif
     }
+#endif
 }

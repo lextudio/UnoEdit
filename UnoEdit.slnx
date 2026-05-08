@@ -7,4 +7,5 @@
     <Project Path="src/UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
     <Project Path="src/UnoEdit.Tests/UnoEdit.Tests.csproj" />
   </Folder>
+  <Project Path="external/propertygrid/src/UnoPropertyGrid/UnoPropertyGrid.csproj" />
 </Solution>

@@ -3,13 +3,12 @@
 Summary
 -------
 
-Short answer: yes — UnoEdit already supports integration with WinUI 3 hosts. The repository uses a pragmatic, hybrid approach: the core library (`src/UnoEdit/UnoEdit.csproj`) is Uno.Sdk-based and conditionally includes WinUI pages when the Windows target framework is enabled. A WinUI sample app (`src/UnoEdit.WinUI.Sample`) and a Windows solution (`UnoEdit.Windows.slnx`) are present to exercise the WinUI build.
+Short answer: yes — UnoEdit already supports integration with WinUI 3 hosts. The repository uses a pragmatic, hybrid approach: the core library (`src/UnoEdit/UnoEdit.csproj`) is Uno.Sdk-based and conditionally includes WinUI pages when the Windows target framework is enabled.
 
 What I inspected
 -----------------
 
-- `src/UnoEdit/UnoEdit.csproj` — uses `Uno.Sdk` and conditionally adds a Windows TargetFramework (`net10.0-windows10.0.19041.0`) when building on Windows. WinUI-specific pages (for example `Controls/TextEditor.xaml`) are included only for that target.
-- `src/UnoEdit.WinUI.Sample` and `UnoEdit.Windows.slnx` — a small sample project and solution exist in the repo and are already wired to the WinUI build.
+- `src/UnoEdit/UnoEdit.csproj` — uses `Uno.Sdk` and conditionally adds a Windows TargetFramework (`net10.0-windows10.0.19041.0`) when building on Windows.
 
 Practical options
 -----------------
@@ -60,7 +59,6 @@ Checklist (current)
 
 - [x] WinUI pages included in `src/UnoEdit` (gated by windows TFM)
 - [x] WinUI sample app present at `src/UnoEdit.WinUI.Sample`
-- [x] `UnoEdit.Windows.slnx` references the WinUI sample
 - [ ] CI job to build the Windows/WinUI sample
 - [ ] Package NuGet with multi-target outputs (include Windows assets)
 

@@ -372,7 +372,10 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
     private static void OnShowLineNumbersChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textArea = (TextArea)dependencyObject;
-        textArea.PART_TextView.ShowLineNumbers = (bool)args.NewValue;
+        bool show = (bool)args.NewValue;
+        UnoEdit.Logging.HighlightLogger.Log("ShowLineNumbers", $"TextArea.OnShowLineNumbersChanged: show={show}, PART_TextView={textArea.PART_TextView?.GetType().Name ?? "NULL"}");
+        if (textArea.PART_TextView is null) return;
+        textArea.PART_TextView.ShowLineNumbers = show;
     }
 
     private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

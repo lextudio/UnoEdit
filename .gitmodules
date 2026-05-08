@@ -4,3 +4,6 @@
 [submodule "external/coretext"]
 	path = external/coretext
 	url = https://github.com/lextudio/TextCore.Uno.git
+[submodule "external/propertygrid"]
+	path = external/propertygrid
+	url = https://github.com/lextudio/UnoPropertyGrid

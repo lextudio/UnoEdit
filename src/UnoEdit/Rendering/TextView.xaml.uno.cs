@@ -163,6 +163,34 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             typeof(TextView),
             new PropertyMetadata(null, OnFoldingManagerChanged));
 
+    public static readonly DependencyProperty EditorFontFamilyProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontFamily),
+            typeof(FontFamily),
+            typeof(TextView),
+            new PropertyMetadata(EditorTextMetrics.CreateFontFamily(), OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontSizeProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontSize),
+            typeof(double),
+            typeof(TextView),
+            new PropertyMetadata(EditorTextMetrics.FontSize, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontWeightProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontWeight),
+            typeof(Windows.UI.Text.FontWeight),
+            typeof(TextView),
+            new PropertyMetadata(new Windows.UI.Text.FontWeight { Weight = 400 }, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontStyleProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontStyle),
+            typeof(Windows.UI.Text.FontStyle),
+            typeof(TextView),
+            new PropertyMetadata(Windows.UI.Text.FontStyle.Normal, OnEditorFontChanged));
+
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
     private readonly ServiceContainer _services = new();
     private readonly TextBlock _measurementProbe = new()
@@ -194,6 +222,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private int _prevLastVisualRow = -1;
     // Theme at the last full rebuild — used to detect theme changes that invalidate cached Runs.
     private TextEditorTheme? _prevTheme;
+    private FontFamily? _prevEditorFontFamily;
+    private double _prevEditorFontSize = double.NaN;
+    private Windows.UI.Text.FontWeight _prevEditorFontWeight;
+    private Windows.UI.Text.FontStyle _prevEditorFontStyle = Windows.UI.Text.FontStyle.Normal;
     // Highlighter source at the last full rebuild — used to detect source swaps that invalidate cached Runs.
     private IHighlightedLineSource? _prevHighlightedLineSource;
     // Set when the current highlighter fires HighlightingInvalidated (e.g. theme change within the source).
@@ -225,10 +257,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         this.InitializeComponent();
         _services.AddService(typeof(TextView), this);
-        FontFamily = EditorTextMetrics.CreateFontFamily();
-        FontSize = EditorTextMetrics.FontSize;
-        _measurementProbe.FontFamily = EditorTextMetrics.CreateFontFamily();
-        _measurementProbe.FontSize = EditorTextMetrics.FontSize;
+        ApplyEditorFont();
         LineNumberItemsControl.ItemsSource = _lines;
         FoldMarginItemsControl.ItemsSource = _lines;
         LinesItemsControl.ItemsSource = _lines;
@@ -359,6 +388,38 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         get => (double)GetValue(SelectionCornerRadiusProperty);
         set => SetValue(SelectionCornerRadiusProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font family used by editor text and line numbers.")]
+    public FontFamily EditorFontFamily
+    {
+        get => (FontFamily)GetValue(EditorFontFamilyProperty);
+        set => SetValue(EditorFontFamilyProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font size used by editor text and line numbers.")]
+    public double EditorFontSize
+    {
+        get => (double)GetValue(EditorFontSizeProperty);
+        set => SetValue(EditorFontSizeProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font weight used by editor text and line numbers.")]
+    public Windows.UI.Text.FontWeight EditorFontWeight
+    {
+        get => (Windows.UI.Text.FontWeight)GetValue(EditorFontWeightProperty);
+        set => SetValue(EditorFontWeightProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font style used by editor text and line numbers.")]
+    public Windows.UI.Text.FontStyle EditorFontStyle
+    {
+        get => (Windows.UI.Text.FontStyle)GetValue(EditorFontStyleProperty);
+        set => SetValue(EditorFontStyleProperty, value);
     }
 
     public IReadOnlySectionProvider? ReadOnlySectionProvider { get; set; }
@@ -587,6 +648,45 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         tv._pendingFullRebuild = true;
         LogFlash("full queued: FoldingManager changed");
         tv.RefreshViewport();
+    }
+
+    private static void OnEditorFontChanged(DependencyObject d, DependencyPropertyChangedEventArgs args)
+    {
+        var tv = (TextView)d;
+        tv.ApplyEditorFont();
+        tv.UpdateTextMetrics();
+        tv._pendingFullRebuild = true;
+        LogFlash("full queued: editor font changed");
+        tv.RefreshViewport();
+    }
+
+    private void ApplyEditorFont()
+    {
+        FontFamily = EditorFontFamily;
+        FontSize = EditorFontSize;
+        FontWeight = EditorFontWeight;
+        FontStyle = EditorFontStyle;
+        _measurementProbe.FontFamily = EditorFontFamily;
+        _measurementProbe.FontSize = EditorFontSize;
+        _measurementProbe.FontWeight = EditorFontWeight;
+        _measurementProbe.FontStyle = EditorFontStyle;
+    }
+
+    private bool FontSettingsEqual()
+    {
+        return _prevEditorFontFamily is not null
+            && string.Equals(_prevEditorFontFamily.Source, EditorFontFamily.Source, StringComparison.Ordinal)
+            && Math.Abs(_prevEditorFontSize - EditorFontSize) < 0.001
+            && _prevEditorFontWeight.Weight == EditorFontWeight.Weight
+            && _prevEditorFontStyle == EditorFontStyle;
+    }
+
+    private void StoreCurrentFontSettings()
+    {
+        _prevEditorFontFamily = EditorFontFamily;
+        _prevEditorFontSize = EditorFontSize;
+        _prevEditorFontWeight = EditorFontWeight;
+        _prevEditorFontStyle = EditorFontStyle;
     }
 
     private void OnFoldingsChanged(object? sender, EventArgs e)
@@ -849,15 +949,17 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
     }
 
-    private static double MeasureCharacterWidth()
+    private double MeasureCharacterWidth()
     {
         const int sampleLength = 32;
         string sampleText = new('0', sampleLength);
         var probe = new TextBlock
         {
             Text = sampleText,
-            FontFamily = EditorTextMetrics.CreateFontFamily(),
-            FontSize = EditorTextMetrics.FontSize,
+            FontFamily = EditorFontFamily,
+            FontSize = EditorFontSize,
+            FontWeight = EditorFontWeight,
+            FontStyle = EditorFontStyle,
             TextWrapping = TextWrapping.NoWrap,
         };
 
@@ -1155,6 +1257,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int selectionEnd = Math.Max(SelectionStartOffset, SelectionEndOffset);
         bool hasSelection = selectionStart != selectionEnd;
         bool themeChanged = !ReferenceEquals(Theme, _prevTheme);
+        bool editorFontChanged = !FontSettingsEqual();
         bool highlighterChanged = !ReferenceEquals(_highlightedLineSource, _prevHighlightedLineSource);
         bool highlightingInvalidated = _highlightingDataInvalidated;
         HashSet<int>? dirtyHighlightedLines = _dirtyHighlightedLines.Count > 0
@@ -1179,6 +1282,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         bool canPartialUpdate =
             !_pendingFullRebuild
             && !themeChanged
+            && !editorFontChanged
             && !highlighterChanged
             && firstVisualRow == _prevFirstVisualRow
             && lastVisualRow  == _prevLastVisualRow
@@ -1315,7 +1419,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         bool canReuseExisting = _lines.Count == expectedCount;
         Dictionary<int, (TextLineViewModel ViewModel, int Index)>? reusableViewModelsByLineNumber = null;
-        if (canReuseExisting && !themeChanged && !highlighterChanged && ReferenceSegmentSource is null)
+        if (canReuseExisting && !themeChanged && !editorFontChanged && !highlighterChanged && ReferenceSegmentSource is null)
         {
             reusableViewModelsByLineNumber = new Dictionary<int, (TextLineViewModel ViewModel, int Index)>(_lines.Count);
             for (int existingIndex = 0; existingIndex < _lines.Count; existingIndex++)
@@ -1332,6 +1436,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         bool canApplyScrollShift =
             !_pendingFullRebuild
             && !themeChanged
+            && !editorFontChanged
             && !highlighterChanged
             && !highlightingInvalidated
             && dirtyHighlightedLines is null
@@ -1374,6 +1479,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _prevFirstVisualRow = firstVisualRow;
             _prevLastVisualRow = lastVisualRow;
             _prevTheme = Theme;
+            StoreCurrentFontSettings();
             _prevHighlightedLineSource = _highlightedLineSource;
             TopSpacer.Height = firstVisualRow * LineHeight;
             BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
@@ -1388,7 +1494,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         _highlightingDataInvalidated = false;
         _dirtyHighlightedLines.Clear();
 
-        LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} count={expectedCount} prevLineCount={_lines.Count} themeChanged={themeChanged}");
+        LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} count={expectedCount} prevLineCount={_lines.Count} themeChanged={themeChanged} editorFontChanged={editorFontChanged}");
 
         // Build new view-models into a temporary list first so we can decide
         // whether to update in-place (avoids Clear() which flashes a blank frame)
@@ -1421,6 +1527,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         _prevFirstVisualRow = firstVisualRow;
         _prevLastVisualRow  = lastVisualRow;
         _prevTheme          = Theme;
+        StoreCurrentFontSettings();
         _prevHighlightedLineSource = _highlightedLineSource;
         TopSpacer.Height = firstVisualRow * LineHeight;
         BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);

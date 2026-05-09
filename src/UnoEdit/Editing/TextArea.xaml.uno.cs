@@ -127,6 +127,34 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
             typeof(TextArea),
             new PropertyMetadata(0d, OnSelectionCornerRadiusChanged));
 
+    public static readonly DependencyProperty EditorFontFamilyProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontFamily),
+            typeof(FontFamily),
+            typeof(TextArea),
+            new PropertyMetadata(EditorTextMetrics.CreateFontFamily(), OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontSizeProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontSize),
+            typeof(double),
+            typeof(TextArea),
+            new PropertyMetadata(EditorTextMetrics.FontSize, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontWeightProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontWeight),
+            typeof(Windows.UI.Text.FontWeight),
+            typeof(TextArea),
+            new PropertyMetadata(new Windows.UI.Text.FontWeight { Weight = 400 }, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontStyleProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontStyle),
+            typeof(Windows.UI.Text.FontStyle),
+            typeof(TextArea),
+            new PropertyMetadata(Windows.UI.Text.FontStyle.Normal, OnEditorFontChanged));
+
     public event EventHandler? DocumentChanged;
     public event PropertyChangedEventHandler? OptionChanged;
     public event EventHandler? CaretOffsetChanged;
@@ -289,6 +317,38 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
         set => SetValue(SelectionCornerRadiusProperty, value);
     }
 
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font family used by editor text and line numbers.")]
+    public FontFamily EditorFontFamily
+    {
+        get => (FontFamily)GetValue(EditorFontFamilyProperty);
+        set => SetValue(EditorFontFamilyProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font size used by editor text and line numbers.")]
+    public double EditorFontSize
+    {
+        get => (double)GetValue(EditorFontSizeProperty);
+        set => SetValue(EditorFontSizeProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font weight used by editor text and line numbers.")]
+    public Windows.UI.Text.FontWeight EditorFontWeight
+    {
+        get => (Windows.UI.Text.FontWeight)GetValue(EditorFontWeightProperty);
+        set => SetValue(EditorFontWeightProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.Description("Font style used by editor text and line numbers.")]
+    public Windows.UI.Text.FontStyle EditorFontStyle
+    {
+        get => (Windows.UI.Text.FontStyle)GetValue(EditorFontStyleProperty);
+        set => SetValue(EditorFontStyleProperty, value);
+    }
+
     public IReadOnlySectionProvider? ReadOnlySectionProvider
     {
         get => PART_TextView.ReadOnlySectionProvider;
@@ -424,6 +484,15 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.SelectionCornerRadius = (double)args.NewValue;
+    }
+
+    private static void OnEditorFontChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.EditorFontFamily = textArea.EditorFontFamily;
+        textArea.PART_TextView.EditorFontSize = textArea.EditorFontSize;
+        textArea.PART_TextView.EditorFontWeight = textArea.EditorFontWeight;
+        textArea.PART_TextView.EditorFontStyle = textArea.EditorFontStyle;
     }
 
     public void ScrollToLine(int lineNumber)

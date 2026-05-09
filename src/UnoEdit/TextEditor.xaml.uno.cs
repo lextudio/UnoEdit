@@ -93,6 +93,34 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
             typeof(TextEditor),
             new PropertyMetadata(null, OnLineNumbersForegroundChanged));
 
+    public static readonly DependencyProperty EditorFontFamilyProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontFamily),
+            typeof(FontFamily),
+            typeof(TextEditor),
+            new PropertyMetadata(EditorTextMetrics.CreateFontFamily(), OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontSizeProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontSize),
+            typeof(double),
+            typeof(TextEditor),
+            new PropertyMetadata(EditorTextMetrics.FontSize, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontWeightProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontWeight),
+            typeof(Windows.UI.Text.FontWeight),
+            typeof(TextEditor),
+            new PropertyMetadata(new Windows.UI.Text.FontWeight { Weight = 400 }, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontStyleProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontStyle),
+            typeof(Windows.UI.Text.FontStyle),
+            typeof(TextEditor),
+            new PropertyMetadata(Windows.UI.Text.FontStyle.Normal, OnEditorFontChanged));
+
     public static readonly DependencyProperty SyntaxHighlightingProperty =
         DependencyProperty.Register(
             nameof(SyntaxHighlighting),
@@ -229,6 +257,42 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
     {
         get => (Brush?)GetValue(LineNumbersForegroundProperty);
         set => SetValue(LineNumbersForegroundProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.DisplayName("Editor Font Family")]
+    [System.ComponentModel.Description("Font family used by the code text and line numbers.")]
+    public FontFamily EditorFontFamily
+    {
+        get => (FontFamily)GetValue(EditorFontFamilyProperty);
+        set => SetValue(EditorFontFamilyProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.DisplayName("Editor Font Size")]
+    [System.ComponentModel.Description("Font size used by the code text and line numbers.")]
+    public double EditorFontSize
+    {
+        get => (double)GetValue(EditorFontSizeProperty);
+        set => SetValue(EditorFontSizeProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.DisplayName("Editor Font Weight")]
+    [System.ComponentModel.Description("Font weight used by the code text and line numbers.")]
+    public Windows.UI.Text.FontWeight EditorFontWeight
+    {
+        get => (Windows.UI.Text.FontWeight)GetValue(EditorFontWeightProperty);
+        set => SetValue(EditorFontWeightProperty, value);
+    }
+
+    [System.ComponentModel.Category("Appearance")]
+    [System.ComponentModel.DisplayName("Editor Font Style")]
+    [System.ComponentModel.Description("Font style used by the code text and line numbers.")]
+    public Windows.UI.Text.FontStyle EditorFontStyle
+    {
+        get => (Windows.UI.Text.FontStyle)GetValue(EditorFontStyleProperty);
+        set => SetValue(EditorFontStyleProperty, value);
     }
 
     [System.ComponentModel.Browsable(false)]
@@ -638,6 +702,19 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
         else
             editor.ApplyThemeToChrome();
 #endif
+    }
+
+    private static void OnEditorFontChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.EditorFontFamily = editor.EditorFontFamily;
+        editor.PART_TextArea.EditorFontSize = editor.EditorFontSize;
+        editor.PART_TextArea.EditorFontWeight = editor.EditorFontWeight;
+        editor.PART_TextArea.EditorFontStyle = editor.EditorFontStyle;
+        editor.NotifyPropertyChanged(nameof(EditorFontFamily));
+        editor.NotifyPropertyChanged(nameof(EditorFontSize));
+        editor.NotifyPropertyChanged(nameof(EditorFontWeight));
+        editor.NotifyPropertyChanged(nameof(EditorFontStyle));
     }
 
     private static void OnSyntaxHighlightingChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

@@ -52,6 +52,7 @@ public sealed partial class MainWindow : Window
         Editor.Document = _document;
         if (!_isDarkTheme)
             Editor.Theme = TextEditorTheme.Light;
+        PropertyGrid.PropertyGridTheme = _isDarkTheme ? ElementTheme.Dark : ElementTheme.Light;
 
         Editor.FoldingManager = _foldingManager;
 
@@ -122,6 +123,7 @@ public sealed partial class MainWindow : Window
     {
         _isDarkTheme = !_isDarkTheme;
         Editor.Theme = _isDarkTheme ? TextEditorTheme.Dark : TextEditorTheme.Light;
+        PropertyGrid.PropertyGridTheme = _isDarkTheme ? ElementTheme.Dark : ElementTheme.Light;
         _textMateHighlighter.SetTheme(_isDarkTheme ? ThemeName.DarkPlus : ThemeName.LightPlus);
         ThemeToggle.Content = _isDarkTheme ? "☀ Light" : "\U0001F319 Dark";
     }

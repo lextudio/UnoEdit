@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Documents;
+using Microsoft.UI.Xaml.Media;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -11,6 +12,34 @@ public sealed partial class HighlightedTextBlock : UserControl
             typeof(HighlightedTextBlock),
             new PropertyMetadata(null, OnLineViewModelChanged));
 
+    public static readonly DependencyProperty EditorFontFamilyProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontFamily),
+            typeof(FontFamily),
+            typeof(HighlightedTextBlock),
+            new PropertyMetadata(EditorTextMetrics.CreateFontFamily(), OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontSizeProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontSize),
+            typeof(double),
+            typeof(HighlightedTextBlock),
+            new PropertyMetadata(EditorTextMetrics.FontSize, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontWeightProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontWeight),
+            typeof(Windows.UI.Text.FontWeight),
+            typeof(HighlightedTextBlock),
+            new PropertyMetadata(new Windows.UI.Text.FontWeight { Weight = 400 }, OnEditorFontChanged));
+
+    public static readonly DependencyProperty EditorFontStyleProperty =
+        DependencyProperty.Register(
+            nameof(EditorFontStyle),
+            typeof(Windows.UI.Text.FontStyle),
+            typeof(HighlightedTextBlock),
+            new PropertyMetadata(Windows.UI.Text.FontStyle.Normal, OnEditorFontChanged));
+
     // Last rendered Runs/refs — used to skip unnecessary Inlines rebuilds when only
     // caret/selection state changed (text content is the same object reference).
     private System.Collections.Generic.IReadOnlyList<TextRun>? _lastRuns;
@@ -19,14 +48,50 @@ public sealed partial class HighlightedTextBlock : UserControl
     public HighlightedTextBlock()
     {
         this.InitializeComponent();
-        PART_Text.FontFamily = EditorTextMetrics.CreateFontFamily();
-        PART_Text.FontSize = EditorTextMetrics.FontSize;
+        ApplyEditorFont();
     }
 
     public TextLineViewModel? LineViewModel
     {
         get => (TextLineViewModel?)GetValue(LineViewModelProperty);
         set => SetValue(LineViewModelProperty, value);
+    }
+
+    public FontFamily EditorFontFamily
+    {
+        get => (FontFamily)GetValue(EditorFontFamilyProperty);
+        set => SetValue(EditorFontFamilyProperty, value);
+    }
+
+    public double EditorFontSize
+    {
+        get => (double)GetValue(EditorFontSizeProperty);
+        set => SetValue(EditorFontSizeProperty, value);
+    }
+
+    public Windows.UI.Text.FontWeight EditorFontWeight
+    {
+        get => (Windows.UI.Text.FontWeight)GetValue(EditorFontWeightProperty);
+        set => SetValue(EditorFontWeightProperty, value);
+    }
+
+    public Windows.UI.Text.FontStyle EditorFontStyle
+    {
+        get => (Windows.UI.Text.FontStyle)GetValue(EditorFontStyleProperty);
+        set => SetValue(EditorFontStyleProperty, value);
+    }
+
+    private static void OnEditorFontChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        ((HighlightedTextBlock)d).ApplyEditorFont();
+    }
+
+    private void ApplyEditorFont()
+    {
+        PART_Text.FontFamily = EditorFontFamily;
+        PART_Text.FontSize = EditorFontSize;
+        PART_Text.FontWeight = EditorFontWeight;
+        PART_Text.FontStyle = EditorFontStyle;
     }
 
     private static void OnLineViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

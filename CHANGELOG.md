@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.1] - 2026-05-09
+
+- Fixed word wrap support.
+- Fixed wrong default values to match AvalonEdit.
+
 ## [v0.6.0] - 2026-05-07
 
 - Improved folding indicators to match AvalonEdit better.

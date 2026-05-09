@@ -78,7 +78,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             nameof(ShowLineNumbers),
             typeof(bool),
             typeof(TextView),
-            new PropertyMetadata(true, OnShowLineNumbersChanged));
+            new PropertyMetadata(false, OnShowLineNumbersChanged));
 
     public static readonly DependencyProperty WordWrapProperty =
         DependencyProperty.Register(
@@ -92,7 +92,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             nameof(IndentationStrategy),
             typeof(IIndentationStrategy),
             typeof(TextView),
-            new PropertyMetadata(null));
+            new PropertyMetadata(new DefaultIndentationStrategy()));
 
     public static readonly DependencyProperty OverstrikeModeProperty =
         DependencyProperty.Register(
@@ -101,12 +101,26 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             typeof(TextView),
             new PropertyMetadata(false));
 
+    public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
+        DependencyProperty.Register(
+            nameof(HorizontalScrollBarVisibility),
+            typeof(ScrollBarVisibility),
+            typeof(TextView),
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
+
+    public static readonly DependencyProperty VerticalScrollBarVisibilityProperty =
+        DependencyProperty.Register(
+            nameof(VerticalScrollBarVisibility),
+            typeof(ScrollBarVisibility),
+            typeof(TextView),
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
+
     public static readonly DependencyProperty LineNumbersForegroundProperty =
         DependencyProperty.Register(
             nameof(LineNumbersForeground),
             typeof(Brush),
             typeof(TextView),
-            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
+            new PropertyMetadata(new SolidColorBrush(Microsoft.UI.Colors.Gray), OnLineNumbersForegroundChanged));
 
     public static readonly DependencyProperty SelectionBrushProperty =
         DependencyProperty.Register(
@@ -134,7 +148,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             nameof(SelectionCornerRadius),
             typeof(double),
             typeof(TextView),
-            new PropertyMetadata(0d, OnSelectionStyleChanged));
+            new PropertyMetadata(3d, OnSelectionStyleChanged));
 
     public static readonly DependencyProperty SyntaxHighlightingProperty =
         DependencyProperty.Register(
@@ -244,7 +258,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private double _lastPublishedVerticalOffset;
     private bool _visibleLinesPublished;
 
-    private readonly record struct VisibleDocumentRow(int LineNumber, int StartColumn, int EndColumn, bool IsFirstRow);
+    private readonly record struct VisibleDocumentRow(int LineNumber, int StartColumn, int EndColumn, bool IsFirstRow, bool IsLastRow);
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
@@ -360,6 +374,18 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         get => (bool)GetValue(OverstrikeModeProperty);
         set => SetValue(OverstrikeModeProperty, value);
+    }
+
+    public ScrollBarVisibility HorizontalScrollBarVisibility
+    {
+        get => (ScrollBarVisibility)GetValue(HorizontalScrollBarVisibilityProperty);
+        set => SetValue(HorizontalScrollBarVisibilityProperty, value);
+    }
+
+    public ScrollBarVisibility VerticalScrollBarVisibility
+    {
+        get => (ScrollBarVisibility)GetValue(VerticalScrollBarVisibilityProperty);
+        set => SetValue(VerticalScrollBarVisibilityProperty, value);
     }
 
     public Brush? LineNumbersForeground
@@ -616,6 +642,12 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         textView._pendingFullRebuild = true;
         LogFlash("full queued: word wrap changed");
         textView.RefreshViewport();
+    }
+
+    private static void OnScrollBarVisibilityChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        textView.ApplyWordWrap();
     }
 
     private static void OnLineNumbersForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -905,7 +937,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         TextScrollViewer.HorizontalScrollBarVisibility = WordWrap
             ? ScrollBarVisibility.Disabled
-            : ScrollBarVisibility.Auto;
+            : HorizontalScrollBarVisibility;
+        TextScrollViewer.VerticalScrollBarVisibility = VerticalScrollBarVisibility;
     }
 
     private void HandleDocumentTextChanged(object? sender, EventArgs e)
@@ -1378,7 +1411,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                 }
 
                 string displayText = GetRowText(lineText, row);
-                FoldMarkerKind foldMarker = row.IsFirstRow ? GetFoldMarkerKind(line) : FoldMarkerKind.None;
+                FoldMarkerKind foldMarker = GetFoldMarkerKind(line, row);
 
                 HighlightedLine? highlightedLine = null;
                 try
@@ -1604,7 +1637,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         string displayText = GetRowText(lineText, row);
-        FoldMarkerKind foldMarker = row.IsFirstRow ? GetFoldMarkerKind(line) : FoldMarkerKind.None;
+        FoldMarkerKind foldMarker = GetFoldMarkerKind(line, row);
 
         if (!(_highlightingDataInvalidated || _dirtyHighlightedLines.Count > 0)
             && ReferenceSegmentSource is null
@@ -1839,19 +1872,26 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         if (!WordWrap || lineText.Length == 0)
         {
-            yield return new VisibleDocumentRow(lineNumber, 0, lineText.Length, true);
+            yield return new VisibleDocumentRow(lineNumber, 0, lineText.Length, true, true);
             yield break;
         }
 
         int wrapColumn = GetWrapColumn();
+        var rows = new List<VisibleDocumentRow>();
         int start = 0;
         bool first = true;
         while (start < lineText.Length)
         {
             int end = FindWrapEnd(lineText, start, wrapColumn);
-            yield return new VisibleDocumentRow(lineNumber, start, end, first);
+            rows.Add(new VisibleDocumentRow(lineNumber, start, end, first, false));
             first = false;
             start = end;
+        }
+
+        for (int i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            yield return row with { IsLastRow = i == rows.Count - 1 };
         }
     }
 
@@ -1962,6 +2002,19 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         return FoldMarkerKind.None;
     }
 
+    private FoldMarkerKind GetFoldMarkerKind(DocumentLine line, VisibleDocumentRow row)
+    {
+        var lineMarker = GetFoldMarkerKind(line);
+        return lineMarker switch
+        {
+            FoldMarkerKind.CanFold => row.IsFirstRow ? FoldMarkerKind.CanFold : FoldMarkerKind.InsideFold,
+            FoldMarkerKind.FoldEnd => row.IsLastRow ? FoldMarkerKind.FoldEnd : FoldMarkerKind.InsideFold,
+            FoldMarkerKind.InsideFold => FoldMarkerKind.InsideFold,
+            FoldMarkerKind.CanExpand => row.IsFirstRow ? FoldMarkerKind.CanExpand : FoldMarkerKind.None,
+            _ => row.IsFirstRow ? lineMarker : FoldMarkerKind.None,
+        };
+    }
+
     /// <summary>Toggle the first fold on the caret line. Returns true if a fold was toggled.</summary>
     private int GetOffsetFromViewPoint(double x, double y)
     {
@@ -1977,7 +2030,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocRows.Count - 1);
         var row = _visibleDocRows.Count > 0
             ? _visibleDocRows[visualRow]
-            : new VisibleDocumentRow(1, 0, 0, true);
+            : new VisibleDocumentRow(1, 0, 0, true, true);
         int targetLine = row.LineNumber;
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 

@@ -106,14 +106,9 @@ public sealed partial class TextView
         }
 
         TextLocation location = _document.GetLocation(CurrentOffset);
-        int currentVisualRow = GetVisualRow(location.Line, location.Column - 1);
-        if (currentVisualRow < 0)
-        {
-            currentVisualRow = 0;
-        }
-
+        int currentVisualRow = GetSafeCurrentVisualRow(location);
         int targetVisualRow = Math.Clamp(currentVisualRow + delta, 0, _visibleDocRows.Count - 1);
-        var targetRow = _visibleDocRows.Count > 0 ? _visibleDocRows[targetVisualRow] : new VisibleDocumentRow(location.Line, 0, 0, true);
+        var targetRow = GetRowOrFallback(targetVisualRow, location);
         int targetLineNumber = targetRow.LineNumber;
         DocumentLine targetLine = _document.GetLineByNumber(targetLineNumber);
         int targetColumn = ClampColumn(targetLine, Math.Clamp(_desiredColumn, targetRow.StartColumn + 1, targetRow.EndColumn + 1));
@@ -130,10 +125,43 @@ public sealed partial class TextView
         }
 
         TextLocation location = _document.GetLocation(CurrentOffset);
-        DocumentLine line = _document.GetLineByNumber(location.Line);
-        int targetColumn = moveToStart ? 1 : line.Length + 1;
-        int targetOffset = _document.GetOffset(location.Line, targetColumn);
-        UpdateCaretAndSelection(targetOffset, extendSelection);
+        var currentRow = GetVisualRow(location.Line, location.Column - 1);
+        if (WordWrap && currentRow >= 0 && currentRow < _visibleDocRows.Count)
+        {
+            var row = _visibleDocRows[currentRow];
+            DocumentLine line = _document.GetLineByNumber(location.Line);
+            int targetLogicalColumn;
+            if (moveToStart)
+            {
+                int rowTextStart = row.StartColumn;
+                int rowTextFirstNonWhitespace = rowTextStart;
+                string lineText = _document.GetText(line);
+                while (rowTextFirstNonWhitespace < row.EndColumn
+                    && rowTextFirstNonWhitespace < lineText.Length
+                    && char.IsWhiteSpace(lineText[rowTextFirstNonWhitespace]))
+                {
+                    rowTextFirstNonWhitespace++;
+                }
+
+                int currentLogicalColumn = Math.Clamp(location.Column - 1, row.StartColumn, row.EndColumn);
+                targetLogicalColumn = currentLogicalColumn == rowTextFirstNonWhitespace
+                    ? row.StartColumn
+                    : rowTextFirstNonWhitespace;
+            }
+            else
+            {
+                targetLogicalColumn = row.EndColumn;
+            }
+            int targetColumn = ClampColumn(line, targetLogicalColumn + 1);
+            int targetOffset = _document.GetOffset(location.Line, targetColumn);
+            UpdateCaretAndSelection(targetOffset, extendSelection);
+            return true;
+        }
+
+        DocumentLine documentLine = _document.GetLineByNumber(location.Line);
+        int defaultTargetColumn = moveToStart ? 1 : documentLine.Length + 1;
+        int defaultTargetOffset = _document.GetOffset(location.Line, defaultTargetColumn);
+        UpdateCaretAndSelection(defaultTargetOffset, extendSelection);
         return true;
     }
 
@@ -159,20 +187,28 @@ public sealed partial class TextView
         double viewportHeight = TextScrollViewer.ViewportHeight > 0 ? TextScrollViewer.ViewportHeight : ActualHeight;
         int pageLines = Math.Max(1, (int)(viewportHeight / LineHeight) - 1);
         TextLocation location = _document.GetLocation(CurrentOffset);
-        int currentVisualRow = GetVisualRow(location.Line, location.Column - 1);
-        if (currentVisualRow < 0)
-        {
-            currentVisualRow = 0;
-        }
-
+        int currentVisualRow = GetSafeCurrentVisualRow(location);
         int targetVisualRow = Math.Clamp(currentVisualRow + direction * pageLines, 0, _visibleDocRows.Count - 1);
-        var targetRow = _visibleDocRows.Count > 0 ? _visibleDocRows[targetVisualRow] : new VisibleDocumentRow(location.Line, 0, 0, true);
+        var targetRow = GetRowOrFallback(targetVisualRow, location);
         int targetLineNumber = targetRow.LineNumber;
         DocumentLine targetLine = _document.GetLineByNumber(targetLineNumber);
         int targetColumn = ClampColumn(targetLine, Math.Clamp(_desiredColumn, targetRow.StartColumn + 1, targetRow.EndColumn + 1));
         int targetOffset = _document.GetOffset(targetLineNumber, targetColumn);
         UpdateCaretAndSelection(targetOffset, extendSelection);
         return true;
+    }
+
+    private int GetSafeCurrentVisualRow(TextLocation location)
+    {
+        int row = GetVisualRow(location.Line, location.Column - 1);
+        return row < 0 ? 0 : row;
+    }
+
+    private VisibleDocumentRow GetRowOrFallback(int visualRow, TextLocation location)
+    {
+        return _visibleDocRows.Count > 0
+            ? _visibleDocRows[Math.Clamp(visualRow, 0, _visibleDocRows.Count - 1)]
+            : new VisibleDocumentRow(location.Line, 0, 0, true, true);
     }
 
     internal bool MoveWordBoundary(bool backward, bool extendSelection)

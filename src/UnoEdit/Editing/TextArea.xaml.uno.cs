@@ -69,7 +69,7 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
             nameof(ShowLineNumbers),
             typeof(bool),
             typeof(TextArea),
-            new PropertyMetadata(true, OnShowLineNumbersChanged));
+            new PropertyMetadata(false, OnShowLineNumbersChanged));
 
     public static readonly DependencyProperty WordWrapProperty =
         DependencyProperty.Register(
@@ -83,7 +83,7 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
             nameof(IndentationStrategy),
             typeof(IIndentationStrategy),
             typeof(TextArea),
-            new PropertyMetadata(null, OnIndentationStrategyChanged));
+            new PropertyMetadata(new DefaultIndentationStrategy(), OnIndentationStrategyChanged));
 
     public static readonly DependencyProperty OverstrikeModeProperty =
         DependencyProperty.Register(
@@ -92,12 +92,26 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
             typeof(TextArea),
             new PropertyMetadata(false, OnOverstrikeModeChanged));
 
+    public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
+        DependencyProperty.Register(
+            nameof(HorizontalScrollBarVisibility),
+            typeof(ScrollBarVisibility),
+            typeof(TextArea),
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
+
+    public static readonly DependencyProperty VerticalScrollBarVisibilityProperty =
+        DependencyProperty.Register(
+            nameof(VerticalScrollBarVisibility),
+            typeof(ScrollBarVisibility),
+            typeof(TextArea),
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
+
     public static readonly DependencyProperty LineNumbersForegroundProperty =
         DependencyProperty.Register(
             nameof(LineNumbersForeground),
             typeof(Brush),
             typeof(TextArea),
-            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
+            new PropertyMetadata(new SolidColorBrush(Microsoft.UI.Colors.Gray), OnLineNumbersForegroundChanged));
 
     public static readonly DependencyProperty SelectionBrushProperty =
         DependencyProperty.Register(
@@ -125,7 +139,7 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
             nameof(SelectionCornerRadius),
             typeof(double),
             typeof(TextArea),
-            new PropertyMetadata(0d, OnSelectionCornerRadiusChanged));
+            new PropertyMetadata(3d, OnSelectionCornerRadiusChanged));
 
     public static readonly DependencyProperty EditorFontFamilyProperty =
         DependencyProperty.Register(
@@ -285,6 +299,18 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
     {
         get => (bool)GetValue(OverstrikeModeProperty);
         set => SetValue(OverstrikeModeProperty, value);
+    }
+
+    public ScrollBarVisibility HorizontalScrollBarVisibility
+    {
+        get => (ScrollBarVisibility)GetValue(HorizontalScrollBarVisibilityProperty);
+        set => SetValue(HorizontalScrollBarVisibilityProperty, value);
+    }
+
+    public ScrollBarVisibility VerticalScrollBarVisibility
+    {
+        get => (ScrollBarVisibility)GetValue(VerticalScrollBarVisibilityProperty);
+        set => SetValue(VerticalScrollBarVisibilityProperty, value);
     }
 
     public Brush? LineNumbersForeground
@@ -454,6 +480,13 @@ public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnch
     {
         var textArea = (TextArea)dependencyObject;
         textArea.PART_TextView.OverstrikeMode = (bool)args.NewValue;
+    }
+
+    private static void OnScrollBarVisibilityChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textArea = (TextArea)dependencyObject;
+        textArea.PART_TextView.HorizontalScrollBarVisibility = textArea.HorizontalScrollBarVisibility;
+        textArea.PART_TextView.VerticalScrollBarVisibility = textArea.VerticalScrollBarVisibility;
     }
 
     private static void OnLineNumbersForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

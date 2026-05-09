@@ -63,7 +63,7 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
 
     public static readonly DependencyProperty ShowLineNumbersProperty =
         DependencyProperty.Register(nameof(ShowLineNumbers), typeof(bool), typeof(TextEditor),
-            new PropertyMetadata(true, OnShowLineNumbersChanged));
+            new PropertyMetadata(false, OnShowLineNumbersChanged));
 
     public static readonly DependencyProperty WordWrapProperty =
         DependencyProperty.Register(nameof(WordWrap), typeof(bool), typeof(TextEditor),
@@ -79,15 +79,15 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
 
     public static readonly DependencyProperty LineNumbersForegroundProperty =
         DependencyProperty.Register(nameof(LineNumbersForeground), typeof(Brush), typeof(TextEditor),
-            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
+            new PropertyMetadata(new SolidColorBrush(Microsoft.UI.Colors.Gray), OnLineNumbersForegroundChanged));
 
     public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
         DependencyProperty.Register(nameof(HorizontalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
-            new PropertyMetadata(ScrollBarVisibility.Auto));
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
 
     public static readonly DependencyProperty VerticalScrollBarVisibilityProperty =
         DependencyProperty.Register(nameof(VerticalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
-            new PropertyMetadata(ScrollBarVisibility.Auto));
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
 
     private TextDocument? _attachedDocument;
     private TextEditorOptions? _currentOptions;
@@ -573,6 +573,13 @@ public sealed partial class TextEditor : Microsoft.UI.Xaml.Controls.UserControl,
 
     private static void OnLineNumbersForegroundChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         => ((TextEditor)d).PART_TextArea.LineNumbersForeground = e.NewValue as Brush;
+
+    private static void OnScrollBarVisibilityChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var editor = (TextEditor)d;
+        editor.PART_TextArea.HorizontalScrollBarVisibility = editor.HorizontalScrollBarVisibility;
+        editor.PART_TextArea.VerticalScrollBarVisibility = editor.VerticalScrollBarVisibility;
+    }
 
     private static void OnSyntaxHighlightingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         => ((TextEditor)d).PART_TextArea.SyntaxHighlighting = e.NewValue as IHighlightingDefinition;

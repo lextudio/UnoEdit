@@ -77,7 +77,7 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
             nameof(ShowLineNumbers),
             typeof(bool),
             typeof(TextEditor),
-            new PropertyMetadata(true, OnShowLineNumbersChanged));
+            new PropertyMetadata(false, OnShowLineNumbersChanged));
 
     public static readonly DependencyProperty WordWrapProperty =
         DependencyProperty.Register(
@@ -91,7 +91,7 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
             nameof(LineNumbersForeground),
             typeof(Brush),
             typeof(TextEditor),
-            new PropertyMetadata(null, OnLineNumbersForegroundChanged));
+            new PropertyMetadata(new SolidColorBrush(Microsoft.UI.Colors.Gray), OnLineNumbersForegroundChanged));
 
     public static readonly DependencyProperty EditorFontFamilyProperty =
         DependencyProperty.Register(
@@ -137,11 +137,11 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
 
     public static readonly DependencyProperty HorizontalScrollBarVisibilityProperty =
         DependencyProperty.Register(nameof(HorizontalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
-            new PropertyMetadata(ScrollBarVisibility.Auto));
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
 
     public static readonly DependencyProperty VerticalScrollBarVisibilityProperty =
         DependencyProperty.Register(nameof(VerticalScrollBarVisibility), typeof(ScrollBarVisibility), typeof(TextEditor),
-            new PropertyMetadata(ScrollBarVisibility.Auto));
+            new PropertyMetadata(ScrollBarVisibility.Auto, OnScrollBarVisibilityChanged));
 
     private TextDocument? _attachedDocument;
 
@@ -702,6 +702,13 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
         else
             editor.ApplyThemeToChrome();
 #endif
+    }
+
+    private static void OnScrollBarVisibilityChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        editor.PART_TextArea.HorizontalScrollBarVisibility = editor.HorizontalScrollBarVisibility;
+        editor.PART_TextArea.VerticalScrollBarVisibility = editor.VerticalScrollBarVisibility;
     }
 
     private static void OnEditorFontChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

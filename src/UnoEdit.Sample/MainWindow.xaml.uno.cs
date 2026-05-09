@@ -125,6 +125,7 @@ public sealed partial class MainWindow : Window
         Editor.Theme = _isDarkTheme ? TextEditorTheme.Dark : TextEditorTheme.Light;
         PropertyGrid.PropertyGridTheme = _isDarkTheme ? ElementTheme.Dark : ElementTheme.Light;
         _textMateHighlighter.SetTheme(_isDarkTheme ? ThemeName.DarkPlus : ThemeName.LightPlus);
+        ApplyHighlighter(HighlighterComboBox.SelectedIndex);
         ThemeToggle.Content = _isDarkTheme ? "☀ Light" : "\U0001F319 Dark";
     }
 

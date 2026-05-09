@@ -99,7 +99,7 @@ public sealed partial class TextView
         FocusPlatformInputBridge();
 
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
-        LogRender($"pointer-pressed x={point.X:0.###} y={point.Y:0.###} vOffset={TextScrollViewer.VerticalOffset:0.###} hOffset={TextScrollViewer.HorizontalOffset:0.###} firstVisible={FirstVisibleLineNumber} lastVisible={LastVisibleLineNumber} visibleCount={_visibleDocLines.Count}");
+        LogRender($"pointer-pressed x={point.X:0.###} y={point.Y:0.###} vOffset={TextScrollViewer.VerticalOffset:0.###} hOffset={TextScrollViewer.HorizontalOffset:0.###} firstVisible={FirstVisibleLineNumber} lastVisible={LastVisibleLineNumber} visibleCount={_visibleDocRows.Count}");
         if (TryToggleFoldAtViewportPoint(point.X, point.Y))
         {
             LogRender("pointer-pressed toggled-fold");
@@ -199,7 +199,7 @@ public sealed partial class TextView
 
     private bool TryToggleFoldAtViewportPoint(double x, double y)
     {
-        if (_document is null || FoldingManager is null || x >= GutterWidth || _visibleDocLines.Count == 0)
+        if (_document is null || FoldingManager is null || x >= GutterWidth || _visibleDocRows.Count == 0)
         {
             return false;
         }
@@ -207,8 +207,8 @@ public sealed partial class TextView
         // TopSpacer height). Adding `TextScrollViewer.VerticalOffset` double-counts the
         // scroll offset and yields the wrong visual row. Use the content-relative Y directly.
         double absoluteY = y;
-        int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocLines.Count - 1);
-        return TryToggleFoldAtDocumentLine(_visibleDocLines[visualRow]);
+        int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocRows.Count - 1);
+        return TryToggleFoldAtDocumentLine(_visibleDocRows[visualRow].LineNumber);
     }
 
     private bool TryToggleFoldAtDocumentLine(int lineNumber)

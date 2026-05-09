@@ -239,10 +239,12 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private static void LogRender(string msg) { HighlightLogger.Log("Render", msg); }
     private static void LogPerf(string msg) { HighlightLogger.Log("Perf", msg); }
     private double _characterWidth = DefaultCharacterWidth;
-    private List<int> _visibleDocLines = new();
+    private readonly List<VisibleDocumentRow> _visibleDocRows = new();
     private double _lastPublishedHorizontalOffset;
     private double _lastPublishedVerticalOffset;
     private bool _visibleLinesPublished;
+
+    private readonly record struct VisibleDocumentRow(int LineNumber, int StartColumn, int EndColumn, bool IsFirstRow);
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
@@ -601,12 +603,16 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         textView.LineNumberItemsControl.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         textView.LineNumberColumn.Width = show ? GridLength.Auto : new GridLength(0);
         UnoEdit.Logging.HighlightLogger.Log("ShowLineNumbers", $"TextView.OnShowLineNumbersChanged done: Visibility={textView.LineNumberItemsControl.Visibility}, ColumnWidth={textView.LineNumberColumn.Width}");
+        textView.RebuildVisibleLineList();
+        textView._pendingFullRebuild = true;
+        textView.RefreshViewport();
     }
 
     private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textView = (TextView)dependencyObject;
         textView.ApplyWordWrap();
+        textView.RebuildVisibleLineList();
         textView._pendingFullRebuild = true;
         LogFlash("full queued: word wrap changed");
         textView.RefreshViewport();
@@ -709,7 +715,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         _document = newDocument;
-        _visibleDocLines.Clear();
+        _visibleDocRows.Clear();
         _highlightedLineSource?.SetDocument(newDocument);
 
         if (newDocument is not null)
@@ -783,13 +789,13 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (startLineNumber <= 0 || endLineNumber <= 0)
         {
             if (!TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow)
-                || _visibleDocLines.Count == 0)
+                || _visibleDocRows.Count == 0)
             {
                 return;
             }
 
-            startLineNumber = _visibleDocLines[firstVisualRow];
-            endLineNumber = _visibleDocLines[lastVisualRow];
+            startLineNumber = _visibleDocRows[firstVisualRow].LineNumber;
+            endLineNumber = _visibleDocRows[lastVisualRow].LineNumber;
         }
 
         if (startLineNumber <= 0 || endLineNumber < startLineNumber)
@@ -811,15 +817,15 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         if (!TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow)
-            || _visibleDocLines.Count == 0)
+            || _visibleDocRows.Count == 0)
         {
             startLineNumber = 0;
             endLineNumber = 0;
             return false;
         }
 
-        startLineNumber = _visibleDocLines[firstVisualRow];
-        endLineNumber = _visibleDocLines[lastVisualRow];
+        startLineNumber = _visibleDocRows[firstVisualRow].LineNumber;
+        endLineNumber = _visibleDocRows[lastVisualRow].LineNumber;
         return startLineNumber > 0 && endLineNumber >= startLineNumber;
     }
 
@@ -934,6 +940,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        if (WordWrap)
+        {
+            RebuildVisibleLineList();
+        }
         _pendingFullRebuild = true;
         LogFlash("full queued: OnSizeChanged");
         RefreshViewport();
@@ -978,6 +988,21 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         string prefix = TextLineViewModel.ExpandTabs(lineText[..clampedLogicalColumn]);
         return MeasureDisplayTextWidth(prefix);
+    }
+
+    private double GetRowRelativeX(string lineText, VisibleDocumentRow row, int logicalColumn)
+    {
+        return Math.Max(0d, GetDisplayColumnX(lineText, logicalColumn) - GetDisplayColumnX(lineText, row.StartColumn));
+    }
+
+    private static string GetRowText(string lineText, VisibleDocumentRow row)
+    {
+        if (lineText.Length == 0)
+            return " ";
+
+        int start = Math.Clamp(row.StartColumn, 0, lineText.Length);
+        int end = Math.Clamp(row.EndColumn, start, lineText.Length);
+        return lineText[start..end];
     }
 
     private double MeasureDisplayTextWidth(string text)
@@ -1069,7 +1094,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         firstVisualRow = -1;
         lastVisualRow = -1;
 
-        int totalVisualRows = _visibleDocLines.Count;
+        int totalVisualRows = _visibleDocRows.Count;
         if (totalVisualRows <= 0)
         {
             return false;
@@ -1130,7 +1155,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         TextLocation location = _document.GetLocation(CurrentOffset);
-        int visualRow = GetVisualRow(location.Line);
+        int visualRow = GetVisualRow(location.Line, location.Column - 1);
         if (visualRow < 0) return; // caret on a hidden line (shouldn't normally occur)
         double targetTop = Math.Max(0, visualRow * LineHeight);
         double targetBottom = targetTop + LineHeight;
@@ -1230,10 +1255,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         // Ensure visible-line list is populated (it may be empty on first call).
-        if (_visibleDocLines.Count == 0 && _document.LineCount > 0)
+        if (_visibleDocRows.Count == 0 && _document.LineCount > 0)
             RebuildVisibleLineList();
 
-        int totalVisualRows = _visibleDocLines.Count;
+        int totalVisualRows = _visibleDocRows.Count;
         double verticalOffset = TextScrollViewer.VerticalOffset;
         double viewportHeight = TextScrollViewer.ViewportHeight;
         if (viewportHeight <= 0)
@@ -1247,8 +1272,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         if (totalVisualRows > 0)
         {
-            _firstVisibleLineNumber = _visibleDocLines[firstVisualRow];
-            _lastVisibleLineNumber  = _visibleDocLines[lastVisualRow];
+            _firstVisibleLineNumber = _visibleDocRows[firstVisualRow].LineNumber;
+            _lastVisibleLineNumber  = _visibleDocRows[lastVisualRow].LineNumber;
         }
         LogRender($"viewport rows={firstVisualRow}-{lastVisualRow} totalRows={totalVisualRows} visibleLines={_firstVisibleLineNumber}-{_lastVisibleLineNumber} linesCount={_lines.Count} pendingFull={_pendingFullRebuild}");
         PublishVisibleLinesState(firstVisualRow, lastVisualRow);
@@ -1294,13 +1319,16 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             for (int i = 0; i < _lines.Count; i++)
             {
                 int vRow = firstVisualRow + i;
-                int lineNumber = _visibleDocLines[vRow];
+                var row = _visibleDocRows[vRow];
+                int lineNumber = row.LineNumber;
                 DocumentLine line = _document.GetLineByNumber(lineNumber);
                 string lineText = _document.GetText(line);
 
-                bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
-                int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
-                double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
+                int caretLogicalColumn = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset
+                    ? _document.GetLocation(CurrentOffset).Column - 1
+                    : -1;
+                bool isCaretLine = caretLogicalColumn >= row.StartColumn && caretLogicalColumn <= row.EndColumn;
+                double caretLeft = isCaretLine ? GetRowRelativeX(lineText, row, caretLogicalColumn) : 0d;
                 GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
                 GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
 
@@ -1313,11 +1341,14 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     int lineSelEnd   = Math.Min(selectionEnd,   line.EndOffset);
                     if (lineSelStart < lineSelEnd)
                     {
-                        int startLogical = lineSelStart - line.Offset;
-                        int endLogical   = lineSelEnd   - line.Offset;
-                        newSelectionLeft  = Math.Max(0, GetDisplayColumnX(lineText, startLogical));
-                        newSelectionWidth = Math.Max(2, GetDisplayColumnX(lineText, endLogical) - newSelectionLeft);
-                        newSelectionOpacity = 0.45d;
+                        int startLogical = Math.Max(row.StartColumn, lineSelStart - line.Offset);
+                        int endLogical   = Math.Min(row.EndColumn, lineSelEnd - line.Offset);
+                        if (startLogical < endLogical)
+                        {
+                            newSelectionLeft = GetRowRelativeX(lineText, row, startLogical);
+                            newSelectionWidth = Math.Max(2, GetRowRelativeX(lineText, row, endLogical) - newSelectionLeft);
+                            newSelectionOpacity = 0.45d;
+                        }
                     }
                 }
 
@@ -1346,8 +1377,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     continue;
                 }
 
-                string displayText = lineText.Length == 0 ? " " : lineText;
-                FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
+                string displayText = GetRowText(lineText, row);
+                FoldMarkerKind foldMarker = row.IsFirstRow ? GetFoldMarkerKind(line) : FoldMarkerKind.None;
 
                 HighlightedLine? highlightedLine = null;
                 try
@@ -1370,10 +1401,12 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                         var converted = new System.Collections.Generic.List<ReferenceSegment>(segs.Count);
                         foreach (var seg in segs)
                         {
-                            int logStart = Math.Max(0, seg.StartOffset - line.Offset);
-                            int logEnd   = Math.Min(lineText.Length, seg.EndOffset - line.Offset);
-                            int visStart = TextLineViewModel.LogicalToVisualColumn(lineText, logStart);
-                            int visEnd   = TextLineViewModel.LogicalToVisualColumn(lineText, logEnd);
+                            int logStart = Math.Max(row.StartColumn, seg.StartOffset - line.Offset);
+                            int logEnd   = Math.Min(row.EndColumn, seg.EndOffset - line.Offset);
+                            if (logStart >= logEnd)
+                                continue;
+                            int visStart = TextLineViewModel.LogicalToVisualColumn(lineText[row.StartColumn..row.EndColumn], logStart - row.StartColumn);
+                            int visEnd   = TextLineViewModel.LogicalToVisualColumn(lineText[row.StartColumn..row.EndColumn], logEnd - row.StartColumn);
                             converted.Add(new ReferenceSegment
                             {
                                 StartOffset = visStart,
@@ -1399,7 +1432,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     preeditUnderlineWidth,
                     preeditUnderlineOpacity,
                     Theme,
-                    WordWrap,
+                    false,
                     (LineNumbersForeground as SolidColorBrush)?.Color,
                     (SelectionBrush as SolidColorBrush)?.Color,
                     (SelectionBorder as SolidColorBrush)?.Color,
@@ -1408,7 +1441,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     highlightedLine,
                     lineRefs,
                     preeditVisualStart,
-                    preeditVisualEnd));
+                    preeditVisualEnd,
+                    row.StartColumn).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty));
             }
             _highlightingDataInvalidated = false;
             _dirtyHighlightedLines.Clear();
@@ -1537,12 +1571,15 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private TextLineViewModel BuildLineViewModel(int visualRow, int targetIndex, int selectionStart, int selectionEnd, bool hasSelection)
     {
-        int lineNumber = _visibleDocLines[visualRow];
+        var row = _visibleDocRows[visualRow];
+        int lineNumber = row.LineNumber;
         DocumentLine line = _document!.GetLineByNumber(lineNumber);
         string lineText = _document.GetText(line);
-        bool isCaretLine = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset;
-        int caretColumn = isCaretLine ? _document.GetLocation(CurrentOffset).Column : 1;
-        double caretLeft = Math.Max(0, GetDisplayColumnX(lineText, caretColumn - 1));
+        int caretLogicalColumn = line.Offset <= CurrentOffset && CurrentOffset <= line.EndOffset
+            ? _document.GetLocation(CurrentOffset).Column - 1
+            : -1;
+        bool isCaretLine = caretLogicalColumn >= row.StartColumn && caretLogicalColumn <= row.EndColumn;
+        double caretLeft = isCaretLine ? GetRowRelativeX(lineText, row, caretLogicalColumn) : 0d;
         GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
         GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
         double selectionOpacity = 0d;
@@ -1555,18 +1592,19 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             int lineSelectionEnd = Math.Min(selectionEnd, line.EndOffset);
             if (lineSelectionStart < lineSelectionEnd)
             {
-                int startLogical = lineSelectionStart - line.Offset;
-                int endLogical = lineSelectionEnd - line.Offset;
-                double startX = GetDisplayColumnX(lineText, startLogical);
-                double endX = GetDisplayColumnX(lineText, endLogical);
-                selectionLeft = Math.Max(0, startX);
-                selectionWidth = Math.Max(2, endX - startX);
-                selectionOpacity = 0.45d;
+                int startLogical = Math.Max(row.StartColumn, lineSelectionStart - line.Offset);
+                int endLogical = Math.Min(row.EndColumn, lineSelectionEnd - line.Offset);
+                if (startLogical < endLogical)
+                {
+                    selectionLeft = GetRowRelativeX(lineText, row, startLogical);
+                    selectionWidth = Math.Max(2, GetRowRelativeX(lineText, row, endLogical) - selectionLeft);
+                    selectionOpacity = 0.45d;
+                }
             }
         }
 
-        string displayText = lineText.Length == 0 ? " " : lineText;
-        FoldMarkerKind foldMarker = GetFoldMarkerKind(line);
+        string displayText = GetRowText(lineText, row);
+        FoldMarkerKind foldMarker = row.IsFirstRow ? GetFoldMarkerKind(line) : FoldMarkerKind.None;
 
         if (!(_highlightingDataInvalidated || _dirtyHighlightedLines.Count > 0)
             && ReferenceSegmentSource is null
@@ -1575,7 +1613,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             for (int existingIndex = 0; existingIndex < _lines.Count; existingIndex++)
             {
                 var existingVm = _lines[existingIndex];
-                if (int.TryParse(existingVm.LineNumber, out int existingLineNumber)
+                if (row.IsFirstRow
+                    && int.TryParse(existingVm.LineNumber, out int existingLineNumber)
                     && existingLineNumber == lineNumber
                     && existingVm.Text == displayText
                     && existingVm.FoldMarker == foldMarker)
@@ -1618,10 +1657,12 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                 var converted = new System.Collections.Generic.List<ReferenceSegment>(segs.Count);
                 foreach (var seg in segs)
                 {
-                    int logStart = Math.Max(0, seg.StartOffset - line.Offset);
-                    int logEnd = Math.Min(lineText.Length, seg.EndOffset - line.Offset);
-                    int visStart = TextLineViewModel.LogicalToVisualColumn(lineText, logStart);
-                    int visEnd = TextLineViewModel.LogicalToVisualColumn(lineText, logEnd);
+                    int logStart = Math.Max(row.StartColumn, seg.StartOffset - line.Offset);
+                    int logEnd = Math.Min(row.EndColumn, seg.EndOffset - line.Offset);
+                    if (logStart >= logEnd)
+                        continue;
+                    int visStart = TextLineViewModel.LogicalToVisualColumn(lineText[row.StartColumn..row.EndColumn], logStart - row.StartColumn);
+                    int visEnd = TextLineViewModel.LogicalToVisualColumn(lineText[row.StartColumn..row.EndColumn], logEnd - row.StartColumn);
                     converted.Add(new ReferenceSegment
                     {
                         StartOffset = visStart,
@@ -1647,7 +1688,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             preeditUnderlineWidth,
             preeditUnderlineOpacity,
             Theme,
-            WordWrap,
+            false,
             (LineNumbersForeground as SolidColorBrush)?.Color,
             (SelectionBrush as SolidColorBrush)?.Color,
             (SelectionBorder as SolidColorBrush)?.Color,
@@ -1656,7 +1697,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             highlightedLine,
             lineRefs,
             preeditVisualStart,
-            preeditVisualEnd);
+            preeditVisualEnd,
+            row.StartColumn).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty);
     }
 
     private void PublishVisibleLinesState(int firstVisualRow, int lastVisualRow)
@@ -1776,16 +1818,71 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         return Math.Clamp(column, 1, line.Length + 1);
     }
 
-    /// <summary>Rebuild <see cref="_visibleDocLines"/> from the current document and folding state.</summary>
+    /// <summary>Rebuild visual rows from the current document, folding state, and wrapping width.</summary>
     private void RebuildVisibleLineList()
     {
-        _visibleDocLines.Clear();
+        _visibleDocRows.Clear();
         if (_document is null) return;
         for (int ln = 1; ln <= _document.LineCount; ln++)
         {
-            if (!IsLineHidden(ln))
-                _visibleDocLines.Add(ln);
+            if (IsLineHidden(ln))
+                continue;
+
+            DocumentLine line = _document.GetLineByNumber(ln);
+            string lineText = _document.GetText(line);
+            foreach (var row in BuildVisualRowsForLine(ln, lineText))
+                _visibleDocRows.Add(row);
         }
+    }
+
+    private IEnumerable<VisibleDocumentRow> BuildVisualRowsForLine(int lineNumber, string lineText)
+    {
+        if (!WordWrap || lineText.Length == 0)
+        {
+            yield return new VisibleDocumentRow(lineNumber, 0, lineText.Length, true);
+            yield break;
+        }
+
+        int wrapColumn = GetWrapColumn();
+        int start = 0;
+        bool first = true;
+        while (start < lineText.Length)
+        {
+            int end = FindWrapEnd(lineText, start, wrapColumn);
+            yield return new VisibleDocumentRow(lineNumber, start, end, first);
+            first = false;
+            start = end;
+        }
+    }
+
+    private int GetWrapColumn()
+    {
+        double gutterOffset = ShowLineNumbers ? GutterWidth : 16d;
+        double viewportWidth = TextScrollViewer.ViewportWidth > 0
+            ? TextScrollViewer.ViewportWidth
+            : ActualWidth;
+        double availableWidth = Math.Max(CharacterWidth, viewportWidth - gutterOffset - TextLeftPadding);
+        return Math.Max(1, (int)Math.Floor(availableWidth / Math.Max(CharacterWidth, 1d)));
+    }
+
+    private static int FindWrapEnd(string lineText, int start, int wrapColumn)
+    {
+        int maxEnd = Math.Min(lineText.Length, start + wrapColumn);
+        if (maxEnd >= lineText.Length)
+            return lineText.Length;
+
+        int breakAt = -1;
+        for (int i = maxEnd; i > start; i--)
+        {
+            char ch = lineText[i - 1];
+            if (char.IsWhiteSpace(ch) || ch is '-' or '_' or '.' or ',' or ';' or ':' or '/' or '\\')
+            {
+                breakAt = i;
+                break;
+            }
+        }
+
+        return breakAt > start ? breakAt : maxEnd;
     }
 
     /// <summary>Return true if a document line number is hidden inside a folded section.</summary>
@@ -1807,9 +1904,31 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     /// <summary>Return the 0-based visual row index for a document line number, or -1 if hidden.</summary>
     private int GetVisualRow(int docLineNumber)
     {
-        if (_visibleDocLines.Count == 0) return 0;
-        int idx = _visibleDocLines.BinarySearch(docLineNumber);
-        return idx; // negative means hidden
+        if (_visibleDocRows.Count == 0) return 0;
+        for (int i = 0; i < _visibleDocRows.Count; i++)
+        {
+            if (_visibleDocRows[i].LineNumber == docLineNumber)
+                return i;
+        }
+        return -1; // hidden
+    }
+
+    private int GetVisualRow(int docLineNumber, int logicalColumn)
+    {
+        if (_visibleDocRows.Count == 0) return 0;
+        int firstLineRow = -1;
+        for (int i = 0; i < _visibleDocRows.Count; i++)
+        {
+            var row = _visibleDocRows[i];
+            if (row.LineNumber != docLineNumber)
+                continue;
+
+            firstLineRow = firstLineRow < 0 ? i : firstLineRow;
+            if (logicalColumn >= row.StartColumn && logicalColumn <= row.EndColumn)
+                return i;
+        }
+
+        return firstLineRow;
     }
 
     /// <summary>Determine the fold-marker kind for a document line.</summary>
@@ -1855,15 +1974,21 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         // TopSpacer.Height). Adding `TextScrollViewer.VerticalOffset` double-counts the
         // scroll offset; use the content-relative Y directly.
         double absoluteY = y;
-        int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocLines.Count - 1);
-        int targetLine = _visibleDocLines.Count > 0 ? _visibleDocLines[visualRow] : 1;
+        int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocRows.Count - 1);
+        var row = _visibleDocRows.Count > 0
+            ? _visibleDocRows[visualRow]
+            : new VisibleDocumentRow(1, 0, 0, true);
+        int targetLine = row.LineNumber;
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 
         // Layout: [40 line-nums?][16 fold-margin] = 56 with line nums, 16 without.
         double gutterOffset = ShowLineNumbers ? GutterWidth : 16d;
         double documentX = x + TextScrollViewer.HorizontalOffset - gutterOffset - TextLeftPadding;
         string lineText = _document.GetText(documentLine);
-        int logicalColumn = GetLogicalColumnFromDisplayX(lineText, documentX);
+        int logicalColumn = WordWrap
+            ? row.StartColumn + GetLogicalColumnFromDisplayX(lineText[row.StartColumn..row.EndColumn], documentX)
+            : GetLogicalColumnFromDisplayX(lineText, documentX);
+        logicalColumn = Math.Clamp(logicalColumn, row.StartColumn, row.EndColumn);
         int targetColumn = Math.Clamp(logicalColumn + 1, 1, documentLine.Length + 1);
         _desiredColumn = targetColumn;
         int offset = _document.GetOffset(targetLine, targetColumn);

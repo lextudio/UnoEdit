@@ -79,7 +79,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         HighlightedLine? highlightedLine = null,
         IReadOnlyList<ReferenceSegment>? referenceSegments = null,
         int preeditVisualStart = -1,
-        int preeditVisualEnd = -1)
+        int preeditVisualEnd = -1,
+        int textStartColumn = 0)
     {
         FoldMarker = foldMarker;
         WrapText = wrapText;
@@ -105,7 +106,13 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         ReferenceSegments    = referenceSegments ?? System.Array.Empty<ReferenceSegment>();
         _preeditVisualStart  = preeditVisualStart;
         _preeditVisualEnd    = preeditVisualEnd;
-        Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground);
+        Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground, textStartColumn);
+    }
+
+    internal TextLineViewModel WithLineNumberText(string lineNumberText)
+    {
+        LineNumber = lineNumberText;
+        return this;
     }
 
     // Copy constructor that reuses all text/run data and only updates transient visual state.
@@ -343,7 +350,7 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
     /// <summary>Pre-computed color runs for syntax-highlighted rendering.</summary>
     public IReadOnlyList<TextRun> Runs { get; private set; }
 
-    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground)
+    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground, int textStartColumn)
     {
         // Expand tabs to spaces so the visual width matches the column math in TextView.
         string expanded = ExpandTabs(text);
@@ -381,8 +388,10 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
                 mediaColor.Value.G,
                 mediaColor.Value.B);
 
-            int logStart = Math.Max(0, section.Offset - lineStart);
-            int logEnd   = Math.Min(logicalLen, section.Offset + section.Length - lineStart);
+            int logStart = Math.Max(0, section.Offset - lineStart - textStartColumn);
+            int logEnd   = Math.Min(logicalLen, section.Offset + section.Length - lineStart - textStartColumn);
+            if (logEnd <= logStart)
+                continue;
             int visStart = logToVis[logStart];
             int visEnd   = logToVis[logEnd];
             for (int v = visStart; v < visEnd; v++)

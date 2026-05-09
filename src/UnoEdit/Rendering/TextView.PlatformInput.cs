@@ -486,7 +486,7 @@ public sealed partial class TextView
 
     private Rect CalculatePlatformInputCaretRect()
     {
-        if (_document is null || _visibleDocLines.Count == 0 || RootBorder.XamlRoot is null)
+        if (_document is null || _visibleDocRows.Count == 0 || RootBorder.XamlRoot is null)
         {
             return Rect.Empty;
         }
@@ -496,13 +496,14 @@ public sealed partial class TextView
         string lineText = _document.GetText(line);
         int logicalColumn = Math.Clamp(location.Column - 1, 0, lineText.Length);
 
-        int visualRow = GetVisualRow(location.Line);
+        int visualRow = GetVisualRow(location.Line, logicalColumn);
         if (visualRow < 0)
         {
             visualRow = 0;
         }
 
-        double x = GutterWidth + TextLeftPadding + GetDisplayColumnX(lineText, logicalColumn) - TextScrollViewer.HorizontalOffset;
+        var row = _visibleDocRows[Math.Clamp(visualRow, 0, _visibleDocRows.Count - 1)];
+        double x = GutterWidth + TextLeftPadding + GetRowRelativeX(lineText, row, logicalColumn) - TextScrollViewer.HorizontalOffset;
         double y = (visualRow * LineHeight) - TextScrollViewer.VerticalOffset;
 
         GeneralTransform transform = RootBorder.TransformToVisual(null);

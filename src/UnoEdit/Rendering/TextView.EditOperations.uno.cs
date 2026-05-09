@@ -106,16 +106,17 @@ public sealed partial class TextView
         }
 
         TextLocation location = _document.GetLocation(CurrentOffset);
-        int currentVisualRow = GetVisualRow(location.Line);
+        int currentVisualRow = GetVisualRow(location.Line, location.Column - 1);
         if (currentVisualRow < 0)
         {
             currentVisualRow = 0;
         }
 
-        int targetVisualRow = Math.Clamp(currentVisualRow + delta, 0, _visibleDocLines.Count - 1);
-        int targetLineNumber = _visibleDocLines.Count > 0 ? _visibleDocLines[targetVisualRow] : location.Line;
+        int targetVisualRow = Math.Clamp(currentVisualRow + delta, 0, _visibleDocRows.Count - 1);
+        var targetRow = _visibleDocRows.Count > 0 ? _visibleDocRows[targetVisualRow] : new VisibleDocumentRow(location.Line, 0, 0, true);
+        int targetLineNumber = targetRow.LineNumber;
         DocumentLine targetLine = _document.GetLineByNumber(targetLineNumber);
-        int targetColumn = ClampColumn(targetLine, _desiredColumn);
+        int targetColumn = ClampColumn(targetLine, Math.Clamp(_desiredColumn, targetRow.StartColumn + 1, targetRow.EndColumn + 1));
         int targetOffset = _document.GetOffset(targetLineNumber, targetColumn);
         UpdateCaretAndSelection(targetOffset, extendSelection);
         return true;
@@ -158,16 +159,17 @@ public sealed partial class TextView
         double viewportHeight = TextScrollViewer.ViewportHeight > 0 ? TextScrollViewer.ViewportHeight : ActualHeight;
         int pageLines = Math.Max(1, (int)(viewportHeight / LineHeight) - 1);
         TextLocation location = _document.GetLocation(CurrentOffset);
-        int currentVisualRow = GetVisualRow(location.Line);
+        int currentVisualRow = GetVisualRow(location.Line, location.Column - 1);
         if (currentVisualRow < 0)
         {
             currentVisualRow = 0;
         }
 
-        int targetVisualRow = Math.Clamp(currentVisualRow + direction * pageLines, 0, _visibleDocLines.Count - 1);
-        int targetLineNumber = _visibleDocLines.Count > 0 ? _visibleDocLines[targetVisualRow] : location.Line;
+        int targetVisualRow = Math.Clamp(currentVisualRow + direction * pageLines, 0, _visibleDocRows.Count - 1);
+        var targetRow = _visibleDocRows.Count > 0 ? _visibleDocRows[targetVisualRow] : new VisibleDocumentRow(location.Line, 0, 0, true);
+        int targetLineNumber = targetRow.LineNumber;
         DocumentLine targetLine = _document.GetLineByNumber(targetLineNumber);
-        int targetColumn = ClampColumn(targetLine, _desiredColumn);
+        int targetColumn = ClampColumn(targetLine, Math.Clamp(_desiredColumn, targetRow.StartColumn + 1, targetRow.EndColumn + 1));
         int targetOffset = _document.GetOffset(targetLineNumber, targetColumn);
         UpdateCaretAndSelection(targetOffset, extendSelection);
         return true;

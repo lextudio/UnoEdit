@@ -46,6 +46,7 @@
   <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
+    <ProjectReference Include="..\..\external\propertygrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -84,10 +85,7 @@
   <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
     <PackageReference Include="UnoEdit" />
     <PackageReference Include="UnoEdit.TextMate" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\external\propertygrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
+    <PackageReference Include="LeXtudio.UnoPropertyGrid" />
   </ItemGroup>
 
 </Project>

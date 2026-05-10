@@ -19,5 +19,9 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <NoWarn>$(NoWarn);1591;8632</NoWarn>
+    <PackageIcon>company_logo_512.png</PackageIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\images\company_logo_512.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
 </Project>

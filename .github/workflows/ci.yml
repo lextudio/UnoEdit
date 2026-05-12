@@ -13,11 +13,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            solution: UnoEdit.slnx
+            solution: src/UnoEdit.slnx
           - os: macos-latest
-            solution: UnoEdit.slnx
+            solution: src/UnoEdit.slnx
           - os: windows-latest
-            solution: UnoEdit.slnx
+            solution: src/UnoEdit.slnx
     steps:
       - uses: actions/checkout@v4
         with:

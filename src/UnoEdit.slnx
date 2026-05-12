@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Source/">
+    <Project Path="UnoEdit.Sample/UnoEdit.Sample.csproj" />
+    <Project Path="UnoEdit/UnoEdit.csproj" />
+    <Project Path="LeXtudio.Windows/LeXtudio.Windows.csproj" />
+    <Project Path="UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
+    <Project Path="UnoEdit.Tests/UnoEdit.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Dependencies/">
+    <Project Path="../external/coretext/src/LeXtudio.UI.Text.Core.csproj" />
+    <Project Path="../external/propertygrid/src/UnoPropertyGrid/UnoPropertyGrid.csproj" />
+  </Folder>
+</Solution>

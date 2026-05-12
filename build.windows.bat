@@ -62,7 +62,7 @@ if defined MSBUILD_PATH (
 )
 
 rem Determine solution path relative to script location
-set "SCRIPT_DIR=%~dp0"
+set "SCRIPT_DIR=%~dp0/src/"
 set "SOLUTION=%SCRIPT_DIR%UnoEdit.slnx"
 if not exist "%SOLUTION%" (
 	set "SOLUTION=UnoEdit.slnx"

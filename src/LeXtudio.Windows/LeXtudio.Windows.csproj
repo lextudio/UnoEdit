@@ -22,6 +22,6 @@
     <PackageIcon>company_logo_512.png</PackageIcon>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="..\..\images\company_logo_512.png" Pack="true" PackagePath="\" />
+    <None Include="..\..\images\company_logo_512.png" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>

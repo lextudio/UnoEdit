@@ -2,7 +2,8 @@
      Keep in sync with the WPF version when making structural changes. -->
 <UserControl x:Class="UnoEdit.Skia.Desktop.Controls.SearchPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lextudio="using:LeXtudio.UI.Controls">
   <UserControl.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
@@ -49,12 +50,11 @@
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
-       <TextBox x:Name="SearchTextBox"
+       <lextudio:TextBox x:Name="SearchTextBox"
          Grid.Column="0"
          PlaceholderText="Search"
          PlaceholderForeground="{ThemeResource UnoEditorSummaryForegroundBrush}"
          Foreground="{ThemeResource UnoEditorTitleBarForegroundBrush}"
-         Height="28"
          FontSize="13"
          Padding="6,2"
          VerticalAlignment="Center"

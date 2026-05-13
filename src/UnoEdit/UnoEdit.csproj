@@ -402,6 +402,7 @@
       <DependentUpon>TextEditor.xaml.uno.cs</DependentUpon>
     </Page>
     <Compile Include="Controls\TextAreaProxy.cs" />
+    <Compile Include="Compatibility\LeXtudioTextBoxStub.cs" />
   </ItemGroup>
 
 </Project>

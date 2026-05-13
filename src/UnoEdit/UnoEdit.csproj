@@ -331,15 +331,18 @@
     <ProjectReference Include="..\LeXtudio.Windows\LeXtudio.Windows.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-desktop' AND '$(UseNuGetPackage)' != 'true'">
-    <ProjectReference Include="..\..\external\coretext\src\LeXtudio.UI.Text.Core.csproj" />
+  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
+    <ProjectReference Include="..\..\external\coretext\src\LeXtudio.TextBox\LeXtudio.TextBox.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' != 'net9.0-windows10.0.19041.0'">
+    <ProjectReference Include="..\..\external\coretext\src\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
   <!-- Import native asset targets for project references (NuGet packages import via buildTransitive) -->
-  <Import Project="../../external/coretext/src/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackage)' != 'true'" />
+  <Import Project="../../external/coretext/src/LeXtudio.UI.Text.Core/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackage)' != 'true'" />
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-desktop' AND '$(UseNuGetPackage)' == 'true'">
-    <PackageReference Include="LeXtudio.UI.Text.Core" />
+  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
+    <PackageReference Include="LeXtudio.TextBox" />
   </ItemGroup>
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
@@ -354,7 +357,7 @@
           AfterTargets="Build"
           Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == '') and '$(UseNuGetPackage)' != 'true'">
     <ItemGroup>
-      <NativeTextCoreAssets Include="../../external/coretext/src/bin/$(Configuration)/net9.0-desktop/libUnoEditMacInput.dylib" />
+      <NativeTextCoreAssets Include="../../external/coretext/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net9.0-desktop/libUnoEditMacInput.dylib" />
     </ItemGroup>
 
     <Copy SourceFiles="@(NativeTextCoreAssets)"
@@ -402,7 +405,6 @@
       <DependentUpon>TextEditor.xaml.uno.cs</DependentUpon>
     </Page>
     <Compile Include="Controls\TextAreaProxy.cs" />
-    <Compile Include="Compatibility\LeXtudioTextBoxStub.cs" />
   </ItemGroup>
 
 </Project>

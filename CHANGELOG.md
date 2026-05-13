@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.2] - 2026-05-13
+
+- Switched to IME aware text box in search pane.
+
 ## [v0.6.1] - 2026-05-09
 
 - Fixed word wrap support.

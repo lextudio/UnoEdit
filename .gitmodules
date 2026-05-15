@@ -7,3 +7,6 @@
 [submodule "external/propertygrid"]
 	path = external/propertygrid
 	url = https://github.com/lextudio/UnoPropertyGrid
+[submodule "external/shims"]
+	path = external/shims
+	url = https://github.com/lextudio/WindowsShims.git

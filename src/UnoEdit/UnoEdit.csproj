@@ -328,7 +328,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LeXtudio.Windows\LeXtudio.Windows.csproj" />
+    <ProjectReference Include="..\..\external\shims\src\LeXtudio.Windows\LeXtudio.Windows.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">

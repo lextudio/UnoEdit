@@ -9,6 +9,6 @@
     <Project Path="../external/coretext/src/LeXtudio.TextBox/LeXtudio.TextBox.csproj" />
     <Project Path="../external/coretext/src/LeXtudio.UI.Text.Core/LeXtudio.UI.Text.Core.csproj" />
     <Project Path="../external/propertygrid/src/UnoPropertyGrid/UnoPropertyGrid.csproj" />
-    <Project Path="LeXtudio.Windows/LeXtudio.Windows.csproj" />
+    <Project Path="../external/shims/src/LeXtudio.Windows/LeXtudio.Windows.csproj" />
   </Folder>
 </Solution>

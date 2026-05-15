@@ -2,7 +2,6 @@ Param(
     [string]$OutDir = ".\dist",
     [string]$Configuration = "Release",
     [string[]]$Projects = @(
-        "src\LeXtudio.Windows\LeXtudio.Windows.csproj",
         "src\UnoEdit\UnoEdit.csproj",
         "src\UnoEdit.TextMate\UnoEdit.TextMate.csproj"
     )

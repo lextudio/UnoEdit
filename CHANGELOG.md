@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.4] - 2026-05-15
+
+- Updated to latest LeXtudio.Windows dependency.
+- Fixed ShowLineNumbers issue.
+
 ## [v0.6.3] - 2026-05-13
 
 - Switched to LeXtudio.TextBox dependency.

@@ -281,9 +281,9 @@ namespace ICSharpCode.AvalonEdit.TextMate
 				return existing;
 
 			var color = new HighlightingColor();
-			if (foreground > 0 && TryGetThemeColorById(foreground, out System.Windows.Media.Color fgColor))
+			if (foreground > 0 && TryGetThemeColorById(foreground, out Windows.UI.Color fgColor))
 				color.Foreground = new SimpleHighlightingBrush(fgColor);
-			if (background > 0 && TryGetThemeColorById(background, out System.Windows.Media.Color bgColor))
+			if (background > 0 && TryGetThemeColorById(background, out Windows.UI.Color bgColor))
 				color.Background = new SimpleHighlightingBrush(bgColor);
 			if ((fontStyle & FontStyleFlags.Italic) != 0)
 				color.FontStyle = System.Windows.FontStyles.Italic;
@@ -297,9 +297,9 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			return color;
 		}
 
-		bool TryGetThemeColorById(int colorId, out System.Windows.Media.Color color)
+		bool TryGetThemeColorById(int colorId, out Windows.UI.Color color)
 		{
-			color = default(System.Windows.Media.Color);
+			color = default(Windows.UI.Color);
 			if (theme == null)
 				return false;
 
@@ -315,18 +315,19 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			return true;
 		}
 
-		static System.Windows.Media.Color ParseColor(string color)
+		static Windows.UI.Color ParseColor(string color)
 		{
 			string normalizedColor = NormalizeColor(color);
 			if (normalizedColor.Length == 7) {
-				return System.Windows.Media.Color.FromRgb(
+				return Windows.UI.Color.FromArgb(
+					0xFF,
 					Convert.ToByte(normalizedColor.Substring(1, 2), 16),
 					Convert.ToByte(normalizedColor.Substring(3, 2), 16),
 					Convert.ToByte(normalizedColor.Substring(5, 2), 16));
 			}
 
 			if (normalizedColor.Length == 9) {
-				return System.Windows.Media.Color.FromArgb(
+				return Windows.UI.Color.FromArgb(
 					Convert.ToByte(normalizedColor.Substring(1, 2), 16),
 					Convert.ToByte(normalizedColor.Substring(3, 2), 16),
 					Convert.ToByte(normalizedColor.Substring(5, 2), 16),

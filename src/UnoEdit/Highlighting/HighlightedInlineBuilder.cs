@@ -85,7 +85,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		/// <summary>Sets the font weight for a range.</summary>
 		public void SetFontWeight(int offset, int length, object weight)
 		{
-			if (!(weight is System.Windows.FontWeight w))
+			if (!(weight is FontWeight w))
 				return;
 			var startIndex = GetIndexForOffset(offset);
 			var endIndex = GetIndexForOffset(offset + length);
@@ -96,7 +96,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 		/// <summary>Sets the font style for a range.</summary>
 		public void SetFontStyle(int offset, int length, object style)
 		{
-			if (!(style is System.Windows.FontStyle s))
+			if (!(style is FontStyle s))
 				return;
 			var startIndex = GetIndexForOffset(offset);
 			var endIndex = GetIndexForOffset(offset + length);

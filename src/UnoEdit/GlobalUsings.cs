@@ -8,6 +8,11 @@ global using System.Threading.Tasks;
 // Inherits from Microsoft.UI.Xaml.PropertyMetadata; accepts both WPF and WinUI callback signatures.
 // The other DP-system aliases live in Compatibility/WpfTypeAliases.cs.
 global using FrameworkPropertyMetadata = System.Windows.FrameworkPropertyMetadata;
+global using FontFamily = Microsoft.UI.Xaml.Media.FontFamily;
+global using FontStyle = Windows.UI.Text.FontStyle;
+global using FontWeight = Windows.UI.Text.FontWeight;
+global using FontStretch = Windows.UI.Text.FontStretch;
+
 #if WINDOWS_APP_SDK
 global using Windows.UI.Text.Core;
 global using Microsoft.Extensions.DependencyInjection;

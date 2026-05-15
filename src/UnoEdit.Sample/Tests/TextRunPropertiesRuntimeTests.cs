@@ -33,7 +33,7 @@ public class TextRunPropertiesRuntimeTests
     {
         var properties = new VisualLineElementTextRunProperties();
         var culture = CultureInfo.GetCultureInfo("fr-CA");
-        var typeface = new Typeface(new System.Windows.FontFamily("Cascadia Mono"), FontStyles.Italic, FontWeights.Bold, FontStretches.Expanded);
+        var typeface = new Typeface(new FontFamily("Cascadia Mono"), FontStyles.Italic, FontWeights.Bold, FontStretches.Expanded);
         var foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
         var background = new SolidColorBrush(Microsoft.UI.Colors.Blue);
         var textDecorations = new TextDecorationCollection(TextDecorations.Underline);

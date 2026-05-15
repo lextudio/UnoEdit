@@ -124,7 +124,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 			if (info == null) throw new ArgumentNullException("info");
 			this.Name = info.GetString("Name");
 			if (info.GetBoolean("HasWeight"))
-				this.FontWeight = System.Windows.FontWeight.FromOpenTypeWeight(info.GetInt32("Weight"));
+				this.FontWeight = global::Windows.UI.Text.FontWeight.FromOpenTypeWeight(info.GetInt32("Weight"));
 			if (info.GetBoolean("HasStyle"))
 				this.FontStyle = (FontStyle?)new FontStyleConverter().ConvertFromInvariantString(info.GetString("Style"));
 			if (info.GetBoolean("HasUnderline"))

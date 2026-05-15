@@ -168,7 +168,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 			return null;
 		}
 
-		static bool TryConvertColor(object colorValue, out System.Windows.Media.Color color)
+		static bool TryConvertColor(object colorValue, out Color color)
 		{
 			color = default;
 			if (colorValue == null)
@@ -180,7 +180,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 			var g = type.GetProperty("G", BindingFlags.Public | BindingFlags.Instance)?.GetValue(colorValue);
 			var b = type.GetProperty("B", BindingFlags.Public | BindingFlags.Instance)?.GetValue(colorValue);
 			if (a is byte ba && r is byte br && g is byte bg && b is byte bb) {
-				color = System.Windows.Media.Color.FromArgb(ba, br, bg, bb);
+				color = Color.FromArgb(ba, br, bg, bb);
 				return true;
 			}
 

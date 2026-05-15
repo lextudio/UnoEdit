@@ -88,7 +88,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 				return color;
 
 			return property.GetValue(null, null) is SolidColorBrush brush
-				? System.Windows.Media.Color.FromArgb(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B)
+				? Color.FromArgb(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B)
 				: null;
 		}
 

@@ -3,6 +3,11 @@ global using System.Collections.Generic;
 global using System.IO;
 global using System.Linq;
 global using System.Threading.Tasks;
+
+// FrameworkPropertyMetadata is aliased to the shim in LeXtudio.Windows (Microsoft.UI.Xaml namespace)
+// that adds the WPF single-arg callback constructor used by AvalonEdit.
+// The other DP-system aliases live in Compatibility/WpfTypeAliases.cs.
+global using FrameworkPropertyMetadata = LeXtudio.UI.Xaml.FrameworkPropertyMetadata;
 #if WINDOWS_APP_SDK
 global using Windows.UI.Text.Core;
 global using Microsoft.Extensions.DependencyInjection;

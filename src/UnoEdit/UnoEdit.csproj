@@ -16,7 +16,7 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <EnableDefaultUnoItems>false</EnableDefaultUnoItems>
-    <NoWarn>$(NoWarn);1574;1591;8632;UNO0006</NoWarn>
+    <NoWarn>$(NoWarn);0436;1574;1591;8632;UNO0006</NoWarn>
     <UseNuGetPackage>true</UseNuGetPackage>
     
     <!-- NuGet package metadata -->
@@ -55,11 +55,8 @@
   <ItemGroup>
     <Compile Include="GlobalUsings.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Compatibility\CollectionExtensions.cs" />
     <Compile Include="Compatibility\ExtensionMethods.cs" />
     <Compile Include="Compatibility\CoreTextCompatExtensions.cs" />
-    <Compile Include="Compatibility\InputShims.cs" />
-    <Compile Include="Compatibility\SystemWindowsCompatibility.cs" />
     <Compile Include="Compatibility\WpfTypeAliases.cs" />
     <Compile Include="Compatibility\WeakEventManagerBase.cs" />
     <Compile Include="Compatibility\XmlExtensionMethods.cs" />

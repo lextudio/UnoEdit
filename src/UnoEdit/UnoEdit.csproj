@@ -327,7 +327,7 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="..\..\external\shims\src\LeXtudio.Windows\LeXtudio.Windows.csproj" />
   </ItemGroup>
 
@@ -343,6 +343,7 @@
 
   <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
     <PackageReference Include="LeXtudio.TextBox" />
+    <PackageReference Include="LeXtudio.Windows" />
   </ItemGroup>
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->

@@ -17,6 +17,10 @@ public partial class App : Application
 {
     public App()
     {
+        UnoEdit.Logging.HighlightLogger.Reset();
+        UnoEdit.Logging.HighlightLogger.Enabled = true;
+        System.Diagnostics.Debug.WriteLine($"[UnoEdit] click-debug log: {UnoEdit.Logging.HighlightLogger.LogPath}");
+
         this.InitializeComponent();
         LoadUnoEditTheme();
     }

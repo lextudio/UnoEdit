@@ -1047,7 +1047,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         _measurementProbe.Text = text;
         _measurementProbe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        return _measurementProbe.DesiredSize.Width;
+        double w = _measurementProbe.DesiredSize.Width;
+        LogRender($"measure text='{(text.Length <= 32 ? text : text.Substring(0, 32) + "…")}' len={text.Length} width={w:0.###} font='{_measurementProbe.FontFamily?.Source}' size={_measurementProbe.FontSize}");
+        return w;
     }
 
     private int GetLogicalColumnFromDisplayX(string lineText, double documentX)
@@ -1362,6 +1364,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     : -1;
                 bool isCaretLine = caretLogicalColumn >= row.StartColumn && caretLogicalColumn <= row.EndColumn;
                 double caretLeft = isCaretLine ? GetRowRelativeX(lineText, row, caretLogicalColumn) : 0d;
+                if (isCaretLine) LogRender($"caret-place line={lineNumber} caretLogicalColumn={caretLogicalColumn} rowStart={row.StartColumn} rowEnd={row.EndColumn} caretLeft={caretLeft:0.###} gutter={GutterWidth} leftPad={TextLeftPadding}");
                 GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
                 GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
 

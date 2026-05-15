@@ -38,7 +38,7 @@
                                 stays in LeftMargins independently of ShowLineNumbers).
               TextColumn: text content with a small left gap.
             -->
-            <ColumnDefinition x:Name="LineNumberColumn" Width="Auto" />
+            <ColumnDefinition x:Name="LineNumberColumn" Width="0" />
             <ColumnDefinition x:Name="FoldMarginColumn" Width="Auto" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
@@ -48,7 +48,7 @@
             Visibility toggled by ShowLineNumbers in code-behind.
             Width=40 to fit right-aligned line numbers.
           -->
-          <ItemsControl x:Name="LineNumberItemsControl" Width="40">
+          <ItemsControl x:Name="LineNumberItemsControl" Width="40" Visibility="Collapsed">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <StackPanel />

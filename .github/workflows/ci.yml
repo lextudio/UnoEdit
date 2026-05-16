@@ -34,7 +34,7 @@ jobs:
         if: runner.os != 'Windows'
         run: dotnet build -c Release ${{ matrix.solution }}
       - name: Run unit tests
-        run: dotnet test --no-build -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" ${{ matrix.solution }}
+        run: dotnet test --no-build -f net10.0-desktop -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" ${{ matrix.solution }}
 
   runtime-tests:
     # RuntimeTests run inside the Skia Desktop app via Uno.UI.RuntimeTests.Engine.

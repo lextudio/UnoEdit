@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.5] - 2026-05-16
+
+- Updated to latest LeXtudio.Windows dependency.
+
 ## [v0.6.4] - 2026-05-15
 
 - Updated to latest LeXtudio.Windows dependency.

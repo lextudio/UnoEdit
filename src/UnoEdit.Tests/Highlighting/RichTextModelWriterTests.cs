@@ -15,7 +15,7 @@ namespace UnoEdit.Tests.Highlighting
 			var model = new RichTextModel();
 			var writer = new RichTextModelWriter(model, document, 0);
 
-			writer.BeginSpan(System.Windows.Media.Color.FromArgb(255, 0x12, 0x34, 0x56));
+			writer.BeginSpan(Color.FromArgb(255, 0x12, 0x34, 0x56));
 			writer.Write("hi");
 			writer.EndSpan();
 
@@ -25,7 +25,7 @@ namespace UnoEdit.Tests.Highlighting
 			Assert.That(first.Offset, Is.EqualTo(0));
 			Assert.That(first.Length, Is.EqualTo(2));
 			Assert.That(first.Color.Foreground, Is.Not.Null);
-			Assert.That(first.Color.Foreground.GetColor(), Is.EqualTo(System.Windows.Media.Color.FromArgb(255, 0x12, 0x34, 0x56)));
+			Assert.That(first.Color.Foreground.GetColor(), Is.EqualTo(Color.FromArgb(255, 0x12, 0x34, 0x56)));
 		}
 
 		[Test]

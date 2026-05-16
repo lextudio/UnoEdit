@@ -187,7 +187,7 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 			}
 			if (FontWeight != null) {
 				b.Append("font-weight: ");
-				b.Append(FontWeight.Value.ToString().ToLowerInvariant());
+				b.Append(FontWeight.Value.ToCssWeight());
 				b.Append("; ");
 			}
 			if (FontStyle != null) {

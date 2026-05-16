@@ -7,7 +7,7 @@
     <WinUISDKReferences>false</WinUISDKReferences>
     <UnoSingleProject>true</UnoSingleProject>
     <UnoFeatures>SkiaRenderer;</UnoFeatures>
-    <ImplicitUsings>disable</ImplicitUsings>
+    <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
@@ -55,6 +55,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="GlobalUsings.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="AvalonEditCommandsTests.cs" />
     <Compile Include="Compatibility\InputShimsTests.cs" />

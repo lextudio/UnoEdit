@@ -18,7 +18,7 @@ namespace UnoEdit.Tests.Highlighting
 				Offset = 2,
 				Length = 4,
 				Color = new HighlightingColor {
-					Foreground = new SimpleHighlightingBrush(System.Windows.Media.Color.FromArgb(255, 0x11, 0x22, 0x33))
+					Foreground = new SimpleHighlightingBrush(Color.FromArgb(255, 0x11, 0x22, 0x33))
 				}
 			});
 
@@ -31,7 +31,7 @@ namespace UnoEdit.Tests.Highlighting
 		public void RichText_ToHtml_Substring_PreservesHighlighting()
 		{
 			var model = new RichTextModel();
-			model.SetForeground(1, 3, new SimpleHighlightingBrush(System.Windows.Media.Color.FromArgb(255, 0xaa, 0xbb, 0xcc)));
+			model.SetForeground(1, 3, new SimpleHighlightingBrush(Color.FromArgb(255, 0xaa, 0xbb, 0xcc)));
 			var richText = new RichText("hello", model);
 
 			string html = richText.Substring(1, 3).ToHtml();
@@ -43,9 +43,9 @@ namespace UnoEdit.Tests.Highlighting
 		public void RichText_Concat_PreservesSectionsAcrossBoundary()
 		{
 			var leftModel = new RichTextModel();
-			leftModel.SetForeground(0, 1, new SimpleHighlightingBrush(System.Windows.Media.Color.FromArgb(255, 0xff, 0, 0)));
+			leftModel.SetForeground(0, 1, new SimpleHighlightingBrush(Color.FromArgb(255, 0xff, 0, 0)));
 			var rightModel = new RichTextModel();
-			rightModel.SetForeground(0, 1, new SimpleHighlightingBrush(System.Windows.Media.Color.FromArgb(255, 0, 0, 0xff)));
+			rightModel.SetForeground(0, 1, new SimpleHighlightingBrush(Color.FromArgb(255, 0, 0, 0xff)));
 
 			var richText = RichText.Concat(new RichText("A", leftModel), new RichText("B", rightModel));
 

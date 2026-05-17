@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.8] - 2026-05-17
+
+- Updated to latest LeXtudio.TextBox.
+
 ## [v0.6.7] - 2026-05-16
 
 - Fixed a font default value.

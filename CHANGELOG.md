@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.7] - 2026-05-16
+
+- Fixed a font default value.
+
+## [v0.6.6] - 2016-05-15
+
+- Fixed a few property types to native WinUI 3 ones.
+
 ## [v0.6.5] - 2026-05-16
 
 - Updated to latest LeXtudio.Windows dependency.

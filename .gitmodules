@@ -1,12 +1,3 @@
 [submodule "avalonedit"]
 	path = avalonedit
 	url = https://github.com/lextudio/AvalonEdit.git
-[submodule "external/coretext"]
-	path = external/coretext
-	url = https://github.com/lextudio/TextCore.Uno.git
-[submodule "external/propertygrid"]
-	path = external/propertygrid
-	url = https://github.com/lextudio/UnoPropertyGrid
-[submodule "external/shims"]
-	path = external/shims
-	url = https://github.com/lextudio/WindowsShims.git

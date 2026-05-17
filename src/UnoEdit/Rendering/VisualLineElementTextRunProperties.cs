@@ -23,7 +23,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		double fontHintingEmSize = 12d;
 		double fontRenderingEmSize = 12d;
 		Brush foregroundBrush;
-		Typeface typeface = new Typeface("Default");
+		Typeface typeface = new Typeface("Segoe UI");
 		TextDecorationCollection textDecorations;
 		TextEffectCollection textEffects;
 		TextRunTypographyProperties typographyProperties;
@@ -45,7 +45,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			fontHintingEmSize = textRunProperties.FontHintingEmSize;
 			fontRenderingEmSize = textRunProperties.FontRenderingEmSize;
 			foregroundBrush = textRunProperties.ForegroundBrush;
-			typeface = textRunProperties.Typeface ?? new Typeface("Default");
+			typeface = textRunProperties.Typeface ?? new Typeface("Segoe UI");
 			textDecorations = textRunProperties.TextDecorations;
 			if (textDecorations != null && !textDecorations.IsFrozen)
 				textDecorations = textDecorations.Clone();

@@ -10,6 +10,7 @@ namespace UnoEdit.Tests.Highlighting
         private readonly ColorConverter _converter = new ColorConverter();
 
         // ── Named colours ────────────────────────────────────────────────────────────
+        [Test]
         [TestCase("Black",       0,   0,   0)]
         [TestCase("White",     255, 255, 255)]
         [TestCase("Red",       255,   0,   0)]
@@ -37,6 +38,7 @@ namespace UnoEdit.Tests.Highlighting
         }
 
         // ── Hex formats ──────────────────────────────────────────────────────────────
+        [Test]
         [TestCase("#FF0000", 255,   0,   0)]
         [TestCase("#00FF00",   0, 255,   0)]
         [TestCase("#0000FF",   0,   0, 255)]
@@ -73,6 +75,7 @@ namespace UnoEdit.Tests.Highlighting
         public void BadHexLength_ThrowsFormatException()
             => Assert.Throws<FormatException>(() => _converter.ConvertFromInvariantString("#12345"));
 
+        [Test]
         [TestCase(null)]
         [TestCase("")]
         [TestCase("   ")]

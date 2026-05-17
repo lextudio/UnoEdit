@@ -10,6 +10,7 @@ namespace UnoEdit.Tests.Highlighting
     {
         // ── Built-in definitions load without error ───────────────────────────────────
 
+        [Test]
         [TestCase("C#")]
         [TestCase("XML")]
         [TestCase("HTML")]
@@ -36,6 +37,7 @@ namespace UnoEdit.Tests.Highlighting
             Assert.That(def, Is.Not.Null, $"'{name}' definition should be registered");
         }
 
+        [Test]
         [TestCase(".cs")]
         [TestCase(".xml")]
         [TestCase(".html")]

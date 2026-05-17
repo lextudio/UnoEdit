@@ -3,7 +3,6 @@
     <TargetFrameworks>net10.0-desktop</TargetFrameworks>
     <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
-    <StartupObject>UnoEdit.Tests.Program</StartupObject>
     <WinUISDKReferences>false</WinUISDKReferences>
     <UnoSingleProject>true</UnoSingleProject>
     <UnoFeatures>SkiaRenderer;</UnoFeatures>
@@ -16,9 +15,15 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+    <DefaultItemExcludes>$(DefaultItemExcludes);WinUI\**</DefaultItemExcludes>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <UseWinUI>true</UseWinUI>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <WindowsAppSdkBootstrapInitialize>true</WindowsAppSdkBootstrapInitialize>
     <DefineConstants>$(DefineConstants);WINDOWS_APP_SDK</DefineConstants>
     <WindowsSdkPackageVersion>10.0.19041.57</WindowsSdkPackageVersion>
   </PropertyGroup>
@@ -35,9 +40,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="NUnit" />
-    <PackageReference Include="NUnitLite" />
-    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="MSTest.TestFramework" />
+    <PackageReference Include="MSTest.TestAdapter" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
@@ -56,7 +60,7 @@
 
   <ItemGroup>
     <Compile Include="GlobalUsings.cs" />
-    <Compile Include="Program.cs" />
+    <Compile Include="MSTestNUnitCompat.cs" />
     <Compile Include="AvalonEditCommandsTests.cs" />
     <Compile Include="Compatibility\InputShimsTests.cs" />
     <Compile Include="CodeCompletion\CompletionWindowPlacementTests.cs" />
@@ -76,6 +80,15 @@
     <Compile Include="Editing\InputHandlersTests.cs" />
     <Compile Include="Editing\SelectionTests.cs" />
     <Compile Include="Folding\FoldingManagerTests.cs" />
+    <Compile Include="Search\SearchCommandsTests.cs" />
+    <Compile Include="Snippets\SnippetTypesTests.cs" />
+    <Compile Include="TextMate\DocumentSnapshotTests.cs" />
+    <Compile Include="TextMate\TextDocumentLineListTests.cs" />
+    <Compile Include="Highlighting\ColorConverterTests.cs" />
+    <Compile Include="Highlighting\HtmlOptionsTests.cs" />
+    <Compile Include="Highlighting\RichTextHtmlTests.cs" />
+    <Compile Include="Highlighting\RichTextModelWriterTests.cs" />
+    <Compile Include="Highlighting\TabColumnHelperTests.cs" />
     <Compile Include="Rendering\RenderingSplitTests.cs" />
     <Compile Include="Rendering\BackgroundGeometryBuilderTests.cs" />
     <Compile Include="Rendering\FormattedTextTypesTests.cs" />
@@ -84,17 +97,19 @@
     <Compile Include="Rendering\TextViewRenderingHostTests.cs" />
     <Compile Include="Rendering\TextViewWeakEventManagerTests.cs" />
     <Compile Include="Rendering\VisibleLineMapperTests.cs" />
-    <Compile Include="Search\SearchCommandsTests.cs" />
-    <Compile Include="Snippets\SnippetTypesTests.cs" />
-    <Compile Include="TextMate\DocumentSnapshotTests.cs" />
-    <Compile Include="TextMate\TextDocumentLineListTests.cs" />
     <Compile Include="TextMate\TextMateLineHighlighterTests.cs" />
-    <Compile Include="Highlighting\ColorConverterTests.cs" />
     <Compile Include="Highlighting\HighlightingBehaviorTests.cs" />
-    <Compile Include="Highlighting\HtmlOptionsTests.cs" />
-    <Compile Include="Highlighting\RichTextHtmlTests.cs" />
-    <Compile Include="Highlighting\RichTextModelWriterTests.cs" />
-    <Compile Include="Highlighting\TabColumnHelperTests.cs" />
     <Compile Include="Highlighting\HighlightingTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
+    <Compile Include="WinUI\TestApp.xaml.cs" />
+    <Compile Include="WinUI\Program.cs" />
+    <Compile Include="WinUI\WinUIThreadTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+    <ApplicationDefinition Remove="WinUI\TestApp.xaml" />
+    <Page Remove="WinUI\TestApp.xaml" />
   </ItemGroup>
 </Project>

@@ -17,7 +17,7 @@ public class TextRunPropertiesRuntimeTests
         var properties = new VisualLineElementTextRunProperties();
 
         Assert.IsNotNull(properties.Typeface);
-        Assert.AreEqual("Default", properties.Typeface.FontFamily.Source);
+        Assert.AreEqual("Segoe UI", properties.Typeface.FontFamily.Source);
         Assert.IsNull(properties.TextDecorations);
         Assert.IsNull(properties.TextEffects);
         Assert.IsNotNull(properties.CultureInfo);

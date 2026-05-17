@@ -30,7 +30,7 @@
     <UnoFeatures>
       SkiaRenderer;
     </UnoFeatures>
-    <UseNuGetPackage>false</UseNuGetPackage>
+    <UseNuGetPackage>true</UseNuGetPackage>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
@@ -46,7 +46,7 @@
   <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
-    <ProjectReference Include="..\..\external\propertygrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
+    <ProjectReference Include="..\..\..\UnoPropertyGrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
   </ItemGroup>
 
   <ItemGroup>

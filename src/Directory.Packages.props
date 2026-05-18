@@ -16,7 +16,7 @@
     <PackageVersion Include="GitVersion.MsBuild" Version="5.12.0" />
     <PackageVersion Include="LeXtudio.TextBox" Version="0.2.11" />
     <PackageVersion Include="LeXtudio.Windows" Version="0.6.13" />
-    <PackageVersion Include="LeXtudio.UnoPropertyGrid" Version="0.3.2" />
+    <PackageVersion Include="LeXtudio.UnoPropertyGrid" Version="0.3.4" />
     <PackageVersion Include="LeXtudio.UnoEdit" Version="0.6.8" />
     <PackageVersion Include="LeXtudio.UnoEdit.TextMate" Version="0.6.8" />
     <PackageVersion Include="TextMateSharp" Version="2.0.3" />

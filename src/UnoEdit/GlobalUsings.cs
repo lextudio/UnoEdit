@@ -13,6 +13,17 @@ global using FontStyle = Windows.UI.Text.FontStyle;
 global using FontWeight = Windows.UI.Text.FontWeight;
 global using FontStretch = Windows.UI.Text.FontStretch;
 
+// Typography enums consumed by upstream AvalonEdit
+// (DefaultTextRunTypographyProperties). WPF declares them in System.Windows;
+// WinUI/Uno put the same enums in Microsoft.UI.Xaml.
+global using FontVariants = Microsoft.UI.Xaml.FontVariants;
+global using FontCapitals = Microsoft.UI.Xaml.FontCapitals;
+global using FontNumeralStyle = Microsoft.UI.Xaml.FontNumeralStyle;
+global using FontNumeralAlignment = Microsoft.UI.Xaml.FontNumeralAlignment;
+global using FontFraction = Microsoft.UI.Xaml.FontFraction;
+global using FontEastAsianWidths = Microsoft.UI.Xaml.FontEastAsianWidths;
+global using FontEastAsianLanguage = Microsoft.UI.Xaml.FontEastAsianLanguage;
+
 #if WINDOWS_APP_SDK
 global using Windows.UI.Text.Core;
 global using Microsoft.Extensions.DependencyInjection;

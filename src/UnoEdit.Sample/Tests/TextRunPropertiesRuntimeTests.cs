@@ -74,7 +74,7 @@ public class TextRunPropertiesRuntimeTests
         var typography = new DefaultTextRunTypographyProperties();
 
         Assert.AreEqual(0, typography.AnnotationAlternates);
-        Assert.AreEqual(System.Windows.Media.TextFormatting.FontCapitals.Normal, typography.Capitals);
+        Assert.AreEqual(Microsoft.UI.Xaml.FontCapitals.Normal, typography.Capitals);
         Assert.IsFalse(typography.CapitalSpacing);
         Assert.IsFalse(typography.CaseSensitiveForms);
         Assert.IsTrue(typography.ContextualAlternates);
@@ -82,20 +82,20 @@ public class TextRunPropertiesRuntimeTests
         Assert.AreEqual(0, typography.ContextualSwashes);
         Assert.IsFalse(typography.DiscretionaryLigatures);
         Assert.IsFalse(typography.EastAsianExpertForms);
-        Assert.AreEqual(System.Windows.Media.TextFormatting.FontEastAsianLanguage.Normal, typography.EastAsianLanguage);
-        Assert.AreEqual(System.Windows.Media.TextFormatting.FontEastAsianWidths.Normal, typography.EastAsianWidths);
-        Assert.AreEqual(System.Windows.Media.TextFormatting.FontFraction.Normal, typography.Fraction);
+        Assert.AreEqual(Microsoft.UI.Xaml.FontEastAsianLanguage.Normal, typography.EastAsianLanguage);
+        Assert.AreEqual(Microsoft.UI.Xaml.FontEastAsianWidths.Normal, typography.EastAsianWidths);
+        Assert.AreEqual(Microsoft.UI.Xaml.FontFraction.Normal, typography.Fraction);
         Assert.IsFalse(typography.HistoricalForms);
         Assert.IsFalse(typography.HistoricalLigatures);
         Assert.IsTrue(typography.Kerning);
         Assert.IsFalse(typography.MathematicalGreek);
-        Assert.AreEqual(System.Windows.Media.TextFormatting.FontNumeralAlignment.Normal, typography.NumeralAlignment);
-        Assert.AreEqual(System.Windows.Media.TextFormatting.FontNumeralStyle.Normal, typography.NumeralStyle);
+        Assert.AreEqual(Microsoft.UI.Xaml.FontNumeralAlignment.Normal, typography.NumeralAlignment);
+        Assert.AreEqual(Microsoft.UI.Xaml.FontNumeralStyle.Normal, typography.NumeralStyle);
         Assert.IsFalse(typography.SlashedZero);
         Assert.IsTrue(typography.StandardLigatures);
         Assert.AreEqual(0, typography.StandardSwashes);
         Assert.AreEqual(0, typography.StylisticAlternates);
-        Assert.AreEqual(System.Windows.Media.TextFormatting.FontVariants.Normal, typography.Variants);
+        Assert.AreEqual(Microsoft.UI.Xaml.FontVariants.Normal, typography.Variants);
         Assert.IsFalse(typography.StylisticSet1);
         Assert.IsFalse(typography.StylisticSet20);
     }

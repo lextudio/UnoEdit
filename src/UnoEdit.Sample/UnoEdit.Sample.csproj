@@ -30,7 +30,7 @@
     <UnoFeatures>
       SkiaRenderer;
     </UnoFeatures>
-    <UseNuGetPackage>false</UseNuGetPackage>
+    <UseNuGetPackage>true</UseNuGetPackage>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
@@ -43,9 +43,12 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\UnoEdit\src\UnoEdit\UnoEdit.csproj" />
+    <ProjectReference Include="..\..\..\UnoEdit\src\UnoEdit.TextMate\UnoEdit.TextMate.csproj" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
-    <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
-    <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
     <ProjectReference Include="..\..\..\UnoPropertyGrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
   </ItemGroup>
 
@@ -56,15 +59,11 @@
     <PackageReference Include="Microsoft.WindowsAppSDK" Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'" />
   </ItemGroup>
 
-  <!--
-    Uno.UI.RuntimeTests.Engine — embeds a headless MSTest runner into the app.
-    Tests only execute when UNO_RUNTIME_TESTS_RUN_TESTS env var is set (CI or local).
-    See: https://github.com/unoplatform/uno.ui.runtimetests.engine
-  -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-desktop'">
-    <PackageReference Include="DevToolsUno" />
-    <PackageReference Include="Uno.UI.RuntimeTests.Engine" />
-    <PackageReference Include="MSTest.TestFramework" />
+  <!-- Runtime test host is temporarily disabled in this sample. -->
+  <ItemGroup>
+    <Compile Remove="RuntimeTestsPage.xaml.cs" />
+    <Page Remove="RuntimeTestsPage.xaml" />
+    <Compile Remove="Tests\**" />
   </ItemGroup>
 
   <!-- Exclude Uno-only files from WinUI build -->
@@ -83,8 +82,6 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
-    <PackageReference Include="LeXtudio.UnoEdit" />
-    <PackageReference Include="LeXtudio.UnoEdit.TextMate" />
     <PackageReference Include="LeXtudio.UnoPropertyGrid" />
   </ItemGroup>
 

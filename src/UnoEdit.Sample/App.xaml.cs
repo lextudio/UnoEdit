@@ -5,8 +5,6 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
-using DevToolsUno;
-using DevToolsUno.Diagnostics;
 #else
 using Microsoft.UI.Xaml.Markup;
 #endif
@@ -87,48 +85,9 @@ public partial class App : Application
             ShowFatal(ex);
         }
 #else
-        var runTestsEnv = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS");
-        if (!string.IsNullOrEmpty(runTestsEnv)
-            && !runTestsEnv.TrimStart().StartsWith('{')
-            && !bool.TryParse(runTestsEnv, out _))
-        {
-            System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS", "true");
-            runTestsEnv = "true";
-        }
-        bool runTests = !string.IsNullOrEmpty(runTestsEnv) && runTestsEnv != "false" && runTestsEnv != "0";
-
-        if (runTests)
-        {
-            var outputPath = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH");
-            if (string.IsNullOrEmpty(outputPath))
-            {
-                var dir = Path.Combine(AppContext.BaseDirectory, "test-results");
-                Directory.CreateDirectory(dir);
-                outputPath = Path.Combine(dir, "runtime-tests.xml");
-                System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_OUTPUT_PATH", outputPath);
-            }
-
-            var testWindow = new Window();
-            var frame = new Frame();
-            testWindow.Content = frame;
-            frame.Navigate(typeof(RuntimeTestsPage), args.Arguments);
-            testWindow.Activate();
-        }
-        else
-        {
-            var mainWindow = new MainWindow();
-#if DEBUG
-            mainWindow.UseStudio();
-            var devTools = mainWindow.AttachDevTools(new DevToolsOptions
-            {
-                LaunchView = DevToolsViewKind.VisualTree,
-                ShowAsChildWindow = false,
-            });
-            mainWindow.Closed += (_, _) => { devTools?.Dispose(); };
-#endif
-            mainWindow.SetWindowIcon();
-            mainWindow.Activate();
-        }
+        var mainWindow = new MainWindow();
+        mainWindow.SetWindowIcon();
+        mainWindow.Activate();
 #endif
     }
 

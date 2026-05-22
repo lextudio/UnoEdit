@@ -13,11 +13,8 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            solution: src/UnoEdit.slnx
           - os: macos-latest
-            solution: src/UnoEdit.slnx
           - os: windows-latest
-            solution: src/UnoEdit.slnx
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,9 +29,9 @@ jobs:
         run: ./build.windows.bat Release
       - name: Build (macOS/Linux)
         if: runner.os != 'Windows'
-        run: dotnet build -c Release ${{ matrix.solution }}
+        run: dotnet build -c Release src/UnoEdit/UnoEdit.csproj
       - name: Run unit tests
-        run: dotnet test --no-build -f net10.0-desktop -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" ${{ matrix.solution }}
+        run: dotnet test -f net10.0-desktop -c Release --verbosity minimal --filter "FullyQualifiedName!~UnoEdit.Skia.Desktop" src/UnoEdit.Tests/UnoEdit.Tests.csproj
       - name: Run WinUI UI thread tests
         if: runner.os == 'Windows'
         run: dotnet test --no-build -f net10.0-windows10.0.19041.0 -c Release --verbosity minimal src/UnoEdit.Tests/UnoEdit.Tests.csproj

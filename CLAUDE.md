@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-UnoEdit is a code editor control for Uno Platform and WinUI 3, ported from AvalonEdit. It targets both `net9.0-desktop` (Uno) and `net9.0-windows10.0.19041.0` (WinUI 3 / Windows App SDK).
+UnoEdit is a code editor control for Uno Platform and WinUI 3, ported from AvalonEdit. It targets both `net10.0-desktop` (Uno) and `net10.0-windows10.0.19041.0` (WinUI 3 / Windows App SDK).
 
 ### Solution layout
 
@@ -10,10 +10,10 @@ UnoEdit is a code editor control for Uno Platform and WinUI 3, ported from Avalo
 src/
   UnoEdit/                  Core editor library (Uno.Sdk, dual-target)
   UnoEdit.TextMate/         TextMate grammar support
-  UnoEdit.Sample/           Uno desktop sample app (net9.0-desktop)
-  UnoEdit.WinUI.Sample/     WinUI 3 sample app (Microsoft.NET.Sdk, net9.0-windows10.0.19041.0)
+  UnoEdit.Sample/           Uno desktop sample app (net10.0-desktop)
+  UnoEdit.WinUI.Sample/     WinUI 3 sample app (Microsoft.NET.Sdk, net10.0-windows10.0.19041.0)
 external/
-  propertygrid/             UnoPropertyGrid submodule (also dual-target: net9.0-desktop + net9.0-windows10.0.19041.0)
+  propertygrid/             UnoPropertyGrid submodule (also dual-target: net10.0-desktop + net10.0-windows10.0.19041.0)
 ```
 
 ## Dual-platform pattern
@@ -21,10 +21,10 @@ external/
 Both UnoEdit and UnoPropertyGrid use the same pattern to support Uno and WinUI in a single `.csproj`:
 
 ```xml
-<TargetFrameworks>net9.0-desktop</TargetFrameworks>
-<TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
+<TargetFrameworks>net10.0-desktop</TargetFrameworks>
+<TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
 
-<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+<PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
   <UseWinUI>true</UseWinUI>
   <EnableWindowsTargeting>true</EnableWindowsTargeting>
   <DefineConstants>$(DefineConstants);WINDOWS_APP_SDK</DefineConstants>
@@ -38,14 +38,14 @@ Platform-specific C# uses `#if WINDOWS_APP_SDK` / `#else`. Platform-specific fil
 
 ### Uno desktop target (both platforms)
 ```
-dotnet build src/UnoEdit/UnoEdit.csproj -f net9.0-desktop
+dotnet build src/UnoEdit/UnoEdit.csproj -f net10.0-desktop
 ```
 
 ### WinUI target — XAML class libraries require MSBuild, not dotnet build (UNOB0008)
 ```powershell
 $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
     -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
-& $msbuild src/UnoEdit/UnoEdit.csproj /p:TargetFramework=net9.0-windows10.0.19041.0 /t:Build /v:minimal
+& $msbuild src/UnoEdit/UnoEdit.csproj /p:TargetFramework=net10.0-windows10.0.19041.0 /t:Build /v:minimal
 ```
 
 Resolved MSBuild path on this machine: `C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe`

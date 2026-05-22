@@ -1,10 +1,10 @@
 <Project Sdk="Uno.Sdk">
   <PropertyGroup>
     <!-- Detect Windows at MSBuild time and only include the Windows TFM on Windows hosts.
-         On macOS/Linux this will leave the project targeting only net9.0-desktop so
+         On macOS/Linux this will leave the project targeting only net10.0-desktop so
          WinUI/Windows-only targets won't be attempted. -->
-    <TargetFrameworks>net9.0-desktop</TargetFrameworks>
-    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net9.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks>net10.0-desktop</TargetFrameworks>
+    <TargetFrameworks Condition="'$(OS)' == 'Windows_NT'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
     <!-- Support building for all RIDs to ensure native assets are properly handled -->
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64;osx-x64</RuntimeIdentifiers>
     <AssemblyName>UnoEdit</AssemblyName>
@@ -17,7 +17,6 @@
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <EnableDefaultUnoItems>false</EnableDefaultUnoItems>
     <NoWarn>$(NoWarn);0436;1574;1591;8632;UNO0006</NoWarn>
-    <UseNuGetPackage>true</UseNuGetPackage>
     
     <!-- NuGet package metadata -->
     <PackageId>LeXtudio.UnoEdit</PackageId>
@@ -33,6 +32,7 @@
     <IsPackable>true</IsPackable>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <UseNuGetPackage>true</UseNuGetPackage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -44,7 +44,7 @@
   </ItemGroup>
 
   <!-- WinUI / Windows-specific properties (only applied when building the windows target) -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <UseWinUI>true</UseWinUI>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
@@ -104,7 +104,7 @@
     <Page Include="Themes\generic.xaml" />
     <Page Include="Rendering\TextView.xaml" />
     <Page Include="Rendering\HighlightedTextBlock.xaml" />
-    <Page Include="TextEditor.xaml" Condition="'$(TargetFramework)' != 'net9.0-windows10.0.19041.0'" />
+    <Page Include="TextEditor.xaml" Condition="'$(TargetFramework)' != 'net10.0-windows10.0.19041.0'" />
 
     <!-- Phase 1: pure Level-0 files — no WPF dependencies -->
 
@@ -331,7 +331,7 @@
   <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
     <ProjectReference Include="..\..\..\TextCore.Uno\src\LeXtudio.TextBox\LeXtudio.TextBox.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' != 'net9.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
     <ProjectReference Include="..\..\..\TextCore.Uno\src\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
@@ -344,7 +344,7 @@
   </ItemGroup>
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
@@ -355,7 +355,7 @@
           AfterTargets="Build"
           Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == '') and '$(UseNuGetPackage)' != 'true'">
     <ItemGroup>
-      <NativeTextCoreAssets Include="../../external/coretext/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net9.0-desktop/libUnoEditMacInput.dylib" />
+      <NativeTextCoreAssets Include="../../external/coretext/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net10.0-desktop/libUnoEditMacInput.dylib" />
     </ItemGroup>
 
     <Copy SourceFiles="@(NativeTextCoreAssets)"
@@ -397,7 +397,7 @@
     </ItemGroup>
   </Target>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <!-- WinUI XAML shell for the unified TextEditor; code-behind is TextEditor.xaml.uno.cs -->
     <Page Include="Controls\TextEditor.xaml">
       <DependentUpon>TextEditor.xaml.uno.cs</DependentUpon>

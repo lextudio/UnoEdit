@@ -6,9 +6,9 @@
     <Project Path="UnoEdit/UnoEdit.csproj" />
   </Folder>
   <Folder Name="/Dependencies/">
-    <Project Path="../external/coretext/src/LeXtudio.TextBox/LeXtudio.TextBox.csproj" />
-    <Project Path="../external/coretext/src/LeXtudio.UI.Text.Core/LeXtudio.UI.Text.Core.csproj" />
-    <Project Path="../external/propertygrid/src/UnoPropertyGrid/UnoPropertyGrid.csproj" />
-    <Project Path="../external/shims/src/LeXtudio.Windows/LeXtudio.Windows.csproj" />
+    <Project Path="../../TextCore.Uno/src/LeXtudio.TextBox/LeXtudio.TextBox.csproj" />
+    <Project Path="../../TextCore.Uno/src/LeXtudio.UI.Text.Core/LeXtudio.UI.Text.Core.csproj" />
+    <Project Path="../../UnoPropertyGrid/src/UnoPropertyGrid/UnoPropertyGrid.csproj" />
+    <Project Path="../../WindowsShims/src/LeXtudio.Windows/LeXtudio.Windows.csproj" />
   </Folder>
 </Solution>

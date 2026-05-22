@@ -6,14 +6,36 @@ namespace UnoEdit.Logging
 {
     public static class PlatformImeLogger
     {
-        private static readonly bool s_enabled =
-            string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_IME"), "1", StringComparison.Ordinal);
-
         private static readonly string s_logPath = Path.Combine(Path.GetTempPath(), "unoedit_ime.log");
         private static readonly object s_lock = new object();
+        private static bool s_enabled;
 
-        public static bool Enabled => s_enabled;
+        public static bool Enabled
+        {
+            get => s_enabled;
+            set
+            {
+                s_enabled = value;
+                Environment.SetEnvironmentVariable("UNOEDIT_DEBUG_IME", value ? "1" : null);
+            }
+        }
+
         public static string LogPath => s_logPath;
+
+        public static void Enable() => Enabled = true;
+
+        public static void Disable() => Enabled = false;
+
+        public static void Reset()
+        {
+            lock (s_lock)
+            {
+                if (File.Exists(s_logPath))
+                {
+                    File.Delete(s_logPath);
+                }
+            }
+        }
 
         public static void Log(string message)
         {

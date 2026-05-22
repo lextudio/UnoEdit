@@ -16,7 +16,25 @@ public sealed partial class TextView
 
     private CoreTextEditContext _coreTextEditContext;
 
-    private bool CanAcceptPlatformInput => _platformInputFocused && HasEditorXamlFocus();
+    private bool CanAcceptPlatformInput
+    {
+        get
+        {
+            if (!_platformInputFocused)
+            {
+                return false;
+            }
+
+            // On macOS, native IME can legitimately update while XAML focused element
+            // temporarily shifts during composition/candidate interaction.
+            if (OperatingSystem.IsMacOS())
+            {
+                return true;
+            }
+
+            return HasEditorXamlFocus();
+        }
+    }
 
     partial void InitializePlatformInputBridge()
     {
@@ -117,6 +135,7 @@ public sealed partial class TextView
             CoreTextServicesManager manager = CoreTextServicesManager.GetForCurrentView();
             _coreTextEditContext = manager.CreateEditContext();
             _coreTextEditContext.InputScope = CoreTextInputScope.Text;
+            _coreTextEditContext.IsInputActive = IsPlatformInputSessionActive;
 
             _coreTextEditContext.TextRequested += CoreTextEditContext_TextRequested;
             _coreTextEditContext.TextUpdating += CoreTextEditContext_TextUpdating;
@@ -158,6 +177,11 @@ public sealed partial class TextView
         object? focusedElement = FocusManager.GetFocusedElement(xamlRoot);
         return ReferenceEquals(focusedElement, this)
             || ReferenceEquals(focusedElement, RootBorder);
+    }
+
+    private bool IsPlatformInputSessionActive()
+    {
+        return _platformInputFocused && (HasEditorXamlFocus() || _isComposing);
     }
 
     private void SetPlatformInputFocused(bool isFocused)
@@ -280,6 +304,10 @@ public sealed partial class TextView
     {
         if (_document is null || IsReadOnly || !CanAcceptPlatformInput)
         {
+            PlatformImeLogger.Log(
+                $"CoreText TextUpdating ignored: docNull={_document is null} isReadOnly={IsReadOnly} " +
+                $"canAccept={CanAcceptPlatformInput} focused={_platformInputFocused} xamlFocus={HasEditorXamlFocus()} " +
+                $"range=[{args.Range.StartCaretPosition},{args.Range.EndCaretPosition}] textLen={(args.Text ?? string.Empty).Length}");
             return;
         }
 
@@ -362,6 +390,10 @@ public sealed partial class TextView
     {
         if (_document is null || !CanAcceptPlatformInput)
         {
+            PlatformImeLogger.Log(
+                $"CoreText SelectionUpdating ignored: docNull={_document is null} canAccept={CanAcceptPlatformInput} " +
+                $"focused={_platformInputFocused} xamlFocus={HasEditorXamlFocus()} " +
+                $"sel=[{args.Selection.StartCaretPosition},{args.Selection.EndCaretPosition}]");
             return;
         }
 
@@ -503,12 +535,18 @@ public sealed partial class TextView
         }
 
         var row = _visibleDocRows[Math.Clamp(visualRow, 0, _visibleDocRows.Count - 1)];
+        // x/y are computed in ContentStackPanel coordinates (same space as TopSpacer + rows).
+        // Convert that point to RootBorder first so ScrollViewer viewport translation is applied,
+        // then to window coordinates for CoreText/IME.
         double x = GutterWidth + TextLeftPadding + GetRowRelativeX(lineText, row, logicalColumn) - TextScrollViewer.HorizontalOffset;
-        double y = (visualRow * LineHeight) - TextScrollViewer.VerticalOffset;
+        double y = visualRow * LineHeight;
 
-        GeneralTransform transform = RootBorder.TransformToVisual(null);
-        Point point = transform.TransformPoint(new Point(x, y));
-        return new Rect(point.X, point.Y + 3d, 2d, 16d);
+        GeneralTransform toRoot = ContentStackPanel.TransformToVisual(RootBorder);
+        Point pointInRoot = toRoot.TransformPoint(new Point(x, y));
+
+        GeneralTransform toWindow = RootBorder.TransformToVisual(null);
+        Point pointInWindow = toWindow.TransformPoint(pointInRoot);
+        return new Rect(pointInWindow.X, pointInWindow.Y + 3d, 2d, 16d);
     }
 
     private static Rect GetElementRectInWindow(FrameworkElement element)

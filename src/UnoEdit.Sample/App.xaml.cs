@@ -17,9 +17,15 @@ public partial class App : Application
 {
     public App()
     {
+        UnoEdit.Logging.PlatformImeLogger.Reset();
+        LeXtudio.UI.Text.Core.ImeLogging.Reset();
+        UnoEdit.Logging.PlatformImeLogger.Enable();
+        LeXtudio.UI.Text.Core.ImeLogging.Enable();
+
         UnoEdit.Logging.HighlightLogger.Reset();
         UnoEdit.Logging.HighlightLogger.Enabled = true;
         System.Diagnostics.Debug.WriteLine($"[UnoEdit] click-debug log: {UnoEdit.Logging.HighlightLogger.LogPath}");
+        System.Diagnostics.Debug.WriteLine($"[UnoEdit] ime log: {UnoEdit.Logging.PlatformImeLogger.LogPath}");
 
         this.InitializeComponent();
         LoadUnoEditTheme();

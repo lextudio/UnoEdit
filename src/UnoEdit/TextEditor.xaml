@@ -31,7 +31,7 @@
                    FontWeight="SemiBold" />
         <TextBlock x:Name="SummaryTextBlock"
                    Grid.Column="1"
-                   FontFamily="Consolas"
+                   FontFamily="{StaticResource UnoEditorDefaultFontFamily}"
                    Foreground="{ThemeResource UnoEditorSummaryForegroundBrush}"
                    FontSize="12" />
       </Grid>

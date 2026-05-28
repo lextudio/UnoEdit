@@ -1,0 +1,15 @@
+<Project>
+  <!--
+    Uno.Sdk injects Uno.WinUI for Windows App SDK target frameworks so its
+    buildTransitive targets are available during the build. That is a build
+    implementation detail, not a runtime/package dependency for WinAppSDK
+    consumers, so keep it out of generated nuspec dependency groups.
+  -->
+  <Target Name="LeXtudioMarkWinAppSdkUnoWinUIImplicitPackagePrivate"
+          BeforeTargets="UnoImplicitPackages"
+          Condition="'$(IsPackable)' == 'true' and '$(TargetPlatformIdentifier)' == 'Windows'">
+    <ItemGroup>
+      <_UnoProjectSystemPackageReference Update="Uno.WinUI" PrivateAssets="all" />
+    </ItemGroup>
+  </Target>
+</Project>

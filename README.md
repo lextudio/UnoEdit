@@ -24,7 +24,6 @@ The main deliverable is a few NuGet packages:
 
 - [![NuGet](https://img.shields.io/nuget/v/LeXtudio.UnoEdit.svg?label=LeXtudio.UnoEdit)](https://www.nuget.org/packages/LeXtudio.UnoEdit) The core editor component, including document model, editing engine, and platform-agnostic UI logic.
 - [![NuGet](https://img.shields.io/nuget/v/LeXtudio.UnoEdit.TextMate.svg?label=LeXtudio.UnoEdit.TextMate)](https://www.nuget.org/packages/LeXtudio.UnoEdit.TextMate) Optional TextMate integration library built on top of UnoEdit.
-- [![NuGet](https://img.shields.io/nuget/v/LeXtudio.UI.Text.Core.svg?label=LeXtudio.UI.Text.Core)](https://www.nuget.org/packages/LeXtudio.UI.Text.Core) The core text rendering and layout engine, shared across UnoEdit and potentially other text-based controls.
 
 Clone this repo and check out the sample projects to see how to use UnoEdit in your own applications (Uno Platform and WinUI 3).
 
@@ -42,9 +41,19 @@ Clone this repo and check out the sample projects to see how to use UnoEdit in y
 - [ ] Performance optimizations for large documents (virtualization, incremental layout, etc.)
 - [ ] TextMate integration (functional but needs heavy polishing)
 
+## License
+
+UnoEdit is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+# Copyright
+
+Copyright (c) 2026, LeXtudio Inc.
+All rights reserved.
+
 ## Credits & Third-Party
 
 UnoEdit builds on and includes code from the AvalonEdit project (ICSharpCode.AvalonEdit).
+
 AvalonEdit is licensed under the MIT License. See `avalonedit/LICENSE` and
 `THIRD_PARTY_NOTICES.md` for attribution and full license text. The NuGet packages
 produced by this repository also include the third-party license text and notices.

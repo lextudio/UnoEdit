@@ -11,37 +11,10 @@
           CornerRadius="{StaticResource UnoTextEditorCornerRadius}"
           Background="{ThemeResource UnoEditorBackgroundBrush}">
     <Grid>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="*" />
-      </Grid.RowDefinitions>
-
-      <Grid x:Name="TitleBarGrid"
-            Padding="12,10"
-            Background="{ThemeResource UnoEditorTitleBarBackgroundBrush}">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" />
-          <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
-
-        <TextBlock x:Name="TitleTextBlock"
-                   Text="TextEditor"
-                   Foreground="{ThemeResource UnoEditorTitleBarForegroundBrush}"
-                   FontSize="{StaticResource UnoEditorTextFontSize}"
-                   FontWeight="SemiBold" />
-        <TextBlock x:Name="SummaryTextBlock"
-                   Grid.Column="1"
-                   FontFamily="{StaticResource UnoEditorDefaultFontFamily}"
-                   Foreground="{ThemeResource UnoEditorSummaryForegroundBrush}"
-                   FontSize="12" />
-      </Grid>
-
       <controls:TextArea x:Name="PART_TextArea"
-                         AutomationProperties.AutomationId="TextArea"
-                         Grid.Row="1" />
+                         AutomationProperties.AutomationId="TextArea" />
 
       <controls:SearchPanel x:Name="PART_SearchPanel"
-                            Grid.Row="1"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Top"
                             Canvas.ZIndex="10"

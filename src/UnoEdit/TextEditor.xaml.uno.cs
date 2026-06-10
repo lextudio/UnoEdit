@@ -6,7 +6,6 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml.Input;
 using System.ComponentModel;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
@@ -14,7 +13,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
-public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.ComponentModel.INotifyPropertyChanged
+public partial class TextEditor : UserControl, ISearchPanelHost, System.ComponentModel.INotifyPropertyChanged
 {
     public static readonly DependencyProperty DocumentProperty =
         DependencyProperty.Register(
@@ -455,12 +454,14 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
 
     // ── Scroll metrics ───────────────────────────────────────────────────────
 
-    public double HorizontalOffset => GetScrollViewerMetric("HorizontalOffset");
-    public double VerticalOffset => GetScrollViewerMetric("VerticalOffset");
-    public double ExtentHeight => GetScrollViewerMetric("ExtentHeight");
-    public double ExtentWidth => GetScrollViewerMetric("ExtentWidth");
-    public double ViewportHeight => GetScrollViewerMetric("ViewportHeight", ActualHeight);
-    public double ViewportWidth => GetScrollViewerMetric("ViewportWidth", ActualWidth);
+    private Microsoft.UI.Xaml.Controls.ScrollViewer? InternalScrollViewer => PART_TextArea.TextView.InternalScrollViewer;
+
+    public double HorizontalOffset => InternalScrollViewer?.HorizontalOffset ?? 0;
+    public double VerticalOffset => InternalScrollViewer?.VerticalOffset ?? 0;
+    public double ExtentHeight => InternalScrollViewer?.ExtentHeight ?? 0;
+    public double ExtentWidth => InternalScrollViewer?.ExtentWidth ?? 0;
+    public double ViewportHeight => InternalScrollViewer?.ViewportHeight ?? ActualHeight;
+    public double ViewportWidth => InternalScrollViewer?.ViewportWidth ?? ActualWidth;
 
     // ── Operations ───────────────────────────────────────────────────────────
 
@@ -500,8 +501,8 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
     public IDisposable DeclareChangeBlock() => EnsureDocument().RunUpdate();
     public void EndChange()                 => EnsureDocument().EndUpdate();
     public void Clear()                     => Text = string.Empty;
-    public void Undo() { if (Document?.UndoStack.CanUndo == true) Document.UndoStack.Undo(); }
-    public void Redo() { if (Document?.UndoStack.CanRedo == true) Document.UndoStack.Redo(); }
+    public bool Undo() { if (Document?.UndoStack.CanUndo == true) { Document.UndoStack.Undo(); return true; } return false; }
+    public bool Redo() { if (Document?.UndoStack.CanRedo == true) { Document.UndoStack.Redo(); return true; } return false; }
     public void SelectAll() => Select(0, Document?.TextLength ?? 0);
 
     public void Load(Stream stream)
@@ -559,7 +560,40 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
     public void PageDown()  => ScrollCaretByLines(GetApproxPageLineCount(), true);
     public void PageLeft()  => ScrollHorizontalBy(-(ViewportWidth > 0 ? ViewportWidth : 240));
     public void PageRight() => ScrollHorizontalBy(ViewportWidth > 0 ? ViewportWidth : 240);
-    public void ScrollTo(int line, int column) => ScrollToLine(line);
+    public void ScrollTo(int line, int column)
+    {
+        const double MinimumScrollFraction = 0.3;
+        ScrollTo(line, column, ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineMiddle,
+            ViewportHeight > 0 ? ViewportHeight / 2 : 0.0, MinimumScrollFraction);
+    }
+
+    public void ScrollTo(int line, int column, ICSharpCode.AvalonEdit.Rendering.VisualYPosition yPositionMode,
+        double referencedVerticalViewPortOffset, double minimumScrollFraction)
+    {
+        var textView = PART_TextArea.TextView;
+        var document = Document;
+        if (document is null) return;
+        if (line < 1) line = 1;
+        if (line > document.LineCount) line = document.LineCount;
+        var pos = textView.GetVisualPosition(
+            new ICSharpCode.AvalonEdit.TextViewPosition(line, Math.Max(1, column < 0 ? 1 : column)),
+            yPositionMode);
+        double verticalPos = pos.Y - referencedVerticalViewPortOffset;
+        if (Math.Abs(verticalPos - VerticalOffset) > minimumScrollFraction * ViewportHeight)
+            ScrollToVerticalOffset(Math.Max(0, verticalPos));
+        if (column > 0)
+        {
+            const double minimumDistanceToViewBorder = 30; // matches Caret.MinimumDistanceToViewBorder
+            if (pos.X > ViewportWidth - minimumDistanceToViewBorder * 2)
+            {
+                double horizontalPos = Math.Max(0, pos.X - ViewportWidth / 2);
+                if (Math.Abs(horizontalPos - HorizontalOffset) > minimumScrollFraction * ViewportWidth)
+                    ScrollToHorizontalOffset(horizontalPos);
+            }
+            else
+                ScrollToHorizontalOffset(0);
+        }
+    }
     public void ScrollToEnd()  { if (Document is null) return; CurrentOffset = Document.TextLength; ScrollToOffset(CurrentOffset); }
     public void ScrollToHome() { CurrentOffset = 0; ScrollToOffset(0); }
     public void ScrollToHorizontalOffset(double offset) => TryChangeView(offset, null, true);
@@ -597,12 +631,7 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
     {
         var document = Document;
         if (document is null) return null;
-        var textView = GetInnerTextView();
-        if (textView is null) return null;
-        var method = textView.GetType().GetMethod("GetOffsetFromViewPoint", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (method is null) return null;
-        var offsetObj = method.Invoke(textView, new object[] { point.X, point.Y });
-        if (offsetObj is not int offset) return null;
+        int offset = PART_TextArea.TextView.GetOffsetFromViewPoint(point.X, point.Y);
         offset = Math.Clamp(offset, 0, document.TextLength);
         var location = document.GetLocation(offset);
         return new TextViewPosition(location.Line, location.Column);
@@ -618,9 +647,6 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
         editor.AttachDocument(args.OldValue as TextDocument, args.NewValue as TextDocument);
         editor.PART_TextArea.Document = args.NewValue as TextDocument;
         editor.PART_SearchPanel.UpdateDocument(args.NewValue as TextDocument);
-#if !WINDOWS_APP_SDK
-        editor.UpdateSummary();
-#endif
         editor.DocumentChanged?.Invoke(editor, EventArgs.Empty);
         editor.TextChanged?.Invoke(editor, EventArgs.Empty);
     }
@@ -696,12 +722,6 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
     {
         var editor = (TextEditor)dependencyObject;
         editor.PART_TextArea.LineNumbersForeground = args.NewValue as Brush;
-#if !WINDOWS_APP_SDK
-        if (args.NewValue is Brush brush)
-            editor.SummaryTextBlock.Foreground = brush;
-        else
-            editor.ApplyThemeToChrome();
-#endif
     }
 
     private static void OnScrollBarVisibilityChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -730,14 +750,17 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
         editor.PART_TextArea.SyntaxHighlighting = args.NewValue as IHighlightingDefinition;
     }
 
+    protected virtual ICSharpCode.AvalonEdit.Rendering.IVisualLineTransformer CreateColorizer(IHighlightingDefinition highlightingDefinition)
+    {
+        if (highlightingDefinition == null) throw new ArgumentNullException(nameof(highlightingDefinition));
+        return new ICSharpCode.AvalonEdit.Highlighting.HighlightingColorizer(highlightingDefinition);
+    }
+
     private static void OnCurrentOffsetChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var editor = (TextEditor)dependencyObject;
         if (editor.PART_TextArea.CurrentOffset != (int)args.NewValue)
             editor.PART_TextArea.CurrentOffset = (int)args.NewValue;
-#if !WINDOWS_APP_SDK
-        editor.UpdateSummary();
-#endif
     }
 
     private static void OnSelectionRangeChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
@@ -747,9 +770,6 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
             editor.PART_TextArea.SelectionStartOffset = editor.SelectionStartOffset;
         if (editor.PART_TextArea.SelectionEndOffset != editor.SelectionEndOffset)
             editor.PART_TextArea.SelectionEndOffset = editor.SelectionEndOffset;
-#if !WINDOWS_APP_SDK
-        editor.UpdateSummary();
-#endif
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -759,11 +779,6 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
         var t = Theme ?? TextEditorTheme.Dark;
         EditorBorder.Background  = new SolidColorBrush(t.EditorBackground);
         EditorBorder.BorderBrush = new SolidColorBrush(t.BorderColor);
-#if !WINDOWS_APP_SDK
-        TitleBarGrid.Background     = new SolidColorBrush(t.TitleBarBackground);
-        TitleTextBlock.Foreground   = new SolidColorBrush(t.TitleBarForeground);
-        SummaryTextBlock.Foreground = LineNumbersForeground ?? new SolidColorBrush(t.GutterForeground);
-#endif
     }
 
     private void AttachDocument(TextDocument? oldDocument, TextDocument? newDocument)
@@ -786,9 +801,6 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
     {
         PART_SearchPanel.RefreshSearch();
         TextChanged?.Invoke(this, EventArgs.Empty);
-#if !WINDOWS_APP_SDK
-        UpdateSummary();
-#endif
     }
 
     private void OnUndoStackPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -801,9 +813,6 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
     {
         if (CurrentOffset != PART_TextArea.CurrentOffset)
             CurrentOffset = PART_TextArea.CurrentOffset;
-#if !WINDOWS_APP_SDK
-        UpdateSummary();
-#endif
     }
 
     private void OnTextAreaSelectionChanged(object? sender, EventArgs e)
@@ -812,29 +821,7 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
             SelectionStartOffset = PART_TextArea.SelectionStartOffset;
         if (SelectionEndOffset != PART_TextArea.SelectionEndOffset)
             SelectionEndOffset = PART_TextArea.SelectionEndOffset;
-#if !WINDOWS_APP_SDK
-        UpdateSummary();
-#endif
     }
-
-#if !WINDOWS_APP_SDK
-    internal void UpdateSummary()
-    {
-        if (Document is null)
-        {
-            SummaryTextBlock.Text = "No document";
-            return;
-        }
-        int textLength = Document.TextLength;
-        int currentOffset = Math.Clamp(CurrentOffset, 0, textLength);
-        int selectionStart = Math.Clamp(SelectionStartOffset, 0, textLength);
-        int selectionEnd   = Math.Clamp(SelectionEndOffset, 0, textLength);
-        TextLocation location = Document.GetLocation(currentOffset);
-        int selectionLength = Math.Abs(selectionEnd - selectionStart);
-        string selectionSummary = selectionLength > 0 ? $"  Sel {selectionLength}" : string.Empty;
-        SummaryTextBlock.Text = $"{Document.LineCount} lines  {Document.TextLength} chars  Ln {location.Line}, Col {location.Column}{selectionSummary}";
-    }
-#endif
 
     private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -937,31 +924,8 @@ public sealed partial class TextEditor : UserControl, ISearchPanelHost, System.C
         Select(CurrentOffset, 0);
     }
 
-    private object? GetInnerTextView()
-    {
-        var property = PART_TextArea.GetType().GetProperty("PART_TextView", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-        return property?.GetValue(PART_TextArea);
-    }
-
-    private object? GetInnerScrollViewer()
-    {
-        var textView = GetInnerTextView();
-        if (textView is null) return null;
-        var property = textView.GetType().GetProperty("TextScrollViewer", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-        return property?.GetValue(textView);
-    }
-
-    private double GetScrollViewerMetric(string name, double fallback = 0)
-    {
-        var scrollViewer = GetInnerScrollViewer();
-        var value = scrollViewer?.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public)?.GetValue(scrollViewer);
-        return value is double d ? d : fallback;
-    }
-
     private void TryChangeView(double? horizontalOffset, double? verticalOffset, bool disableAnimation)
     {
-        var scrollViewer = GetInnerScrollViewer();
-        var method = scrollViewer?.GetType().GetMethod("ChangeView", BindingFlags.Instance | BindingFlags.Public);
-        method?.Invoke(scrollViewer, new object[] { horizontalOffset, verticalOffset, null, disableAnimation });
+        InternalScrollViewer?.ChangeView(horizontalOffset, verticalOffset, null, disableAnimation);
     }
 }

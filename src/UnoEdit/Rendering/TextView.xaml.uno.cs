@@ -1168,6 +1168,37 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         CaretOffsetChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    internal ScrollViewer InternalScrollViewer => TextScrollViewer;
+
+    /// <summary>
+    /// Returns the visual position of the specified document position relative to the top-left of the text view.
+    /// Matches <c>ICSharpCode.AvalonEdit.Rendering.TextView.GetVisualPosition</c>.
+    /// </summary>
+    public Point GetVisualPosition(ICSharpCode.AvalonEdit.TextViewPosition position, ICSharpCode.AvalonEdit.Rendering.VisualYPosition yPositionMode)
+    {
+        if (_document is null) return default;
+        int line = Math.Clamp(position.Line, 1, _document.LineCount);
+        int visualRow = GetVisualRow(line);
+        if (visualRow < 0) visualRow = line - 1; // fallback: treat as 0-based
+        double y = visualRow * LineHeight;
+        y += yPositionMode switch
+        {
+            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineTop    => 0,
+            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineMiddle => LineHeight / 2,
+            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineBottom => LineHeight,
+            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.TextTop    => 0,
+            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.TextBottom => LineHeight,
+            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.TextMiddle => LineHeight / 2,
+            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.Baseline   => LineHeight * 0.8,
+            _ => 0,
+        };
+        // X: approximate by character index — pixel-perfect requires font metrics not yet exposed
+        double charWidth = EditorFontSize * 0.6; // rough monospace estimate
+        int col = Math.Max(1, position.Column);
+        double x = (col - 1) * charWidth;
+        return new Point(x, y);
+    }
+
     /// <summary>Scroll the viewport so a 1-based line number is visible, without moving the caret.</summary>
     public void ScrollToLine(int lineNumber)
     {
@@ -2019,7 +2050,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     }
 
     /// <summary>Toggle the first fold on the caret line. Returns true if a fold was toggled.</summary>
-    private int GetOffsetFromViewPoint(double x, double y)
+    internal int GetOffsetFromViewPoint(double x, double y)
     {
         if (_document is null)
         {

@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.12] - 2026-06-10
+
+- Removed debugging UI elements.
+
+## [v0.6.11] - 2026-06-07
+
+- Fixed WinUI dependencies.
+
+## [v0.6.10] - 2026-05-21
+
+- Updated to latest dependencies.
+
 ## [v0.6.9] - 2026-05-17
 
 - Updated to latest LeXtudio.TextBox.

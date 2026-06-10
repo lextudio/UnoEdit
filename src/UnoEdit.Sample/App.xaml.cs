@@ -17,10 +17,6 @@ public partial class App : Application
 {
     public App()
     {
-        UnoEdit.Logging.HighlightLogger.Reset();
-        UnoEdit.Logging.HighlightLogger.Enabled = true;
-        System.Diagnostics.Debug.WriteLine($"[UnoEdit] click-debug log: {UnoEdit.Logging.HighlightLogger.LogPath}");
-
         this.InitializeComponent();
         LoadUnoEditTheme();
     }
@@ -65,8 +61,6 @@ public partial class App : Application
 #if DEBUG
         UnoPropertyGrid.PropertyGridLogger.Enabled = true;
         UnoPropertyGrid.PropertyGridLogger.Reset();
-        UnoEdit.Logging.HighlightLogger.Enabled = true;
-        UnoEdit.Logging.HighlightLogger.Reset();
 #endif
 
 #if WINDOWS_APP_SDK

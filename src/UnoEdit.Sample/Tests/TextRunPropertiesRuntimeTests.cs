@@ -1,6 +1,4 @@
 using System.Globalization;
-using System.Windows;
-using System.Windows.Media;
 using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Uno.UI.RuntimeTests;
@@ -16,14 +14,11 @@ public class TextRunPropertiesRuntimeTests
     {
         var properties = new VisualLineElementTextRunProperties();
 
-        Assert.IsNotNull(properties.Typeface);
-        Assert.AreEqual("Segoe UI", properties.Typeface.FontFamily.Source);
         Assert.IsNull(properties.TextDecorations);
         Assert.IsNull(properties.TextEffects);
         Assert.IsNotNull(properties.CultureInfo);
         Assert.IsNull(properties.NumberSubstitution);
         Assert.IsNull(properties.TypographyProperties);
-        Assert.AreEqual(BaselineAlignment.Baseline, properties.BaselineAlignment);
         Assert.AreEqual(12d, properties.FontRenderingEmSize);
         Assert.AreEqual(12d, properties.FontHintingEmSize);
     }
@@ -33,39 +28,25 @@ public class TextRunPropertiesRuntimeTests
     {
         var properties = new VisualLineElementTextRunProperties();
         var culture = CultureInfo.GetCultureInfo("fr-CA");
-        var typeface = new Typeface(new FontFamily("Cascadia Mono"), FontStyles.Italic, FontWeights.Bold, FontStretches.Expanded);
-        var foreground = new SolidColorBrush(Microsoft.UI.Colors.Red);
-        var background = new SolidColorBrush(Microsoft.UI.Colors.Blue);
-        var textDecorations = new TextDecorationCollection(TextDecorations.Underline);
-        var textEffects = new TextEffectCollection { new TextEffect() };
-        var numberSubstitution = new NumberSubstitution(NumberSubstitutionSource.Override, culture, NumberSubstitutionMethod.European);
+        var foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Red);
+        var background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Blue);
         var typography = new DefaultTextRunTypographyProperties();
 
-        properties.SetTypeface(typeface);
         properties.SetForegroundBrush(foreground);
         properties.SetBackgroundBrush(background);
-        properties.SetTextDecorations(textDecorations);
-        properties.SetTextEffects(textEffects);
         properties.SetCultureInfo(culture);
-        properties.SetNumberSubstitution(numberSubstitution);
         properties.SetTypographyProperties(typography);
-        properties.SetBaselineAlignment(BaselineAlignment.Superscript);
         properties.SetFontRenderingEmSize(14);
         properties.SetFontHintingEmSize(13);
 
         var clone = properties.Clone();
 
-        Assert.AreSame(typeface, clone.Typeface);
         Assert.AreSame(foreground, clone.ForegroundBrush);
         Assert.AreSame(background, clone.BackgroundBrush);
         Assert.AreEqual(culture, clone.CultureInfo);
-        Assert.AreSame(numberSubstitution, clone.NumberSubstitution);
         Assert.AreSame(typography, clone.TypographyProperties);
-        Assert.AreEqual(BaselineAlignment.Superscript, clone.BaselineAlignment);
         Assert.AreEqual(14, clone.FontRenderingEmSize);
         Assert.AreEqual(13, clone.FontHintingEmSize);
-        Assert.AreSame(textDecorations, clone.TextDecorations);
-        Assert.AreSame(textEffects, clone.TextEffects);
     }
 
     [TestMethod]

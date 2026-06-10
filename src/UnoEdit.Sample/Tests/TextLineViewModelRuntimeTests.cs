@@ -25,7 +25,8 @@ public class TextLineViewModelRuntimeTests
             0,
             0,
             theme,
-            gutterForegroundOverride: Microsoft.UI.Colors.Gray);
+            false,
+            Microsoft.UI.Colors.Gray);
 
         var replacement = new TextLineViewModel(
             20,
@@ -40,7 +41,8 @@ public class TextLineViewModelRuntimeTests
             0,
             0,
             theme,
-            gutterForegroundOverride: Microsoft.UI.Colors.Gray);
+            false,
+            Microsoft.UI.Colors.Gray);
 
         original.UpdateFrom(replacement);
 

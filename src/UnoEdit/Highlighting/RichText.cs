@@ -157,6 +157,8 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 			return new RichText(newText, model);
 		}
 
+		public static implicit operator RichText(string text) => new RichText(text);
+
 		public static RichText operator +(RichText a, RichText b)
 		{
 			return Concat(a, b);

@@ -104,6 +104,9 @@
 
           <!-- Text content column -->
           <Grid Grid.Column="2">
+            <!-- Background-highlight overlay (bracket match, reference markers). Behind text,
+                 scrolls with content; positioned in content space by the AvalonEdit pipeline. -->
+            <Canvas x:Name="BackgroundHighlightCanvas" IsHitTestVisible="False" />
             <ItemsControl x:Name="LinesItemsControl">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>

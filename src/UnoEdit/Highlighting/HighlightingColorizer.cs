@@ -98,8 +98,19 @@ namespace ICSharpCode.AvalonEdit.Highlighting
 				if (IsEmptyColor(section.Color))
 					continue;
 
-				ChangeLinePart(section.Offset, section.Offset + section.Length, element => ApplyColorToElement(element, section.Color, CurrentContext));
+				ChangeLinePart(section.Offset, section.Offset + section.Length, element => ApplyColorToElement(element, section.Color));
 			}
+		}
+
+		/// <summary>
+		/// Applies a highlighting color to a visual line element.
+		/// Overridable so derived colorizers (e.g. theme-aware ones) can adjust the color;
+		/// matches the AvalonEdit signature. Routes to the static implementation with the
+		/// current construction context.
+		/// </summary>
+		protected virtual void ApplyColorToElement(VisualLineElement element, HighlightingColor color)
+		{
+			ApplyColorToElement(element, color, CurrentContext);
 		}
 
 		internal static bool IsEmptyColor(HighlightingColor? color)

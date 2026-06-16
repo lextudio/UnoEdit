@@ -88,6 +88,7 @@
     <Compile Include="Search\ISearchPanelHost.cs" />
     <Compile Include="Search\SearchPanel.xaml.uno.cs" />
     <Compile Include="Rendering\TextView.xaml.uno.cs" />
+    <Compile Include="Rendering\TextView.AvalonEditPipeline.cs" />
     <Compile Include="Rendering\TextView.PlatformInput.cs" />
     <Compile Include="Rendering\TextView.EditOperations.uno.cs" />
     <Compile Include="Rendering\TextView.InputHandlers.uno.cs" />

@@ -2,12 +2,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using ICSharpCode.AvalonEdit.Document;
-using ICSharpCode.AvalonEdit.Search;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using UnoEdit.Skia.Desktop.Controls;
 
-namespace UnoEdit.Skia.Desktop.Controls;
+namespace ICSharpCode.AvalonEdit.Search;
 
 public sealed partial class SearchPanel : UserControl
 {
@@ -444,6 +444,11 @@ public sealed partial class SearchPanel : UserControl
 
         throw new ArgumentException("Could not locate a SearchPanel for the provided text area/editor.", nameof(textArea));
     }
+
+    /// <summary>WPF FrameworkElement.SetResourceReference parity — accepts a themed-resource binding
+    /// request so AvalonEdit consumers (e.g. ILSpy's DecompilerTextView wiring the search marker brush)
+    /// compile unchanged. Skia theming is applied via the editor theme, so this is a no-op.</summary>
+    public void SetResourceReference(DependencyProperty dependencyProperty, object resourceKey) { }
 
     public void RegisterCommands(System.Windows.Input.CommandBindingCollection commandBindings)
     {

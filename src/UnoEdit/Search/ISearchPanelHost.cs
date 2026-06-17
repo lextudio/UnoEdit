@@ -1,5 +1,7 @@
 using Microsoft.UI.Xaml;
 
+using ICSharpCode.AvalonEdit.Search;
+
 namespace UnoEdit.Skia.Desktop.Controls;
 
 /// <summary>

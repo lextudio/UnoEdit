@@ -1,5 +1,6 @@
 using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Editing;
+using ICSharpCode.AvalonEdit.Search;
 using UnoEdit.Skia.Desktop.Controls;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;

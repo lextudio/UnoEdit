@@ -1,6 +1,6 @@
 <!-- Uno equivalent of avalonedit/ICSharpCode.AvalonEdit/Search/SearchPanel.xaml
      Keep in sync with the WPF version when making structural changes. -->
-<UserControl x:Class="UnoEdit.Skia.Desktop.Controls.SearchPanel"
+<UserControl x:Class="ICSharpCode.AvalonEdit.Search.SearchPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:lextudio="using:LeXtudio.UI.Controls">

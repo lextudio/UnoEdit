@@ -4,7 +4,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:UnoEdit.Skia.Desktop.Controls"
-             xmlns:editing="using:ICSharpCode.AvalonEdit.Editing">
+             xmlns:editing="using:ICSharpCode.AvalonEdit.Editing"
+             xmlns:search="using:ICSharpCode.AvalonEdit.Search">
   <Border x:Name="EditorBorder"
           Padding="1"
           BorderBrush="{ThemeResource UnoEditorBorderBrush}"
@@ -15,7 +16,7 @@
       <editing:TextArea x:Name="PART_TextArea"
                          AutomationProperties.AutomationId="TextArea" />
 
-      <controls:SearchPanel x:Name="PART_SearchPanel"
+      <search:SearchPanel x:Name="PART_SearchPanel"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Top"
                             Canvas.ZIndex="10"

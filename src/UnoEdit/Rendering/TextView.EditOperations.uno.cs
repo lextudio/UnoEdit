@@ -5,7 +5,7 @@ using ICSharpCode.AvalonEdit.Utils;
 using System.Windows.Input;
 using Windows.ApplicationModel.DataTransfer;
 
-namespace UnoEdit.Skia.Desktop.Controls;
+namespace ICSharpCode.AvalonEdit.Rendering;
 
 public sealed partial class TextView
 {

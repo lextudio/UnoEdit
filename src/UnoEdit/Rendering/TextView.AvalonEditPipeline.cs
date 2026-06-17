@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 
 using ICSharpCode.AvalonEdit.Document;
-using ICSharpCode.AvalonEdit.Rendering;
+using ICSharpCode.AvalonEdit.Utils;
 
-namespace UnoEdit.Skia.Desktop.Controls
+namespace ICSharpCode.AvalonEdit.Rendering
 {
     // AvalonEdit rendering-pipeline parity: WPF AvalonEdit's TextView exposes ElementGenerators /
     // BackgroundRenderers / LineTransformers collections plus SetResourceReference / InvalidateLayer,
@@ -14,11 +14,76 @@ namespace UnoEdit.Skia.Desktop.Controls
     // does not yet consume are inert (parity is being filled incrementally).
     partial class TextView
     {
-        public IList<VisualLineElementGenerator> ElementGenerators { get; } = new List<VisualLineElementGenerator>();
+        // Pipeline collections with ITextViewConnect add/remove wiring (ported from the former
+        // headless TextView). Backing fields are initialized in InitializePipelineCollections(),
+        // invoked from the primary constructor in TextView.xaml.uno.cs.
+        ObserveAddRemoveCollection<VisualLineElementGenerator> elementGenerators;
+        ObserveAddRemoveCollection<IVisualLineTransformer> lineTransformers;
+        ObserveAddRemoveCollection<IBackgroundRenderer> backgroundRenderers;
 
-        public IList<IBackgroundRenderer> BackgroundRenderers { get; } = new List<IBackgroundRenderer>();
+        void InitializePipelineCollections()
+        {
+            elementGenerators = new ObserveAddRemoveCollection<VisualLineElementGenerator>(ElementGenerator_Added, ElementGenerator_Removed);
+            lineTransformers = new ObserveAddRemoveCollection<IVisualLineTransformer>(LineTransformer_Added, LineTransformer_Removed);
+            backgroundRenderers = new ObserveAddRemoveCollection<IBackgroundRenderer>(BackgroundRenderer_Added, BackgroundRenderer_Removed);
+        }
 
-        public IList<IVisualLineTransformer> LineTransformers { get; } = new List<IVisualLineTransformer>();
+        /// <summary>Gets a collection where element generators can be registered.</summary>
+        public IList<VisualLineElementGenerator> ElementGenerators => elementGenerators;
+
+        /// <summary>Gets the list of background renderers.</summary>
+        public IList<IBackgroundRenderer> BackgroundRenderers => backgroundRenderers;
+
+        /// <summary>Gets a collection where line transformers can be registered.</summary>
+        public IList<IVisualLineTransformer> LineTransformers => lineTransformers;
+
+        void ElementGenerator_Added(VisualLineElementGenerator generator)
+        {
+            ConnectToTextView(generator);
+            Redraw();
+        }
+
+        void ElementGenerator_Removed(VisualLineElementGenerator generator)
+        {
+            DisconnectFromTextView(generator);
+            Redraw();
+        }
+
+        void LineTransformer_Added(IVisualLineTransformer lineTransformer)
+        {
+            ConnectToTextView(lineTransformer);
+            Redraw();
+        }
+
+        void LineTransformer_Removed(IVisualLineTransformer lineTransformer)
+        {
+            DisconnectFromTextView(lineTransformer);
+            Redraw();
+        }
+
+        void BackgroundRenderer_Added(IBackgroundRenderer renderer)
+        {
+            ConnectToTextView(renderer);
+            InvalidateLayer(renderer.Layer);
+        }
+
+        void BackgroundRenderer_Removed(IBackgroundRenderer renderer)
+        {
+            DisconnectFromTextView(renderer);
+            InvalidateLayer(renderer.Layer);
+        }
+
+        void ConnectToTextView(object obj)
+        {
+            if (obj is ITextViewConnect connectable)
+                connectable.AddToTextView(this);
+        }
+
+        void DisconnectFromTextView(object obj)
+        {
+            if (obj is ITextViewConnect connectable)
+                connectable.RemoveFromTextView(this);
+        }
 
         /// <summary>Requests a redraw of the specified layer. Skia repaint is driven elsewhere; no-op for now.</summary>
         public void InvalidateLayer(KnownLayer layer) { }
@@ -43,6 +108,25 @@ namespace UnoEdit.Skia.Desktop.Controls
                 if (BackgroundHighlightCanvas.Children[i] is Microsoft.UI.Xaml.FrameworkElement fe && Equals(fe.Tag, key))
                     BackgroundHighlightCanvas.Children.RemoveAt(i);
             }
+        }
+
+        /// <summary>Scroll offset of the editor viewport, matching WPF AvalonEdit's TextView.ScrollOffset.</summary>
+        public Windows.Foundation.Point ScrollOffset
+            => new Windows.Foundation.Point(TextScrollViewer.HorizontalOffset, TextScrollViewer.VerticalOffset);
+
+        /// <summary>Converts a content-space visual position to a TextViewPosition (line/column).
+        /// Mirrors WPF AvalonEdit's TextView.GetPosition(Point), enabling reference-navigation hit-testing.</summary>
+        public ICSharpCode.AvalonEdit.TextViewPosition? GetPosition(Windows.Foundation.Point contentPosition)
+        {
+            if (Document is null || Document.LineCount == 0)
+                return null;
+            double charWidth = EditorFontSize * 0.6;
+            int line = Math.Clamp((int)(contentPosition.Y / LineHeight) + 1, 1, Document.LineCount);
+            int maxCol = Document.GetLineByNumber(line).Length + 1;
+            int column = charWidth > 0
+                ? Math.Clamp((int)(contentPosition.X / charWidth) + 1, 1, maxCol)
+                : 1;
+            return new ICSharpCode.AvalonEdit.TextViewPosition(line, column);
         }
 
         /// <summary>Paints a filled/outlined highlight over a (single-line) document segment,

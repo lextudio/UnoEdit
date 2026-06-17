@@ -7,7 +7,6 @@ using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Indentation;
-using ICSharpCode.AvalonEdit.Rendering;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -17,10 +16,11 @@ using System.ComponentModel.Design;
 using System.Windows.Documents;
 using System.Windows.Input;
 using UnoEdit.Logging;
+using UnoEdit.Skia.Desktop.Controls;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 
-namespace UnoEdit.Skia.Desktop.Controls;
+namespace ICSharpCode.AvalonEdit.Rendering;
 
 public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextView, IInlineObjectHost
 {
@@ -273,6 +273,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         this.InitializeComponent();
         _services.AddService(typeof(TextView), this);
+        InitializePipelineCollections();
         ApplyEditorFont();
         LineNumberItemsControl.ItemsSource = _lines;
         FoldMarginItemsControl.ItemsSource = _lines;
@@ -750,6 +751,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         _visibleDocRows.Clear();
         _highlightedLineSource?.SetDocument(newDocument);
 
+        // Reset the shared AvalonEdit visual-line / height-tree cache for the new document.
+        ResetVisualLineCacheForDocument(newDocument);
+
         if (newDocument is not null)
         {
             // Register this control as the inline-object host on the document's service provider so
@@ -783,6 +787,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         _pendingFullRebuild = true;
         LogFlash("full queued: document attached");
         RefreshViewport();
+
+        OnDocumentChanged(EventArgs.Empty);
     }
 
     private void UpdateDocumentHighlighter()
@@ -1169,35 +1175,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     }
 
     internal ScrollViewer InternalScrollViewer => TextScrollViewer;
-
-    /// <summary>
-    /// Returns the visual position of the specified document position relative to the top-left of the text view.
-    /// Matches <c>ICSharpCode.AvalonEdit.Rendering.TextView.GetVisualPosition</c>.
-    /// </summary>
-    public Point GetVisualPosition(ICSharpCode.AvalonEdit.TextViewPosition position, ICSharpCode.AvalonEdit.Rendering.VisualYPosition yPositionMode)
-    {
-        if (_document is null) return default;
-        int line = Math.Clamp(position.Line, 1, _document.LineCount);
-        int visualRow = GetVisualRow(line);
-        if (visualRow < 0) visualRow = line - 1; // fallback: treat as 0-based
-        double y = visualRow * LineHeight;
-        y += yPositionMode switch
-        {
-            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineTop    => 0,
-            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineMiddle => LineHeight / 2,
-            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.LineBottom => LineHeight,
-            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.TextTop    => 0,
-            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.TextBottom => LineHeight,
-            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.TextMiddle => LineHeight / 2,
-            ICSharpCode.AvalonEdit.Rendering.VisualYPosition.Baseline   => LineHeight * 0.8,
-            _ => 0,
-        };
-        // X: approximate by character index — pixel-perfect requires font metrics not yet exposed
-        double charWidth = EditorFontSize * 0.6; // rough monospace estimate
-        int col = Math.Max(1, position.Column);
-        double x = (col - 1) * charWidth;
-        return new Point(x, y);
-    }
 
     /// <summary>Scroll the viewport so a 1-based line number is visible, without moving the caret.</summary>
     public void ScrollToLine(int lineNumber)

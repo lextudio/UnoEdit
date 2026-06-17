@@ -4,8 +4,9 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using UnoEdit.Logging;
+using UnoEdit.Skia.Desktop.Controls;
 
-namespace UnoEdit.Skia.Desktop.Controls;
+namespace ICSharpCode.AvalonEdit.Rendering;
 
 public sealed partial class TextView
 {

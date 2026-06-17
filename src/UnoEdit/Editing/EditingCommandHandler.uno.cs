@@ -1,3 +1,5 @@
+using ICSharpCode.AvalonEdit.Rendering;
+
 namespace UnoEdit.Skia.Desktop.Controls;
 
 internal static class EditingCommandHandler

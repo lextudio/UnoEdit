@@ -10,8 +10,9 @@ using System.ComponentModel;
 using System.ComponentModel.Design;
 using Windows.Foundation;
 using System.Windows.Input;
+using UnoEdit.Skia.Desktop.Controls;
 
-namespace UnoEdit.Skia.Desktop.Controls;
+namespace ICSharpCode.AvalonEdit.Editing;
 
 public sealed partial class TextArea : UserControl, IServiceProvider, ICaretAnchorProvider
 {

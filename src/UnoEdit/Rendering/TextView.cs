@@ -32,47 +32,14 @@ namespace ICSharpCode.AvalonEdit.Rendering
 	/// pipeline still expects a text view object that can host generators, transformers,
 	/// background renderers, and service lookups.
 	/// </summary>
-	public class TextView
+	public sealed partial class TextView
 	{
-		readonly ObserveAddRemoveCollection<VisualLineElementGenerator> elementGenerators;
-		readonly ObserveAddRemoveCollection<IVisualLineTransformer> lineTransformers;
-		readonly ObserveAddRemoveCollection<IBackgroundRenderer> backgroundRenderers;
-		readonly ServiceContainer services = new ServiceContainer();
 		readonly HashSet<KnownLayer> invalidatedLayers = new HashSet<KnownLayer>();
 		readonly List<CollapsedLineSection> collapsedLineSections = new List<CollapsedLineSection>();
-		TextDocument document;
 		HeightTree heightTree;
 
 		// Cached helpers for prepared formatted text/textline objects.
 		internal TextViewCachedElements cachedElements;
-
-		public TextView()
-		{
-			services.AddService(typeof(TextView), this);
-			elementGenerators = new ObserveAddRemoveCollection<VisualLineElementGenerator>(ElementGenerator_Added, ElementGenerator_Removed);
-			lineTransformers = new ObserveAddRemoveCollection<IVisualLineTransformer>(LineTransformer_Added, LineTransformer_Removed);
-			backgroundRenderers = new ObserveAddRemoveCollection<IBackgroundRenderer>(BackgroundRenderer_Added, BackgroundRenderer_Removed);
-		}
-
-		/// <summary>Gets or sets the text document displayed by this view.</summary>
-		public TextDocument Document {
-			get { return document; }
-			set {
-				if (!ReferenceEquals(document, value)) {
-					document = value;
-					heightTree?.Dispose();
-					heightTree = document != null ? new HeightTree(document, DefaultLineHeight > 0 ? DefaultLineHeight : 1.0) : null;
-					collapsedLineSections.Clear();
-					VisualLinesValid = false;
-					VisualLines = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
-					DocumentHeight = 0;
-					OnDocumentChanged(EventArgs.Empty);
-				}
-			}
-		}
-
-		/// <summary>Gets or sets the editor options.</summary>
-		public TextEditorOptions Options { get; set; } = new TextEditorOptions();
 
 		/// <summary>Occurs when the document property changes.</summary>
 		public event EventHandler DocumentChanged;
@@ -80,142 +47,48 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		/// <summary>Occurs when the current visual-line set changes.</summary>
 		public event EventHandler VisualLinesChanged;
 
-		/// <summary>Occurs when the text view scroll offset changes.</summary>
-		public event EventHandler ScrollOffsetChanged;
-
-		/// <summary>Gets a collection where element generators can be registered.</summary>
-		public IList<VisualLineElementGenerator> ElementGenerators {
-			get { return elementGenerators; }
-		}
-
-		/// <summary>Gets a collection where line transformers can be registered.</summary>
-		public IList<IVisualLineTransformer> LineTransformers {
-			get { return lineTransformers; }
-		}
-
-		/// <summary>Gets the list of background renderers.</summary>
-		public IList<IBackgroundRenderer> BackgroundRenderers {
-			get { return backgroundRenderers; }
-		}
-
-		/// <summary>Gets a service container used to associate services with the text view.</summary>
-		public IServiceContainer Services {
-			get { return services; }
+		/// <summary>Raises the <see cref="DocumentChanged"/> event.</summary>
+		void OnDocumentChanged(EventArgs e)
+		{
+			DocumentChanged?.Invoke(this, e);
 		}
 
 		/// <summary>
-		/// Looks up a service on the text view and falls back to the current document's services.
+		/// Resets the shared AvalonEdit visual-line and height-tree caches for a newly attached document.
+		/// Invoked from the visual control's AttachDocument.
 		/// </summary>
-		public virtual object GetService(Type serviceType)
+		void ResetVisualLineCacheForDocument(TextDocument newDocument)
 		{
-			if (serviceType == null)
-				throw new ArgumentNullException(nameof(serviceType));
-
-			object instance = services.GetService(serviceType);
-			if (instance == null && Document != null)
-				instance = Document.ServiceProvider.GetService(serviceType);
-			return instance;
+			heightTree?.Dispose();
+			heightTree = newDocument != null ? new HeightTree(newDocument, DefaultLineHeight > 0 ? DefaultLineHeight : 1.0) : null;
+			collapsedLineSections.Clear();
+			VisualLinesValid = false;
+			VisualLines = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
+			DocumentHeight = 0;
 		}
 
 		/// <summary>
 		/// Invalidates the current visual-line cache and notifies listeners that the shared host
 		/// needs a redraw. The concrete Uno XAML view is still responsible for repainting.
 		/// </summary>
-		public virtual void Redraw()
+		public void Redraw()
 		{
 			VisualLinesValid = false;
 			OnVisualLinesChanged(EventArgs.Empty);
 			OnRedrawRequested(EventArgs.Empty);
 		}
 
-		/// <summary>
-		/// Invalidates a rendering layer in the shared host so background renderers and other
-		/// shared components can request a repaint without knowing the Uno control details.
-		/// </summary>
-		public virtual void InvalidateLayer(KnownLayer knownLayer)
-		{
-			if (!Enum.IsDefined(typeof(KnownLayer), knownLayer))
-				throw new InvalidEnumArgumentException(nameof(knownLayer), (int)knownLayer, typeof(KnownLayer));
-
-			invalidatedLayers.Add(knownLayer);
-			OnLayerInvalidated(knownLayer);
-		}
-
-		/// <summary>Raises the <see cref="DocumentChanged"/> event.</summary>
-		protected virtual void OnDocumentChanged(EventArgs e)
-		{
-			DocumentChanged?.Invoke(this, e);
-		}
-
 		/// <summary>Raises the <see cref="VisualLinesChanged"/> event.</summary>
-		protected virtual void OnVisualLinesChanged(EventArgs e)
+		void OnVisualLinesChanged(EventArgs e)
 		{
 			VisualLinesChanged?.Invoke(this, e);
 		}
 
-		/// <summary>Raises the <see cref="ScrollOffsetChanged"/> event.</summary>
-		protected virtual void OnScrollOffsetChanged(EventArgs e)
-		{
-			ScrollOffsetChanged?.Invoke(this, e);
-		}
-
 		/// <summary>Raised when the shared host needs a redraw.</summary>
-		protected virtual void OnRedrawRequested(EventArgs e)
-		{
-		}
+		partial void OnRedrawRequested(EventArgs e);
 
 		/// <summary>Raised when a specific rendering layer was invalidated.</summary>
-		protected virtual void OnLayerInvalidated(KnownLayer knownLayer)
-		{
-		}
-
-		void ElementGenerator_Added(VisualLineElementGenerator generator)
-		{
-			ConnectToTextView(generator);
-			Redraw();
-		}
-
-		void ElementGenerator_Removed(VisualLineElementGenerator generator)
-		{
-			DisconnectFromTextView(generator);
-			Redraw();
-		}
-
-		void LineTransformer_Added(IVisualLineTransformer lineTransformer)
-		{
-			ConnectToTextView(lineTransformer);
-			Redraw();
-		}
-
-		void LineTransformer_Removed(IVisualLineTransformer lineTransformer)
-		{
-			DisconnectFromTextView(lineTransformer);
-			Redraw();
-		}
-
-		void BackgroundRenderer_Added(IBackgroundRenderer renderer)
-		{
-			ConnectToTextView(renderer);
-			InvalidateLayer(renderer.Layer);
-		}
-
-		void BackgroundRenderer_Removed(IBackgroundRenderer renderer)
-		{
-			DisconnectFromTextView(renderer);
-			InvalidateLayer(renderer.Layer);
-		}
-
-		void ConnectToTextView(object obj)
-		{
-			if (obj is ITextViewConnect connectable)
-				connectable.AddToTextView(this);
-		}
-
-		void DisconnectFromTextView(object obj)
-		{
-			if (obj is ITextViewConnect connectable)
-				connectable.RemoveFromTextView(this);
-		}
+		partial void OnLayerInvalidated(KnownLayer knownLayer);
 
 		// ----------------------------------------------------------------
 		// Brush / Pen dependency properties (surface stubs)
@@ -269,10 +142,11 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		// ----------------------------------------------------------------
 		// Scroll state
 		// ----------------------------------------------------------------
+		// NOTE: These are stored (non-visual) offsets retained so BackgroundGeometryBuilder and other
+		// shared AvalonEdit code compile. The visual rendering reads TextScrollViewer directly and does
+		// NOT update these; ScrollOffset (the live offset) is provided by the visual partial.
 		public double HorizontalOffset { get; internal set; }
 		public double VerticalOffset { get; internal set; }
-		/// <summary>Gets the horizontal and vertical scroll offset (combined).</summary>
-		public Point ScrollOffset => new Point(HorizontalOffset, VerticalOffset);
 
 		// ----------------------------------------------------------------
 		// Visual lines
@@ -363,12 +237,6 @@ namespace ICSharpCode.AvalonEdit.Rendering
 				return visualLine.VisualTop;
 
 			return line > 1 && DefaultLineHeight > 0 ? (line - 1) * DefaultLineHeight : 0.0;
-		}
-
-		/// <summary>Gets the text view position from a visual position.</summary>
-		public TextViewPosition? GetPosition(Point visualPosition)
-		{
-			return GetPositionFloor(visualPosition);
 		}
 
 		/// <summary>Gets the text view position (floor) from a visual position.</summary>
@@ -582,7 +450,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		}
 
 		/// <summary>Makes the given rectangle visible by adjusting the stored scroll offsets.</summary>
-		public virtual void MakeVisible(Rect rectangle)
+		public void MakeVisible(Rect rectangle)
 		{
 			double newHorizontal = HorizontalOffset;
 			double newVertical = VerticalOffset;
@@ -598,7 +466,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			if (!newHorizontal.Equals(HorizontalOffset) || !newVertical.Equals(VerticalOffset)) {
 				HorizontalOffset = newHorizontal;
 				VerticalOffset = newVertical;
-				OnScrollOffsetChanged(EventArgs.Empty);
+				ScrollOffsetChanged?.Invoke(this, EventArgs.Empty);
 			}
 		}
 
@@ -621,7 +489,7 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		public event EventHandler<VisualLineConstructionStartEventArgs> VisualLineConstructionStarting;
 
 		/// <summary>Raises <see cref="OptionChanged"/> for the given property.</summary>
-		protected virtual void OnOptionChanged(PropertyChangedEventArgs e)
+		void OnOptionChanged(PropertyChangedEventArgs e)
 		{
 			OptionChanged?.Invoke(this, e);
 		}

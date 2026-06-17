@@ -1,7 +1,9 @@
 // EditorRuntimeTests — UI thread tests that mount the TextEditor control live.
 // Triggered headlessly when UNO_RUNTIME_TESTS_RUN_TESTS env var is set.
 
+using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Rendering;
 using ICSharpCode.AvalonEdit.Folding;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Uno.UI.RuntimeTests;

@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Input;
+using ICSharpCode.AvalonEdit.Rendering;
 
 namespace UnoEdit.Skia.Desktop.Controls;
 

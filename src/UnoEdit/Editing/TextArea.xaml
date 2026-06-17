@@ -1,9 +1,9 @@
 <!-- Uno equivalent of avalonedit/ICSharpCode.AvalonEdit/Editing/TextArea.xaml
      Keep in sync with the WPF version when making structural changes. -->
-<UserControl x:Class="UnoEdit.Skia.Desktop.Controls.TextArea"
+<UserControl x:Class="ICSharpCode.AvalonEdit.Editing.TextArea"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="using:UnoEdit.Skia.Desktop.Controls">
+             xmlns:controls="using:ICSharpCode.AvalonEdit.Rendering">
   <Grid>
     <controls:TextView x:Name="PART_TextView"
                        AutomationProperties.AutomationId="TextView" />

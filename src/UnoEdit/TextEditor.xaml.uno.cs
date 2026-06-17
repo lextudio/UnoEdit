@@ -1,4 +1,6 @@
 using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.Editing;
+using UnoEdit.Skia.Desktop.Controls;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
 using ICSharpCode.AvalonEdit.Rendering;
@@ -11,7 +13,7 @@ using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
 using Microsoft.UI.Xaml.Media;
 
-namespace UnoEdit.Skia.Desktop.Controls;
+namespace ICSharpCode.AvalonEdit;
 
 public partial class TextEditor : UserControl, ISearchPanelHost, System.ComponentModel.INotifyPropertyChanged
 {

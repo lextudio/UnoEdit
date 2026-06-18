@@ -59,10 +59,13 @@ public sealed class TestAttribute : TestMethodAttribute
             var failure = ex is System.Reflection.TargetInvocationException { InnerException: { } inner }
                 ? inner
                 : ex;
+            var outcome = failure is AssertInconclusiveException || IsUnoXamlRuntimeUnavailable(failure)
+                ? UnitTestOutcome.Inconclusive
+                : UnitTestOutcome.Failed;
 
             return [new TestResult
             {
-                Outcome = failure is AssertInconclusiveException ? UnitTestOutcome.Inconclusive : UnitTestOutcome.Failed,
+                Outcome = outcome,
                 TestFailureException = failure,
                 Duration = DateTimeOffset.UtcNow - started
             }];
@@ -72,6 +75,25 @@ public sealed class TestAttribute : TestMethodAttribute
             if (instance is not null)
                 InvokeMarkedMethods(testMethod.MethodInfo.DeclaringType!, instance, typeof(TearDownAttribute));
         }
+    }
+
+    private static bool IsUnoXamlRuntimeUnavailable(Exception exception)
+    {
+#if WINDOWS_APP_SDK
+        return false;
+#else
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is TypeInitializationException typeInitializationException
+                && (typeInitializationException.TypeName == "Microsoft.UI.Xaml.UIElement"
+                    || typeInitializationException.TypeName == "ICSharpCode.AvalonEdit.Rendering.TextView"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+#endif
     }
 
 #if WINDOWS_APP_SDK

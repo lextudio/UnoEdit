@@ -13,7 +13,7 @@ namespace UnoEdit.Tests.Rendering
         [Test]
         public void DocumentChangedListener_ReceivesWeakEvent()
         {
-            var textView = new TestTextView();
+            var textView = new TextView();
             var listener = new RecordingWeakEventListener();
 
             TextViewWeakEventManager.DocumentChanged.AddListener(textView, listener);
@@ -26,11 +26,11 @@ namespace UnoEdit.Tests.Rendering
         [Test]
         public void VisualLinesChangedListener_ReceivesWeakEvent()
         {
-            var textView = new TestTextView();
+            var textView = new TextView();
             var listener = new RecordingWeakEventListener();
 
             TextViewWeakEventManager.VisualLinesChanged.AddListener(textView, listener);
-            textView.RaiseVisualLinesChanged();
+            textView.Redraw();
 
             Assert.That(listener.ReceivedManagerTypes, Is.EqualTo(new[] { typeof(TextViewWeakEventManager.VisualLinesChanged) }));
         }
@@ -38,27 +38,16 @@ namespace UnoEdit.Tests.Rendering
         [Test]
         public void ScrollOffsetChangedListener_StopsReceivingAfterRemove()
         {
-            var textView = new TestTextView();
+            var textView = new TextView();
             var listener = new RecordingWeakEventListener();
 
             TextViewWeakEventManager.ScrollOffsetChanged.AddListener(textView, listener);
             TextViewWeakEventManager.ScrollOffsetChanged.RemoveListener(textView, listener);
-            textView.RaiseScrollOffsetChanged();
+            textView.HorizontalOffset = 10;
+            textView.VerticalOffset = 10;
+            textView.MakeVisible(new Windows.Foundation.Rect(0, 0, 1, 1));
 
             Assert.That(listener.ReceivedManagerTypes, Is.Empty);
-        }
-
-        sealed class TestTextView : TextView
-        {
-            public void RaiseVisualLinesChanged()
-            {
-                OnVisualLinesChanged(EventArgs.Empty);
-            }
-
-            public void RaiseScrollOffsetChanged()
-            {
-                OnScrollOffsetChanged(EventArgs.Empty);
-            }
         }
 
         sealed class RecordingWeakEventListener : IWeakEventListener

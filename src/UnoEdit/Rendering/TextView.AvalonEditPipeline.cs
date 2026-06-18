@@ -85,8 +85,12 @@ namespace ICSharpCode.AvalonEdit.Rendering
                 connectable.RemoveFromTextView(this);
         }
 
-        /// <summary>Requests a redraw of the specified layer. Skia repaint is driven elsewhere; no-op for now.</summary>
-        public void InvalidateLayer(KnownLayer layer) { }
+        /// <summary>Requests a redraw of the specified layer. Skia repaint is driven elsewhere.</summary>
+        public void InvalidateLayer(KnownLayer layer)
+        {
+            invalidatedLayers.Add(layer);
+            OnLayerInvalidated(layer);
+        }
 
         /// <summary>WPF FrameworkElement.SetResourceReference parity — resolves a themed resource by key.
         /// Skia theming is applied via the editor theme; this accepts the call so renderers compile.</summary>

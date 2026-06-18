@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.6.13] - 2026-06-17
+
+- Improved AvalonEdit parity.
+
 ## [v0.6.12] - 2026-06-10
 
 - Removed debugging UI elements.

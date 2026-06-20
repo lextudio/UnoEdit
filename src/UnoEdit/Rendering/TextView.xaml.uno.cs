@@ -1930,6 +1930,12 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         _visibleDocRows.Clear();
         if (_document is null) return;
         EnsureVisualLines();
+        // VisualTop must follow the *rendered* layout: visible rows stack contiguously (after the
+        // virtualization TopSpacer), so a row's top is the running sum of preceding visible row
+        // heights. Using GetVisualTopByDocumentLine ((line-1)*LineHeight) instead leaves gaps for
+        // folded/hidden lines, which desyncs hit-testing (GetVisualRowFromY) and the scroll extent
+        // from what is drawn. For a fully-expanded document the running sum equals the old value.
+        double runningTop = 0;
         for (int ln = 1; ln <= _document.LineCount; ln++)
         {
             if (IsLineHidden(ln))
@@ -1937,10 +1943,12 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
             DocumentLine line = _document.GetLineByNumber(ln);
             string lineText = _document.GetText(line);
-            double visualTop = GetVisualTopByDocumentLine(ln);
             double rowHeight = Math.Max(LineHeight, GetVisualLine(ln)?.Height ?? LineHeight);
-            foreach (var row in BuildVisualRowsForLine(ln, lineText, visualTop, rowHeight))
+            foreach (var row in BuildVisualRowsForLine(ln, lineText, runningTop, rowHeight))
+            {
                 _visibleDocRows.Add(row);
+                runningTop = row.VisualTop + row.RowHeight;
+            }
         }
     }
 
@@ -2160,8 +2168,47 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int targetColumn = Math.Clamp(logicalColumn + 1, 1, documentLine.Length + 1);
         _desiredColumn = targetColumn;
         int offset = _document.GetOffset(targetLine, targetColumn);
-        LogRender($"hit-test x={x:0.###} y={y:0.###} absY={absoluteY:0.###} visualRow={visualRow} targetLine={targetLine} docX={documentX:0.###} logicalColumn={logicalColumn} targetColumn={targetColumn} lineLength={documentLine.Length} offset={offset}");
+        string rowMap = "";
+        for (int ri = Math.Max(0, visualRow - 1); ri <= Math.Min(_visibleDocRows.Count - 1, visualRow + 2); ri++)
+            rowMap += $" r{ri}(L{_visibleDocRows[ri].LineNumber} top={_visibleDocRows[ri].VisualTop:0.#} h={_visibleDocRows[ri].RowHeight:0.#})";
+        LogRender($"hit-test x={x:0.###} y={y:0.###} absY={absoluteY:0.###} visualRow={visualRow} targetLine={targetLine} docX={documentX:0.###} logicalColumn={logicalColumn} targetColumn={targetColumn} lineLength={documentLine.Length} offset={offset} LineHeight={LineHeight:0.#} fontSize={EditorFontSize:0.#} rows=[{rowMap}]");
         return offset;
+    }
+
+    /// <summary>
+    /// Maps a point expressed relative to this TextView to a document offset, accounting for
+    /// folding, word-wrap, scrolling and the gutter. Returns -1 when there is no document.
+    /// <para/>
+    /// Public hit-test entry point for hosts (e.g. reference/documentation tooltips) that only have
+    /// a TextView-relative pointer position. Unlike <see cref="GetPosition"/>, this honours collapsed
+    /// (folded) regions via the visible-row map, so visual lines resolve to the correct document line.
+    /// </summary>
+    public int GetOffsetFromTextViewPoint(Windows.Foundation.Point pointRelativeToTextView)
+    {
+        if (_document is null || ContentStackPanel is null)
+        {
+            return -1;
+        }
+
+        var contentPoint = TransformToVisual(ContentStackPanel).TransformPoint(pointRelativeToTextView);
+        return GetOffsetFromViewPoint(contentPoint.X, contentPoint.Y);
+    }
+
+    /// <summary>
+    /// Maps a pointer event to a document offset using the same content-relative coordinates as the
+    /// editor's own caret/selection hit-testing (folding/word-wrap/gutter/scroll aware). Returns -1
+    /// when there is no document. Preferred over <see cref="GetOffsetFromTextViewPoint"/> because it
+    /// reads the pointer directly in content space, avoiding any visual-transform drift.
+    /// </summary>
+    public int GetOffsetFromPointerEvent(Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (_document is null || ContentStackPanel is null)
+        {
+            return -1;
+        }
+
+        var point = e.GetCurrentPoint(ContentStackPanel).Position;
+        return GetOffsetFromViewPoint(point.X, point.Y);
     }
 
     partial void InitializePlatformInputBridge();

@@ -13,14 +13,21 @@ public enum FoldMarkerKind { None, CanFold, CanExpand, InsideFold, FoldEnd }
 /// <summary>A single colored text segment for a line.</summary>
 public readonly struct TextRun
 {
-    public TextRun(string text, Windows.UI.Color foreground)
+    public TextRun(string text, Windows.UI.Color foreground, bool isControlCharacterBox = false)
     {
         Text = text;
         Foreground = foreground;
+        IsControlCharacterBox = isControlCharacterBox;
     }
 
     public string Text { get; }
     public Windows.UI.Color Foreground { get; }
+
+    /// <summary>
+    /// When true, <see cref="Text"/> is the name of a control character (e.g. "NUL") that should
+    /// be drawn inside a box, matching WPF AvalonEdit's SingleCharacterElementGenerator.
+    /// </summary>
+    public bool IsControlCharacterBox { get; }
 }
 
 public sealed class TextLineViewModel : INotifyPropertyChanged
@@ -80,7 +87,9 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         IReadOnlyList<ReferenceSegment>? referenceSegments = null,
         int preeditVisualStart = -1,
         int preeditVisualEnd = -1,
-        int textStartColumn = 0)
+        int textStartColumn = 0,
+        double rowHeight = 22d,
+        bool showControlCharacterBoxes = true)
     {
         FoldMarker = foldMarker;
         WrapText = wrapText;
@@ -106,7 +115,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         ReferenceSegments    = referenceSegments ?? System.Array.Empty<ReferenceSegment>();
         _preeditVisualStart  = preeditVisualStart;
         _preeditVisualEnd    = preeditVisualEnd;
-        Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground, textStartColumn);
+        RowHeight            = rowHeight;
+        Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground, textStartColumn, showControlCharacterBoxes);
     }
 
     internal TextLineViewModel WithLineNumberText(string lineNumberText)
@@ -153,6 +163,7 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         _preeditVisualStart   = source._preeditVisualStart;
         _preeditVisualEnd     = source._preeditVisualEnd;
         Runs                  = source.Runs;  // reuse pre-computed syntax-highlighted runs
+        RowHeight             = source.RowHeight;
     }
 
     /// <summary>
@@ -238,6 +249,11 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             Runs = source.Runs;
             Notify(nameof(Runs));
         }
+        if (Math.Abs(RowHeight - source.RowHeight) > 0.001)
+        {
+            RowHeight = source.RowHeight;
+            Notify(nameof(RowHeight));
+        }
         if (!ReferenceEquals(SelectionBorderBrush, source.SelectionBorderBrush))
         {
             SelectionBorderBrush = source.SelectionBorderBrush;
@@ -303,6 +319,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
 
     public string Text { get; private set; }
 
+    public double RowHeight { get; private set; }
+
     private double _caretOpacity;
     public double CaretOpacity { get => _caretOpacity; internal set { if (Math.Abs(_caretOpacity - value) > 0.001) { _caretOpacity = value; Notify(); } } }
 
@@ -350,15 +368,18 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
     /// <summary>Pre-computed color runs for syntax-highlighted rendering.</summary>
     public IReadOnlyList<TextRun> Runs { get; private set; }
 
-    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground, int textStartColumn)
+    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground, int textStartColumn, bool showControlCharacterBoxes)
     {
         // Expand tabs to spaces so the visual width matches the column math in TextView.
         string expanded = ExpandTabs(text);
 
-        if (line == null || line.Sections.Count == 0 || expanded.Length == 0)
+        bool hasControlCharacters = showControlCharacterBoxes && ContainsControlCharacter(expanded);
+
+        // Fast path: no syntax sections and no control characters to box → a single run.
+        if ((line == null || line.Sections.Count == 0 || expanded.Length == 0) && !hasControlCharacters)
             return new[] { new TextRun(expanded, defaultForeground) };
 
-        int lineStart = line.DocumentLine.Offset;
+        int lineStart = line?.DocumentLine.Offset ?? 0;
         // Map from logical offsets to per-expanded-character color, handling tab expansion.
         // First build a logical→visual offset map.
         int logicalLen = text.Length;
@@ -376,7 +397,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
 
         var colors = new Windows.UI.Color?[visualLen];
 
-        foreach (var section in line.Sections)
+        var sections = line?.Sections ?? (IList<HighlightedSection>)System.Array.Empty<HighlightedSection>();
+        foreach (var section in sections)
         {
             if (section.Color?.Foreground == null) continue;
             var mediaColor = section.Color.Foreground.GetColor();
@@ -402,14 +424,66 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         int pos = 0;
         while (pos < visualLen)
         {
+            char ch = expanded[pos];
+            // A control character becomes its own boxed run (e.g. NUL), matching WPF AvalonEdit.
+            if (hasControlCharacters && char.IsControl(ch))
+            {
+                runs.Add(new TextRun(GetControlCharacterName(ch), colors[pos] ?? defaultForeground, isControlCharacterBox: true));
+                pos++;
+                continue;
+            }
+
             var c = colors[pos] ?? defaultForeground;
             int end = pos + 1;
-            while (end < visualLen && (colors[end] ?? defaultForeground) == c)
+            while (end < visualLen
+                   && !(hasControlCharacters && char.IsControl(expanded[end]))
+                   && (colors[end] ?? defaultForeground) == c)
                 end++;
             runs.Add(new TextRun(expanded.Substring(pos, end - pos), c));
             pos = end;
         }
         return runs;
+    }
+
+    private static bool ContainsControlCharacter(string text)
+    {
+        foreach (char ch in text)
+            if (char.IsControl(ch))
+                return true;
+        return false;
+    }
+
+    // Names of the C0 control block (0x00–0x1F); mirrors AvalonEdit's TextUtilities table.
+    private static readonly string[] C0Names =
+    {
+        "NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL", "BS", "HT",
+        "LF", "VT", "FF", "CR", "SO", "SI", "DLE", "DC1", "DC2", "DC3",
+        "DC4", "NAK", "SYN", "ETB", "CAN", "EM", "SUB", "ESC", "FS", "GS",
+        "RS", "US",
+    };
+
+    // DEL (0x7F) and the C1 control block (0x80–0x9F).
+    private static readonly string[] DelAndC1Names =
+    {
+        "DEL",
+        "PAD", "HOP", "BPH", "NBH", "IND", "NEL", "SSA", "ESA", "HTS", "HTJ",
+        "VTS", "PLD", "PLU", "RI", "SS2", "SS3", "DCS", "PU1", "PU2", "STS",
+        "CCH", "MW", "SPA", "EPA", "SOS", "SGCI", "SCI", "CSI", "ST", "OSC",
+        "PM", "APC",
+    };
+
+    /// <summary>
+    /// Gets the display name of a control character (e.g. NUL, ESC). Unknown values fall back to a
+    /// 4-digit hex codepoint. Matches ICSharpCode.AvalonEdit.Document.TextUtilities.GetControlCharacterName.
+    /// </summary>
+    private static string GetControlCharacterName(char controlCharacter)
+    {
+        int num = controlCharacter;
+        if (num < C0Names.Length)
+            return C0Names[num];
+        if (num >= 127 && num <= 159)
+            return DelAndC1Names[num - 127];
+        return num.ToString("x4", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>Expand tab characters to the next multiple-of-<see cref="TabWidth"/> space boundary.</summary>

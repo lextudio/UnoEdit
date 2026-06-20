@@ -208,7 +208,7 @@ public sealed partial class TextView
     {
         return _visibleDocRows.Count > 0
             ? _visibleDocRows[Math.Clamp(visualRow, 0, _visibleDocRows.Count - 1)]
-            : new VisibleDocumentRow(location.Line, 0, 0, true, true);
+            : new VisibleDocumentRow(location.Line, 0, 0, true, true, 0, LineHeight);
     }
 
     internal bool MoveWordBoundary(bool backward, bool extendSelection)

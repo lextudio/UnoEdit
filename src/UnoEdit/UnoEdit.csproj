@@ -32,7 +32,7 @@
     <IsPackable>true</IsPackable>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <UseNuGetPackage>false</UseNuGetPackage>
+    <UseNuGetPackage>true</UseNuGetPackage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -336,12 +336,26 @@
     <ProjectReference Include="..\..\..\TextCore.Uno\src\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
+  <!-- UnoRichText's RichTextBlock backs HighlightedTextBlock on the Uno desktop target only:
+       Uno's native TextBlock cannot render InlineUIContainer (control-character boxes), whereas
+       WinUI's native TextBlock can — so the WinUI target keeps the native TextBlock and skips this. -->
+  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+    <ProjectReference Include="..\..\..\UnoRichText\src\LeXtudio.RichText\LeXtudio.RichText.csproj" />
+  </ItemGroup>
+
   <!-- Import native asset targets for project references (NuGet packages import via buildTransitive) -->
   <Import Project="../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackage)' != 'true'" />
 
   <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
     <PackageReference Include="LeXtudio.TextBox" />
     <PackageReference Include="LeXtudio.Windows" />
+  </ItemGroup>
+
+  <!-- UnoRichText's RichTextBlock backs HighlightedTextBlock on the Uno desktop target only
+       (WinUI's native TextBlock renders InlineUIContainer, Uno's does not), so the package
+       dependency is desktop-only. -->
+  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+    <PackageReference Include="LeXtudio.RichText" />
   </ItemGroup>
 
   <!-- WinUI-specific package references and pages (only for the windows TargetFramework) -->

@@ -258,7 +258,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private double _lastPublishedVerticalOffset;
     private bool _visibleLinesPublished;
 
-    private readonly record struct VisibleDocumentRow(int LineNumber, int StartColumn, int EndColumn, bool IsFirstRow, bool IsLastRow);
+    private readonly record struct VisibleDocumentRow(int LineNumber, int StartColumn, int EndColumn, bool IsFirstRow, bool IsLastRow, double VisualTop, double RowHeight);
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
@@ -307,8 +307,57 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (element == null)
             return new InlineElementMetrics(new Size(0, 0), 0);
 
-        element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var availableWidth = ActualWidth;
+        if (double.IsNaN(availableWidth) || availableWidth <= 0)
+            availableWidth = 640;
+        element.Measure(new Size(Math.Max(1, availableWidth - 32), 320));
         return new InlineElementMetrics(element.DesiredSize, element.DesiredSize.Height);
+    }
+
+    public void ArrangeInlineElement(UIElement element, Rect bounds)
+    {
+        if (element == null || InlineObjectsCanvas == null)
+            return;
+
+        if (!InlineObjectsCanvas.Children.Contains(element))
+            InlineObjectsCanvas.Children.Add(element);
+
+        Microsoft.UI.Xaml.Controls.Canvas.SetLeft(element, bounds.X);
+        Microsoft.UI.Xaml.Controls.Canvas.SetTop(element, bounds.Y);
+
+        var width = Math.Max(1, bounds.Width);
+        var height = Math.Max(1, bounds.Height);
+        InlineObjectsCanvas.Width = Math.Max(InlineObjectsCanvas.Width, bounds.X + width);
+        InlineObjectsCanvas.Height = Math.Max(InlineObjectsCanvas.Height, bounds.Y + height);
+        if (element is FrameworkElement frameworkElement)
+        {
+            frameworkElement.Width = width;
+            frameworkElement.Height = height;
+            frameworkElement.Visibility = Visibility.Visible;
+        }
+
+        InlineObjectsCanvas.InvalidateArrange();
+    }
+
+    public string GetInlineObjectsDebugSnapshot()
+    {
+        if (InlineObjectsCanvas == null)
+            return "inlineCanvas=<null>";
+
+        var lines = new List<string>
+        {
+            $"inlineCanvas children={InlineObjectsCanvas.Children.Count} size={InlineObjectsCanvas.ActualWidth:0.##}x{InlineObjectsCanvas.ActualHeight:0.##} explicit={InlineObjectsCanvas.Width:0.##}x{InlineObjectsCanvas.Height:0.##}",
+        };
+        for (var i = 0; i < InlineObjectsCanvas.Children.Count; i++)
+        {
+            var child = InlineObjectsCanvas.Children[i];
+            var left = Microsoft.UI.Xaml.Controls.Canvas.GetLeft(child);
+            var top = Microsoft.UI.Xaml.Controls.Canvas.GetTop(child);
+            var fe = child as FrameworkElement;
+            lines.Add($"inline[{i}] type={child.GetType().FullName} left={left:0.##} top={top:0.##} actual={fe?.ActualWidth:0.##}x{fe?.ActualHeight:0.##} explicit={fe?.Width:0.##}x{fe?.Height:0.##}");
+        }
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     public TextDocument? Document
@@ -996,6 +1045,13 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         {
             _characterWidth = measuredCharacterWidth;
         }
+        if (Math.Abs(DefaultLineHeight - LineHeight) > 0.001)
+        {
+            DefaultLineHeight = LineHeight;
+            DefaultBaseline = Math.Max(1, LineHeight - 6);
+            VisualLinesValid = false;
+            _visibleDocRows.Clear();
+        }
     }
 
     private double MeasureCharacterWidth()
@@ -1148,9 +1204,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             viewportHeight = ActualHeight > 0 ? ActualHeight : 400;
         }
 
-        int visibleRowCount = Math.Max(1, (int)Math.Ceiling(viewportHeight / LineHeight) + (OverscanLineCount * 2));
-        firstVisualRow = Math.Max(0, ((int)(verticalOffset / LineHeight)) - OverscanLineCount);
-        lastVisualRow = Math.Min(totalVisualRows - 1, firstVisualRow + visibleRowCount - 1);
+        firstVisualRow = Math.Max(0, GetVisualRowFromY(verticalOffset) - OverscanLineCount);
+        double viewportBottom = verticalOffset + viewportHeight + (OverscanLineCount * LineHeight);
+        lastVisualRow = Math.Min(totalVisualRows - 1, GetVisualRowFromY(viewportBottom) + OverscanLineCount);
         return lastVisualRow >= firstVisualRow;
     }
 
@@ -1183,10 +1239,11 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int clamped = Math.Clamp(lineNumber, 1, _document.LineCount);
         int visualRow = GetVisualRow(clamped);
         if (visualRow < 0) return;
-        double targetTop = visualRow * LineHeight;
+        double targetTop = GetVisualRowTop(visualRow);
+        double targetHeight = GetVisualRowHeight(visualRow);
         double viewportTop    = TextScrollViewer.VerticalOffset;
         double viewportBottom = viewportTop + TextScrollViewer.ViewportHeight;
-        if (targetTop < viewportTop || targetTop + LineHeight > viewportBottom)
+        if (targetTop < viewportTop || targetTop + targetHeight > viewportBottom)
             TextScrollViewer.ChangeView(null, targetTop, null, false);
     }
 
@@ -1200,8 +1257,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         TextLocation location = _document.GetLocation(CurrentOffset);
         int visualRow = GetVisualRow(location.Line, location.Column - 1);
         if (visualRow < 0) return; // caret on a hidden line (shouldn't normally occur)
-        double targetTop = Math.Max(0, visualRow * LineHeight);
-        double targetBottom = targetTop + LineHeight;
+        double targetTop = Math.Max(0, GetVisualRowTop(visualRow));
+        double targetBottom = targetTop + GetVisualRowHeight(visualRow);
         double viewportTop = TextScrollViewer.VerticalOffset;
         double viewportBottom = viewportTop + TextScrollViewer.ViewportHeight;
 
@@ -1298,6 +1355,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         // Ensure visible-line list is populated (it may be empty on first call).
+        EnsureVisualLines();
         if (_visibleDocRows.Count == 0 && _document.LineCount > 0)
             RebuildVisibleLineList();
 
@@ -1309,9 +1367,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             viewportHeight = ActualHeight > 0 ? ActualHeight : 400;
         }
 
-        int visibleRowCount = Math.Max(1, (int)Math.Ceiling(viewportHeight / LineHeight) + (OverscanLineCount * 2));
-        int firstVisualRow = Math.Max(0, ((int)(verticalOffset / LineHeight)) - OverscanLineCount);
-        int lastVisualRow = Math.Min(totalVisualRows - 1, firstVisualRow + visibleRowCount - 1);
+        int firstVisualRow = Math.Max(0, GetVisualRowFromY(verticalOffset) - OverscanLineCount);
+        double viewportBottom = verticalOffset + viewportHeight + (OverscanLineCount * LineHeight);
+        int lastVisualRow = Math.Min(totalVisualRows - 1, GetVisualRowFromY(viewportBottom) + OverscanLineCount);
 
         if (totalVisualRows > 0)
         {
@@ -1486,7 +1544,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                     lineRefs,
                     preeditVisualStart,
                     preeditVisualEnd,
-                    row.StartColumn).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty));
+                    row.StartColumn,
+                    row.RowHeight,
+            Options?.ShowBoxForControlCharacters ?? true).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty));
             }
             _highlightingDataInvalidated = false;
             _dirtyHighlightedLines.Clear();
@@ -1559,8 +1619,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _prevTheme = Theme;
             StoreCurrentFontSettings();
             _prevHighlightedLineSource = _highlightedLineSource;
-            TopSpacer.Height = firstVisualRow * LineHeight;
-            BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
+            TopSpacer.Height = GetVisualRowTop(firstVisualRow);
+            BottomSpacer.Height = Math.Max(0, GetTotalVisualHeight() - GetVisualRowBottom(lastVisualRow));
             LogVisibleLineNumbers("shift", _lines);
             sw.Stop();
             LogPerf($"refresh-core reason={reason} path=shift rows={firstVisualRow}-{lastVisualRow} delta={rowDelta} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
@@ -1607,8 +1667,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         _prevTheme          = Theme;
         StoreCurrentFontSettings();
         _prevHighlightedLineSource = _highlightedLineSource;
-        TopSpacer.Height = firstVisualRow * LineHeight;
-        BottomSpacer.Height = Math.Max(0, (totalVisualRows - 1 - lastVisualRow) * LineHeight);
+        TopSpacer.Height = GetVisualRowTop(firstVisualRow);
+        BottomSpacer.Height = Math.Max(0, GetTotalVisualHeight() - GetVisualRowBottom(lastVisualRow));
         sw.Stop();
         LogPerf($"refresh-core reason={reason} path=full rows={firstVisualRow}-{lastVisualRow} expectedCount={expectedCount} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
     }
@@ -1742,7 +1802,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             lineRefs,
             preeditVisualStart,
             preeditVisualEnd,
-            row.StartColumn).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty);
+            row.StartColumn,
+            row.RowHeight,
+            Options?.ShowBoxForControlCharacters ?? true).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty);
     }
 
     private void PublishVisibleLinesState(int firstVisualRow, int lastVisualRow)
@@ -1867,6 +1929,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         _visibleDocRows.Clear();
         if (_document is null) return;
+        EnsureVisualLines();
         for (int ln = 1; ln <= _document.LineCount; ln++)
         {
             if (IsLineHidden(ln))
@@ -1874,16 +1937,18 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
             DocumentLine line = _document.GetLineByNumber(ln);
             string lineText = _document.GetText(line);
-            foreach (var row in BuildVisualRowsForLine(ln, lineText))
+            double visualTop = GetVisualTopByDocumentLine(ln);
+            double rowHeight = Math.Max(LineHeight, GetVisualLine(ln)?.Height ?? LineHeight);
+            foreach (var row in BuildVisualRowsForLine(ln, lineText, visualTop, rowHeight))
                 _visibleDocRows.Add(row);
         }
     }
 
-    private IEnumerable<VisibleDocumentRow> BuildVisualRowsForLine(int lineNumber, string lineText)
+    private IEnumerable<VisibleDocumentRow> BuildVisualRowsForLine(int lineNumber, string lineText, double visualTop, double rowHeight)
     {
         if (!WordWrap || lineText.Length == 0)
         {
-            yield return new VisibleDocumentRow(lineNumber, 0, lineText.Length, true, true);
+            yield return new VisibleDocumentRow(lineNumber, 0, lineText.Length, true, true, visualTop, rowHeight);
             yield break;
         }
 
@@ -1894,7 +1959,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         while (start < lineText.Length)
         {
             int end = FindWrapEnd(lineText, start, wrapColumn);
-            rows.Add(new VisibleDocumentRow(lineNumber, start, end, first, false));
+            rows.Add(new VisibleDocumentRow(lineNumber, start, end, first, false, visualTop + rows.Count * LineHeight, LineHeight));
             first = false;
             start = end;
         }
@@ -1982,6 +2047,45 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         return firstLineRow;
     }
 
+    private double GetVisualRowTop(int visualRow)
+    {
+        if (_visibleDocRows.Count == 0)
+            return 0;
+        visualRow = Math.Clamp(visualRow, 0, _visibleDocRows.Count - 1);
+        return _visibleDocRows[visualRow].VisualTop;
+    }
+
+    private double GetVisualRowHeight(int visualRow)
+    {
+        if (_visibleDocRows.Count == 0)
+            return LineHeight;
+        visualRow = Math.Clamp(visualRow, 0, _visibleDocRows.Count - 1);
+        return Math.Max(LineHeight, _visibleDocRows[visualRow].RowHeight);
+    }
+
+    private double GetVisualRowBottom(int visualRow) => GetVisualRowTop(visualRow) + GetVisualRowHeight(visualRow);
+
+    private double GetTotalVisualHeight()
+    {
+        if (_visibleDocRows.Count == 0)
+            return 0;
+        return Math.Max(DocumentHeight, GetVisualRowBottom(_visibleDocRows.Count - 1));
+    }
+
+    private int GetVisualRowFromY(double visualY)
+    {
+        if (_visibleDocRows.Count == 0)
+            return 0;
+
+        for (int i = 0; i < _visibleDocRows.Count; i++)
+        {
+            if (visualY < GetVisualRowBottom(i))
+                return i;
+        }
+
+        return _visibleDocRows.Count - 1;
+    }
+
     /// <summary>Determine the fold-marker kind for a document line.</summary>
     private FoldMarkerKind GetFoldMarkerKind(DocumentLine line)
     {
@@ -2038,10 +2142,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         // TopSpacer.Height). Adding `TextScrollViewer.VerticalOffset` double-counts the
         // scroll offset; use the content-relative Y directly.
         double absoluteY = y;
-        int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocRows.Count - 1);
+        int visualRow = GetVisualRowFromY(absoluteY);
         var row = _visibleDocRows.Count > 0
             ? _visibleDocRows[visualRow]
-            : new VisibleDocumentRow(1, 0, 0, true, true);
+            : new VisibleDocumentRow(1, 0, 0, true, true, 0, LineHeight);
         int targetLine = row.LineNumber;
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 

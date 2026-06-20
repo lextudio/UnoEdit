@@ -24,5 +24,6 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		void AttachInlineElement(UIElement element);
 		void DetachInlineElement(UIElement element);
 		InlineElementMetrics MeasureInlineElement(UIElement element);
+		void ArrangeInlineElement(UIElement element, Rect bounds);
 	}
 }

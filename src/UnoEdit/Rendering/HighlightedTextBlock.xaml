@@ -3,7 +3,11 @@
 <UserControl x:Class="UnoEdit.Skia.Desktop.Controls.HighlightedTextBlock"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <TextBlock x:Name="PART_Text"
-             TextWrapping="NoWrap"
-             VerticalAlignment="Center" />
+  <!-- Host for the inner text control. The control type differs per platform (see
+       HighlightedTextBlock.xaml.uno.cs): WinUI's native TextBlock renders InlineUIContainer
+       (control-character boxes) correctly, but Uno's native TextBlock silently drops it, so
+       the Uno desktop target hosts a LeXtudio RichTextBlock instead. Building the inner control
+       in code-behind keeps the XAML free of cross-SDK conditionals. -->
+  <Border x:Name="PART_Host"
+          VerticalAlignment="Center" />
 </UserControl>

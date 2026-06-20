@@ -1,5 +1,7 @@
-using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Media;
+#if WINDOWS_APP_SDK
+using Microsoft.UI.Xaml.Documents;
+#endif
 
 namespace UnoEdit.Skia.Desktop.Controls;
 
@@ -45,9 +47,31 @@ public sealed partial class HighlightedTextBlock : UserControl
     private System.Collections.Generic.IReadOnlyList<TextRun>? _lastRuns;
     private System.Collections.Generic.IReadOnlyList<ICSharpCode.AvalonEdit.Rendering.ReferenceSegment>? _lastRefSegs;
 
+    // The inner text control hosted by PART_Host. On the WinUI target this is the native
+    // TextBlock, which renders embedded InlineUIContainers (the control-character boxes).
+    // On the Uno desktop target the native TextBlock silently drops InlineUIContainer, so we
+    // host a LeXtudio RichTextBlock instead — it renders the boxes the same way WPF AvalonEdit
+    // does via SingleCharacterElementGenerator. The two controls take different inline type
+    // systems (Microsoft.UI.Xaml.Documents vs the System.Windows.Documents shim), so the
+    // inline-building code below is split per platform.
+#if WINDOWS_APP_SDK
+    private readonly Microsoft.UI.Xaml.Controls.TextBlock _text = new()
+    {
+        TextWrapping = TextWrapping.NoWrap,
+        VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
+    };
+#else
+    private readonly LeXtudio.UI.Xaml.Controls.RichTextBlock _text = new()
+    {
+        TextWrapping = TextWrapping.NoWrap,
+        VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
+    };
+#endif
+
     public HighlightedTextBlock()
     {
         this.InitializeComponent();
+        PART_Host.Child = _text;
         ApplyEditorFont();
     }
 
@@ -88,10 +112,10 @@ public sealed partial class HighlightedTextBlock : UserControl
 
     private void ApplyEditorFont()
     {
-        PART_Text.FontFamily = EditorFontFamily;
-        PART_Text.FontSize = EditorFontSize;
-        PART_Text.FontWeight = EditorFontWeight;
-        PART_Text.FontStyle = EditorFontStyle;
+        _text.FontFamily = EditorFontFamily;
+        _text.FontSize = EditorFontSize;
+        _text.FontWeight = EditorFontWeight;
+        _text.FontStyle = EditorFontStyle;
     }
 
     private static void OnLineViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -127,8 +151,32 @@ public sealed partial class HighlightedTextBlock : UserControl
         _lastRuns    = newRuns;
         _lastRefSegs = newRefSegs;
 
-        var inlines = PART_Text.Inlines;
+        ApplyInlines(newRuns, newRefSegs, vm);
+    }
+
+    private void ApplyWrapping(TextLineViewModel? vm)
+    {
+        _text.TextWrapping = vm?.WrapText == true
+            ? TextWrapping.WrapWholeWords
+            : TextWrapping.NoWrap;
+    }
+
+#if WINDOWS_APP_SDK
+    private void ApplyInlines(
+        System.Collections.Generic.IReadOnlyList<TextRun>? newRuns,
+        System.Collections.Generic.IReadOnlyList<ICSharpCode.AvalonEdit.Rendering.ReferenceSegment>? newRefSegs,
+        TextLineViewModel? vm)
+    {
+        var inlines = _text.Inlines;
         bool hasRefs = newRefSegs is { Count: > 0 };
+
+        // Lines containing control-character boxes mix Run and InlineUIContainer inlines; the
+        // positional in-place updater below only handles plain Runs, so rebuild them wholesale.
+        if (HasControlCharacterBox(newRuns))
+        {
+            RebuildInlinesWithBoxes(newRuns!, newRefSegs, vm);
+            return;
+        }
 
         if (newRuns is null || newRuns.Count == 0)
         {
@@ -201,11 +249,132 @@ public sealed partial class HighlightedTextBlock : UserControl
             inlines.RemoveAt(inlines.Count - 1);
     }
 
-    private void ApplyWrapping(TextLineViewModel? vm)
+    private static bool HasControlCharacterBox(System.Collections.Generic.IReadOnlyList<TextRun>? runs)
     {
-        PART_Text.TextWrapping = vm?.WrapText == true
-            ? TextWrapping.WrapWholeWords
-            : TextWrapping.NoWrap;
+        if (runs is null)
+            return false;
+        for (int i = 0; i < runs.Count; i++)
+            if (runs[i].IsControlCharacterBox)
+                return true;
+        return false;
+    }
+
+    // Builds a fresh inline collection where control-character runs render as a gray rounded box
+    // (InlineUIContainer → Border → TextBlock) and the rest as ordinary colored Runs, matching
+    // WPF AvalonEdit's SingleCharacterElementGenerator.
+    private void RebuildInlinesWithBoxes(
+        System.Collections.Generic.IReadOnlyList<TextRun> runs,
+        System.Collections.Generic.IReadOnlyList<ICSharpCode.AvalonEdit.Rendering.ReferenceSegment>? refSegs,
+        TextLineViewModel? vm)
+    {
+        var inlines = _text.Inlines;
+        inlines.Clear();
+        bool hasRefs = refSegs is { Count: > 0 };
+        int vPos = 0;
+
+        foreach (var textRun in runs)
+        {
+            if (textRun.IsControlCharacterBox)
+            {
+                inlines.Add(CreateControlCharacterInline(textRun.Text));
+                vPos += 1; // a control character occupies a single visual column
+                continue;
+            }
+
+            int rStart = vPos;
+            int rEnd = vPos + textRun.Text.Length;
+            vPos = rEnd;
+            bool isRef = hasRefs && IsInReference(refSegs!, rStart, rEnd, vm?.Text ?? string.Empty);
+            inlines.Add(new Run
+            {
+                Text = textRun.Text,
+                Foreground = new SolidColorBrush(textRun.Foreground),
+                TextDecorations = isRef
+                    ? Windows.UI.Text.TextDecorations.Underline
+                    : Windows.UI.Text.TextDecorations.None,
+            });
+        }
+    }
+
+    private InlineUIContainer CreateControlCharacterInline(string name)
+        => new() { Child = CreateControlCharacterBox(name) };
+#else
+    // Uno desktop: rebuild the RichTextBlock's inline collection in one pass. Plain runs become
+    // System.Windows.Documents.Run, control-character runs become a boxed Border (added as an
+    // implicit InlineUIContainer). RichTextBlock re-lays-out on every Inlines mutation, and the
+    // caret/line-selection are drawn by sibling overlay elements in TextView's DataTemplate, so
+    // a clean rebuild here is both correct and cheap (only runs on actual text changes — the
+    // RefreshInlines early-out skips caret/selection-only updates).
+    private void ApplyInlines(
+        System.Collections.Generic.IReadOnlyList<TextRun>? newRuns,
+        System.Collections.Generic.IReadOnlyList<ICSharpCode.AvalonEdit.Rendering.ReferenceSegment>? newRefSegs,
+        TextLineViewModel? vm)
+    {
+        // RichTextBlock's top-level Inlines collection is owned by a FlowDocument, whose WPF
+        // schema rejects inlines as direct children — content must hang off a Block. So build a
+        // single Paragraph and add the runs to its Inlines (the same path the RichTextBlock
+        // samples use); the renderer falls through to the Blocks loop when Inlines is empty.
+        _text.Blocks.Clear();
+
+        if (newRuns is null || newRuns.Count == 0)
+            return;
+
+        var paragraph = new System.Windows.Documents.Paragraph();
+        var inlines = paragraph.Inlines;
+        bool hasRefs = newRefSegs is { Count: > 0 };
+        int vPos = 0;
+
+        foreach (var textRun in newRuns)
+        {
+            if (textRun.IsControlCharacterBox)
+            {
+                // Add(UIElement) wraps the box in an implicit InlineUIContainer.
+                inlines.Add(CreateControlCharacterBox(textRun.Text));
+                vPos += 1; // a control character occupies a single visual column
+                continue;
+            }
+
+            int rStart = vPos;
+            int rEnd = vPos + textRun.Text.Length;
+            vPos = rEnd;
+            bool isRef = hasRefs && IsInReference(newRefSegs!, rStart, rEnd, vm?.Text ?? string.Empty);
+
+            var run = new System.Windows.Documents.Run
+            {
+                Text = textRun.Text,
+                Foreground = new SolidColorBrush(textRun.Foreground),
+            };
+            if (isRef)
+                run.TextDecorations = System.Windows.Media.TextDecorations.Underline;
+            inlines.Add(run);
+        }
+
+        _text.Blocks.Add(paragraph);
+    }
+#endif
+
+    // Gray rounded box bearing the control character's name (NUL, ETX, …), matching WPF
+    // AvalonEdit's SingleCharacterElementGenerator. Shared by both platforms' inline builders.
+    private Microsoft.UI.Xaml.Controls.Border CreateControlCharacterBox(string name)
+    {
+        var label = new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = name,
+            FontFamily = EditorFontFamily,
+            FontSize = EditorFontSize * 0.7,
+            Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
+            TextAlignment = Microsoft.UI.Xaml.TextAlignment.Center,
+        };
+        return new Microsoft.UI.Xaml.Controls.Border
+        {
+            Background = new SolidColorBrush(Windows.UI.Color.FromArgb(200, 128, 128, 128)),
+            CornerRadius = new Microsoft.UI.Xaml.CornerRadius(2.5),
+            Padding = new Microsoft.UI.Xaml.Thickness(2, 0, 2, 0),
+            Margin = new Microsoft.UI.Xaml.Thickness(0.5, 0, 0.5, 0),
+            VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
+            Child = label,
+        };
     }
 
     /// <summary>

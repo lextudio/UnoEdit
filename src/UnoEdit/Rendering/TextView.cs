@@ -267,9 +267,20 @@ namespace ICSharpCode.AvalonEdit.Rendering
 
 		void BuildSimpleVisualLines()
 		{
+			// Capture the inline objects from the previous build before rebuilding. The rebuild
+			// below re-attaches only the elements present in the current document; afterwards we
+			// detach any that are gone. Without this, embedded controls (e.g. a resource ListView)
+			// linger in the host visual tree after the user navigates to another node.
+			var host = Document?.ServiceProvider.GetService(typeof(IInlineObjectHost)) as IInlineObjectHost;
+			if (host != null)
+				inlineObjectHost = host;
+			var previousInlineObjects = new List<InlineObjectRun>(inlineObjects);
+			inlineObjects.Clear();
+
 			if (Document == null || Document.LineCount == 0) {
 				VisualLines = new ReadOnlyCollection<VisualLine>(new List<VisualLine>());
 				DocumentHeight = 0;
+				DetachStaleInlineElements(previousInlineObjects);
 				return;
 			}
 
@@ -277,6 +288,8 @@ namespace ICSharpCode.AvalonEdit.Rendering
 			var lines = new List<VisualLine>(Document.LineCount);
 			DocumentLine current = Document.GetLineByNumber(1);
 			double visualTop = 0;
+			var generators = elementGenerators?.ToArray() ?? Array.Empty<VisualLineElementGenerator>();
+			var transformers = lineTransformers?.ToArray() ?? Array.Empty<IVisualLineTransformer>();
 			while (current != null) {
 				var visualLine = new VisualLine(this, current) {
 					LastDocumentLine = current,
@@ -284,14 +297,98 @@ namespace ICSharpCode.AvalonEdit.Rendering
 					Height = lineHeight,
 					VisualLength = current.Length
 				};
-				visualLine.Elements = new ReadOnlyCollection<VisualLineElement>(new List<VisualLineElement>());
+				if (generators.Length > 0 || transformers.Length > 0) {
+					var context = new SimpleTextRunConstructionContext(this, visualLine);
+					visualLine.ConstructVisualElements(context, generators);
+					if (transformers.Length > 0)
+						visualLine.RunTransformers(context, transformers);
+					AttachInlineObjectsForVisualLine(visualLine, visualTop, lineHeight);
+				} else {
+					visualLine.Elements = new ReadOnlyCollection<VisualLineElement>(new List<VisualLineElement>());
+				}
 				lines.Add(visualLine);
-				visualTop += lineHeight;
+				visualTop += Math.Max(lineHeight, visualLine.Height);
 				current = current.NextLine;
 			}
 
 			VisualLines = new ReadOnlyCollection<VisualLine>(lines);
-			DocumentHeight = lines.Count * lineHeight;
+			DocumentHeight = visualTop;
+			DetachStaleInlineElements(previousInlineObjects);
+		}
+
+		// Detach inline elements that were attached in a previous build but are no longer part of
+		// the current set of inline objects, removing them from the host visual tree.
+		void DetachStaleInlineElements(List<InlineObjectRun> previousInlineObjects)
+		{
+			if (previousInlineObjects.Count == 0 || inlineObjectHost == null)
+				return;
+
+			foreach (var previous in previousInlineObjects) {
+				bool stillPresent = false;
+				for (int i = 0; i < inlineObjects.Count; i++) {
+					if (inlineObjects[i].Element == previous.Element) {
+						stillPresent = true;
+						break;
+					}
+				}
+				if (!stillPresent)
+					inlineObjectHost.DetachInlineElement(previous.Element);
+			}
+		}
+
+		void AttachInlineObjectsForVisualLine(VisualLine visualLine, double visualTop, double lineHeight)
+		{
+			if (visualLine?.Elements == null)
+				return;
+
+			foreach (var element in visualLine.Elements) {
+				if (element is not InlineObjectElement inlineElement)
+					continue;
+
+				var run = (InlineObjectRun)inlineElement.CreateTextRun(element.VisualColumn, new SimpleTextRunConstructionContext(this, visualLine));
+				AddInlineObject(run);
+
+				double x = 0;
+				double width = Math.Max(1.0, run.desiredMetrics.Size.Width);
+				double height = Math.Max(1.0, run.desiredMetrics.Size.Height);
+				bool isButton = run.Element?.GetType().Name.Contains("Button", StringComparison.Ordinal) == true;
+				if (isButton)
+					height = Math.Min(height, 24);
+				double lineRelativeTop = isButton || height <= lineHeight * 2 ? lineHeight : 0;
+				double y = visualTop + lineRelativeTop;
+				visualLine.hasInlineObjects = true;
+				visualLine.Height = Math.Max(visualLine.Height, lineRelativeTop + height);
+				(Document?.ServiceProvider.GetService(typeof(IInlineObjectHost)) as IInlineObjectHost)
+					?.ArrangeInlineElement(run.Element, new Windows.Foundation.Rect(x, y, width, height));
+			}
+		}
+
+		sealed class SimpleTextRunConstructionContext : ITextRunConstructionContext
+		{
+			readonly TextView textView;
+			readonly VisualLine visualLine;
+
+			public SimpleTextRunConstructionContext(TextView textView, VisualLine visualLine)
+			{
+				this.textView = textView;
+				this.visualLine = visualLine;
+				GlobalTextRunProperties = new VisualLineElementTextRunProperties();
+			}
+
+			public TextDocument Document => textView.Document;
+			public TextView TextView => textView;
+			public VisualLine VisualLine => visualLine;
+			public System.Windows.Media.TextFormatting.TextRunProperties GlobalTextRunProperties { get; }
+
+			public StringSegment GetText(int offset, int length)
+			{
+				if (Document == null || length <= 0)
+					return new StringSegment(string.Empty, 0, 0);
+
+				int safeOffset = Math.Max(0, Math.Min(offset, Document.TextLength));
+				int safeLength = Math.Max(0, Math.Min(length, Document.TextLength - safeOffset));
+				return new StringSegment(Document.GetText(safeOffset, safeLength), 0, safeLength);
+			}
 		}
 
 		// ----------------------------------------------------------------
@@ -346,6 +443,10 @@ namespace ICSharpCode.AvalonEdit.Rendering
 		// Inline object handling (host-side surface support)
 		// ----------------------------------------------------------------
 		List<InlineObjectRun> inlineObjects = new List<InlineObjectRun>();
+
+		// Last known inline-object host (the platform TextView). Cached so stale elements can be
+		// detached even on a rebuild where the document (and thus its ServiceProvider) is gone.
+		IInlineObjectHost inlineObjectHost;
 
 		/// <summary>
 		/// Adds a new inline object. Concrete UI layer may implement HostAddVisual to attach the element.

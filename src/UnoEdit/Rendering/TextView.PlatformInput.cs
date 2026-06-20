@@ -505,7 +505,7 @@ public sealed partial class TextView
 
         var row = _visibleDocRows[Math.Clamp(visualRow, 0, _visibleDocRows.Count - 1)];
         double x = GutterWidth + TextLeftPadding + GetRowRelativeX(lineText, row, logicalColumn) - TextScrollViewer.HorizontalOffset;
-        double y = (visualRow * LineHeight) - TextScrollViewer.VerticalOffset;
+        double y = GetVisualRowTop(visualRow) - TextScrollViewer.VerticalOffset;
 
         GeneralTransform transform = RootBorder.TransformToVisual(null);
         Point point = transform.TransformPoint(new Point(x, y));

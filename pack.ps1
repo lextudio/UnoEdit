@@ -116,13 +116,14 @@ function Test-UnoEditPackage([string]$PackagePath) {
     Reset-Directory $extractRoot
     try {
         [IO.Compression.ZipFile]::ExtractToDirectory($PackagePath, $extractRoot)
+        # UnoEdit's AssemblyName is ICSharpCode.AvalonEdit, so the lib asset is named accordingly.
         $desktopAssemblies = @(
-            Get-ChildItem -Path (Join-Path $extractRoot "lib") -Recurse -Filter "UnoEdit.dll" |
+            Get-ChildItem -Path (Join-Path $extractRoot "lib") -Recurse -Filter "ICSharpCode.AvalonEdit.dll" |
                 Where-Object { $_.FullName -match "net[0-9.]+-desktop" }
         )
 
         if ($desktopAssemblies.Count -eq 0) {
-            throw "Package '$PackagePath' does not contain a desktop UnoEdit.dll asset."
+            throw "Package '$PackagePath' does not contain a desktop ICSharpCode.AvalonEdit.dll asset."
         }
 
         foreach ($assembly in $desktopAssemblies) {

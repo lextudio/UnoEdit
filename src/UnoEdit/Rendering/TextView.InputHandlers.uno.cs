@@ -208,7 +208,7 @@ public sealed partial class TextView
         // TopSpacer height). Adding `TextScrollViewer.VerticalOffset` double-counts the
         // scroll offset and yields the wrong visual row. Use the content-relative Y directly.
         double absoluteY = y;
-        int visualRow = Math.Clamp((int)(absoluteY / LineHeight), 0, _visibleDocRows.Count - 1);
+        int visualRow = GetVisualRowFromY(absoluteY);
         return TryToggleFoldAtDocumentLine(_visibleDocRows[visualRow].LineNumber);
     }
 

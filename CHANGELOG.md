@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.0] - 2026-06-21
+
+- Redesigned rendering engine.
+
 ## [v0.6.13] - 2026-06-17
 
 - Improved AvalonEdit parity.

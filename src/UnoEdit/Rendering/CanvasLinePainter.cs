@@ -36,18 +36,15 @@ namespace ICSharpCode.AvalonEdit.Rendering
                 return cached;
 
             double width;
-            try
-            {
+#if WINDOWS_APP_SDK
                 using var format = new CanvasTextFormat { FontFamily = fontFamilySource, FontSize = (float)fontSize };
                 using var layout = new CanvasTextLayout(CanvasDevice.GetSharedDevice(), text, format, float.PositiveInfinity, float.PositiveInfinity);
                 // Include trailing whitespace: real Win2D's LayoutBounds excludes it, which would
                 // drop the advance for runs ending in spaces and collapse the spaces between tokens.
                 width = layout.LayoutBoundsIncludingTrailingWhitespace.Width;
-            }
-            catch
-            {
+#else
                 width = text.Length * fontSize * 0.6;
-            }
+#endif
 
             if (WidthCache.Count >= WidthCacheLimit)
                 WidthCache.Clear();

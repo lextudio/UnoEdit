@@ -200,7 +200,11 @@ public sealed partial class TextView
 
     private bool TryToggleFoldAtViewportPoint(double x, double y)
     {
-        if (_document is null || FoldingManager is null || x >= GutterWidth || _visibleDocRows.Count == 0)
+        // Only the fold-margin column toggles folds — not the line-number column. The fold margin
+        // sits just right of the (optional) line-number margin and is 16px wide.
+        double lineNumberWidth = ShowLineNumbers ? 40d : 0d;
+        if (_document is null || FoldingManager is null || _visibleDocRows.Count == 0
+            || x < lineNumberWidth || x >= lineNumberWidth + 16d)
         {
             return false;
         }

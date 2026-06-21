@@ -67,6 +67,7 @@
       </Grid.ColumnDefinitions>
 
       <avalonedit:TextEditor x:Name="Editor"
+                           ShowLineNumbers="True"
                            AutomationProperties.AutomationId="MainEditor" />
 
       <toolkit:GridSplitter Grid.Column="1"

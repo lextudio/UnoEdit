@@ -747,10 +747,36 @@ public partial class TextEditor : UserControl, ISearchPanelHost, System.Componen
         editor.NotifyPropertyChanged(nameof(EditorFontStyle));
     }
 
+    // The line-colorizing transformer produced by CreateColorizer for the current
+    // SyntaxHighlighting definition. AvalonEdit inserts this into the render pipeline when a
+    // definition is assigned; we mirror that so subclasses' CreateColorizer overrides (e.g.
+    // ILSpy's ThemeAwareHighlightingColorizer) actually drive the displayed colors.
+    private ICSharpCode.AvalonEdit.Rendering.IVisualLineTransformer? _activeColorizer;
+
     private static void OnSyntaxHighlightingChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var editor = (TextEditor)dependencyObject;
         editor.PART_TextArea.SyntaxHighlighting = args.NewValue as IHighlightingDefinition;
+        editor.UpdateColorizer(args.NewValue as IHighlightingDefinition);
+    }
+
+    // Replaces the registered line colorizer to match the current highlighting definition. The
+    // colorizer is created through the CreateColorizer virtual so derived editors can supply a
+    // theme-aware colorizer, and is added to the TextView's LineTransformers (the AvalonEdit
+    // render pipeline this port honors).
+    private void UpdateColorizer(IHighlightingDefinition? definition)
+    {
+        var transformers = PART_TextArea.TextView.LineTransformers;
+        if (_activeColorizer != null)
+        {
+            transformers.Remove(_activeColorizer);
+            _activeColorizer = null;
+        }
+        if (definition != null)
+        {
+            _activeColorizer = CreateColorizer(definition);
+            transformers.Add(_activeColorizer);
+        }
     }
 
     protected virtual ICSharpCode.AvalonEdit.Rendering.IVisualLineTransformer CreateColorizer(IHighlightingDefinition highlightingDefinition)

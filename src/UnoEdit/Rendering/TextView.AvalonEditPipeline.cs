@@ -124,12 +124,12 @@ namespace ICSharpCode.AvalonEdit.Rendering
         {
             if (Document is null || Document.LineCount == 0)
                 return null;
-            double charWidth = EditorFontSize * 0.6;
             int line = Math.Clamp((int)(contentPosition.Y / LineHeight) + 1, 1, Document.LineCount);
-            int maxCol = Document.GetLineByNumber(line).Length + 1;
-            int column = charWidth > 0
-                ? Math.Clamp((int)(contentPosition.X / charWidth) + 1, 1, maxCol)
-                : 1;
+            // Real glyph-advance hit-testing via the shared measurement (replaces the fontSize*0.6
+            // monospace guess) so column resolution matches the rendered glyph positions.
+            string lineText = Document.GetText(Document.GetLineByNumber(line));
+            int logicalColumn = GetLogicalColumnFromDisplayX(lineText, contentPosition.X);
+            int column = Math.Clamp(logicalColumn + 1, 1, lineText.Length + 1);
             return new ICSharpCode.AvalonEdit.TextViewPosition(line, column);
         }
 

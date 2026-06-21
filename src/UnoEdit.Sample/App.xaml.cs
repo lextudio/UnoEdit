@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
 using DevToolsUno;
 using DevToolsUno.Diagnostics;
+using LeXtudio.DevFlow.Agent.Uno;
+using Microsoft.Maui.DevFlow.Agent.Core;
 #else
 using Microsoft.UI.Xaml.Markup;
 #endif
@@ -15,6 +17,10 @@ namespace UnoEdit.Skia.Desktop;
 
 public partial class App : Application
 {
+#if !WINDOWS_APP_SDK
+    private UnoAgentService? _devFlowAgent;
+#endif
+
     public App()
     {
         this.InitializeComponent();
@@ -116,6 +122,11 @@ public partial class App : Application
 #endif
             mainWindow.SetWindowIcon();
             mainWindow.Activate();
+
+            // DevFlow agent: exposes the live visual tree / screenshots over a local REST API so the
+            // editor's rendering (incl. the experimental canvas surface) can be A/B-inspected.
+            _devFlowAgent = new UnoAgentService(new AgentOptions { Port = AgentOptions.DefaultPort });
+            _devFlowAgent.Start();
         }
 #endif
     }

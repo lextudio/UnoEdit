@@ -4,13 +4,22 @@ This document describes the default font choices and runtime behavior used by Un
 
 ## Editor default
 
-- macOS: `Menlo` (preferred monospaced system font)
-- Linux: `DejaVu Sans Mono` (widely available monospaced font)
-- Windows / other: `Consolas`
+- Default family: **`Cascadia Code`** (an open-source monospaced code font).
 
-Rationale: the editor uses a platform-appropriate monospace font so code and caret metrics remain consistent across platforms.
+Rationale: a single open-source monospaced family gives consistent glyph advances and caret
+metrics across platforms. By the bare family name it resolves from the system when installed;
+apps that want deterministic rendering everywhere can bundle the `CascadiaCode-Regular.ttf` asset
+and override `TextEditor.EditorFontFamily` with an `ms-appx:///…#Cascadia Code` reference
+(the UnoEdit sample vendors the font under `Assets/Fonts/`).
 
 The editor default is produced by `EditorTextMetrics.CreateFontFamily()` in `src/UnoEdit/Rendering/EditorTextMetrics.cs`.
+
+## Line height
+
+Row height is **derived from the editor font's real metrics** (via `CanvasLinePainter.GetLineHeight`,
+which measures through `CanvasTextLayout`), multiplied by a small leading factor — not a hardcoded
+constant. It is recomputed in `TextView.UpdateTextMetrics()` whenever the font or size changes, so
+rows, caret, and selection track the font.
 
 ## PropertyGrid / FontFamily property behavior
 

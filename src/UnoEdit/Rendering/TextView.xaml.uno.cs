@@ -207,11 +207,14 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
     private readonly ServiceContainer _services = new();
-    private readonly TextBlock _measurementProbe = new()
-    {
-        TextWrapping = TextWrapping.NoWrap,
-    };
-    private const double LineHeight = 22d;
+    // Font-derived line height (replaces the former hardcoded 22px). Recomputed in
+    // UpdateTextMetrics from the editor font's real metrics; seeded with a sane default until the
+    // first measure. A modest leading factor keeps lines readable like AvalonEdit/ILSpy.
+    private double _lineHeight = 22d;
+    private double LineHeight => _lineHeight;
+    // Deterministic line-height ratio (× font size). Stable across measurements so every consumer
+    // (hit-test, gutter, canvas) agrees regardless of async font resolution.
+    private const double LineHeightRatio = 1.5d;
     private const double DefaultCharacterWidth = 7.8d;
     private const double TextLeftPadding = 0d;
     private const double GutterWidth = 56d; // 40 (line numbers) + 16 (fold marker)
@@ -231,6 +234,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private bool _isRefreshingViewport;
     // When true, the next RefreshViewport() must do a full rebuild (text/theme/fold changed).
     private bool _pendingFullRebuild = true;
+    // When true, the glyph/line-number/fold canvases need repainting (content/scroll/theme changed).
+    // Selection/caret-only refreshes leave this false so only the cheap overlay repaints.
+    private bool _canvasContentDirty = true;
     // Visible row range from the previous full RefreshViewport, used for partial-update detection.
     private int _prevFirstVisualRow = -1;
     private int _prevLastVisualRow = -1;
@@ -269,21 +275,35 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private double CharacterWidth => _characterWidth;
 
+    partial void OnRedrawRequested(EventArgs e)
+    {
+        _pendingFullRebuild = true;
+        LogFlash("full queued: render pipeline redraw requested");
+        RefreshViewport();
+    }
+
+    partial void OnLayerInvalidated(KnownLayer knownLayer)
+    {
+        _pendingFullRebuild = true;
+        LogFlash($"full queued: layer invalidated {knownLayer}");
+        RefreshViewport();
+    }
+
     public TextView()
     {
         this.InitializeComponent();
         _services.AddService(typeof(TextView), this);
         InitializePipelineCollections();
         ApplyEditorFont();
-        LineNumberItemsControl.ItemsSource = _lines;
-        FoldMarginItemsControl.ItemsSource = _lines;
-        LinesItemsControl.ItemsSource = _lines;
+        // Text, line numbers and fold markers are all drawn on canvases (no per-row ItemsControl).
+        // Toggling a fold is handled by coordinate hit-testing in the pointer handler.
         Loaded += OnLoaded;
         SizeChanged += OnSizeChanged;
         GotFocus += OnTextViewGotFocus;
         LostFocus += OnTextViewLostFocus;
         ApplyThemeToChrome();
         InitializePlatformInputBridge();
+        InitializeCanvasTextSurface();
     }
 
     // Inline object host implementation registered into Document.ServiceProvider
@@ -671,14 +691,11 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         var textView = (TextView)dependencyObject;
         bool show = (bool)args.NewValue;
-        UnoEdit.Logging.HighlightLogger.Log("ShowLineNumbers", $"TextView.OnShowLineNumbersChanged: show={show}, LineNumberItemsControl={textView.LineNumberItemsControl?.GetType().Name ?? "NULL"}");
-        // Mirror AvalonEdit: only the LineNumberMargin is added/removed; FoldingMargin stays.
-        // Set column width explicitly in addition to Visibility so the Auto column remeasures
-        // reliably on the Uno Skia renderer when re-enabling line numbers.
-        if (textView.LineNumberItemsControl is null) return;
-        textView.LineNumberItemsControl.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        // Mirror AvalonEdit: only the line-number margin is shown/hidden; the FoldingMargin stays.
+        // The line numbers are drawn by the canvas hosted in LineNumberHost.
+        if (textView.LineNumberHost is null) return;
+        textView.LineNumberHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         textView.LineNumberColumn.Width = show ? GridLength.Auto : new GridLength(0);
-        UnoEdit.Logging.HighlightLogger.Log("ShowLineNumbers", $"TextView.OnShowLineNumbersChanged done: Visibility={textView.LineNumberItemsControl.Visibility}, ColumnWidth={textView.LineNumberColumn.Width}");
         textView.RebuildVisibleLineList();
         textView._pendingFullRebuild = true;
         textView.RefreshViewport();
@@ -754,10 +771,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         FontSize = EditorFontSize;
         FontWeight = EditorFontWeight;
         FontStyle = EditorFontStyle;
-        _measurementProbe.FontFamily = EditorFontFamily;
-        _measurementProbe.FontSize = EditorFontSize;
-        _measurementProbe.FontWeight = EditorFontWeight;
-        _measurementProbe.FontStyle = EditorFontStyle;
     }
 
     private bool FontSettingsEqual()
@@ -1045,12 +1058,29 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         {
             _characterWidth = measuredCharacterWidth;
         }
+        // Line height from the SAME engine that draws the text (CanvasTextLayout / Skia), mirroring
+        // AvalonEdit where TextView.DefaultLineHeight comes from the TextFormatter that also renders
+        // the glyphs. Now that text AND line numbers are drawn on the canvas (no TextBlock-per-line
+        // ItemsControl rendering at a font-natural height), the canvas, line numbers and hit-test
+        // all derive from this one value, so nothing can drift.
+        double measuredLineHeight = CanvasLinePainter.GetLineHeight(EditorFontFamily?.Source, EditorFontSize);
+        _lineHeight = Math.Max(1, measuredLineHeight > 0 ? measuredLineHeight : Math.Ceiling(EditorFontSize * LineHeightRatio));
         if (Math.Abs(DefaultLineHeight - LineHeight) > 0.001)
         {
             DefaultLineHeight = LineHeight;
             DefaultBaseline = Math.Max(1, LineHeight - 6);
             VisualLinesValid = false;
-            _visibleDocRows.Clear();
+            // Rebuild (not just clear) so the visible-row map's VisualTop/RowHeight immediately
+            // reflect the new line height. The editor font ("Cascadia Code") can resolve
+            // asynchronously: an early measure yields a fallback-font height, then the real font
+            // resolves and changes LineHeight. If we only Clear() here, _visibleDocRows (used by
+            // hit-testing) can stay at the stale spacing while rendered rows use the new height,
+            // desyncing click→line mapping (caret lands on the wrong line). Rebuilding keeps the
+            // hit-test geometry and the rendered rows on the same line height.
+            if (_document is not null)
+                RebuildVisibleLineList();
+            else
+                _visibleDocRows.Clear();
         }
     }
 
@@ -1058,18 +1088,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         const int sampleLength = 32;
         string sampleText = new('0', sampleLength);
-        var probe = new TextBlock
-        {
-            Text = sampleText,
-            FontFamily = EditorFontFamily,
-            FontSize = EditorFontSize,
-            FontWeight = EditorFontWeight,
-            FontStyle = EditorFontStyle,
-            TextWrapping = TextWrapping.NoWrap,
-        };
-
-        probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double width = probe.DesiredSize.Width;
+        double width = CanvasLinePainter.MeasureTextWidth(sampleText, EditorFontFamily?.Source, EditorFontSize);
         return width > 0 ? width / sampleLength : DefaultCharacterWidth;
     }
 
@@ -1107,10 +1126,11 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             return 0d;
         }
 
-        _measurementProbe.Text = text;
-        _measurementProbe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double w = _measurementProbe.DesiredSize.Width;
-        LogRender($"measure text='{(text.Length <= 32 ? text : text.Substring(0, 32) + "…")}' len={text.Length} width={w:0.###} font='{_measurementProbe.FontFamily?.Source}' size={_measurementProbe.FontSize}");
+        // Unified glyph-metric measurement (CanvasTextLayout, real advances) — replaces the former
+        // TextBlock-probe measurement so caret/selection/hit-testing align with what the canvas
+        // text surface renders, and removes the proportional-vs-rendered drift.
+        double w = CanvasLinePainter.MeasureTextWidth(text, EditorFontFamily?.Source, EditorFontSize);
+        LogRender($"measure text='{(text.Length <= 32 ? text : text.Substring(0, 32) + "…")}' len={text.Length} width={w:0.###} font='{EditorFontFamily?.Source}' size={EditorFontSize}");
         return w;
     }
 
@@ -1332,6 +1352,15 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _isRefreshingViewport = false;
             sw.Stop();
             LogPerf($"refresh reason={reason} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###} rerun={reran} lineVmCount={_lines.Count}");
+            // The cheap overlay (selection/caret/line-highlight) always repaints; the expensive
+            // glyph/line-number/fold surfaces only when their content actually changed (text, scroll,
+            // theme, font, fold/highlight) — so selection drag doesn't re-shape every glyph per move.
+            InvalidateCanvasOverlay();
+            if (_canvasContentDirty)
+            {
+                InvalidateCanvasContent();
+                _canvasContentDirty = false;
+            }
         }
     }
 
@@ -1390,6 +1419,16 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             ? new HashSet<int>(_dirtyHighlightedLines)
             : null;
         int expectedCount = lastVisualRow - firstVisualRow + 1;
+
+        // Content (glyphs/line-numbers/fold) needs a repaint when text, scroll window, theme, font,
+        // highlighter or fold/highlight state changed. A pure caret/selection move leaves all of
+        // these unchanged, so only the overlay repaints.
+        if (_pendingFullRebuild || themeChanged || editorFontChanged || highlighterChanged
+            || highlightingInvalidated || dirtyHighlightedLines is not null
+            || firstVisualRow != _prevFirstVisualRow || lastVisualRow != _prevLastVisualRow)
+        {
+            _canvasContentDirty = true;
+        }
 
         if (_awaitingHighlightedLineSourceReady && !IsHighlightedLineSourceVisibleRangeReady())
         {
@@ -1673,6 +1712,65 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         LogPerf($"refresh-core reason={reason} path=full rows={firstVisualRow}-{lastVisualRow} expectedCount={expectedCount} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
     }
 
+    // True when a line-colorizing transformer (e.g. a HighlightingColorizer produced by
+    // TextEditor.CreateColorizer) is registered. When set, syntax colors flow through the
+    // VisualLineElement/transformer pipeline rather than the bare DocumentHighlighter, so
+    // theme-aware colorizers (ILSpy's ThemeAwareHighlightingColorizer) actually drive the
+    // displayed colors.
+    private bool HasLineColorizer => lineTransformers != null && lineTransformers.Count > 0;
+
+    // Runs the registered line transformers over a transient VisualLine for a single document
+    // line and harvests the resulting per-element foreground colors into a HighlightedLine. This
+    // honors TextEditor.CreateColorizer (the AvalonEdit render-pipeline hook UnoEdit otherwise
+    // bypassed) while keeping the existing run/selection/fold rendering in TextLineViewModel.
+    // Done per visible line on demand — never across the whole document.
+    private HighlightedLine? BuildColorizedHighlightedLine(int lineNumber)
+    {
+        if (_document == null || lineTransformers == null || lineTransformers.Count == 0)
+            return null;
+
+        var transformers = new IVisualLineTransformer[lineTransformers.Count];
+        lineTransformers.CopyTo(transformers, 0);
+
+        DocumentLine docLine = _document.GetLineByNumber(lineNumber);
+        var visualLine = new VisualLine(this, docLine)
+        {
+            LastDocumentLine = docLine,
+            VisualLength = docLine.Length,
+        };
+        var context = new SimpleTextRunConstructionContext(this, visualLine);
+        // No element generators: colorization needs the plain full-line text mapped 1:1 to
+        // document offsets (folding/markers are handled separately by the visible-row layout).
+        visualLine.ConstructVisualElements(context, System.Array.Empty<VisualLineElementGenerator>());
+        visualLine.RunTransformers(context, transformers);
+
+        var highlighted = new HighlightedLine(_document, docLine);
+        foreach (var element in visualLine.Elements)
+        {
+            if (element.DocumentLength <= 0)
+                continue;
+            var fg = ReadBrushColor(element.TextRunProperties?.ForegroundBrush);
+            var bg = ReadBrushColor(element.BackgroundBrush)
+                ?? ReadBrushColor(element.TextRunProperties?.BackgroundBrush);
+            if (fg == null && bg == null)
+                continue;
+            highlighted.Sections.Add(new HighlightedSection
+            {
+                Offset = docLine.Offset + element.RelativeTextOffset,
+                Length = element.DocumentLength,
+                Color = new HighlightingColor
+                {
+                    Foreground = fg.HasValue ? new SimpleHighlightingBrush(fg.Value) : null,
+                    Background = bg.HasValue ? new SimpleHighlightingBrush(bg.Value) : null,
+                },
+            });
+        }
+        return highlighted;
+    }
+
+    private static Windows.UI.Color? ReadBrushColor(Brush? brush)
+        => brush is SolidColorBrush solid ? solid.Color : null;
+
     private TextLineViewModel BuildLineViewModel(int visualRow, int targetIndex, int selectionStart, int selectionEnd, bool hasSelection)
     {
         var row = _visibleDocRows[visualRow];
@@ -1744,7 +1842,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         try
         {
             highlightedLine = _highlightedLineSource?.HighlightLine(lineNumber)
-                ?? (_highlightedLineSourceExplicitlySet ? null : _highlighter?.HighlightLine(lineNumber));
+                ?? (_highlightedLineSourceExplicitlySet ? null
+                    : HasLineColorizer ? BuildColorizedHighlightedLine(lineNumber)
+                    : _highlighter?.HighlightLine(lineNumber));
         }
         catch
         {
@@ -1943,7 +2043,13 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
             DocumentLine line = _document.GetLineByNumber(ln);
             string lineText = _document.GetText(line);
-            double rowHeight = Math.Max(LineHeight, GetVisualLine(ln)?.Height ?? LineHeight);
+            // Uniform, font-derived row height for every row. Previously this took
+            // Max(LineHeight, VisualLine.Height), but a stale AvalonEdit height-tree value (e.g. an
+            // old 22px default) made some rows taller than LineHeight while others stayed at it —
+            // a mixed 19/22 layout that desynced the canvas surface (uniform vm.RowHeight) from the
+            // per-row hit-test/ItemsControl stacking, drifting the caret by lines. A code editor
+            // wants one consistent line height, so use LineHeight directly.
+            double rowHeight = LineHeight;
             foreach (var row in BuildVisualRowsForLine(ln, lineText, runningTop, rowHeight))
             {
                 _visibleDocRows.Add(row);
@@ -2168,10 +2274,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int targetColumn = Math.Clamp(logicalColumn + 1, 1, documentLine.Length + 1);
         _desiredColumn = targetColumn;
         int offset = _document.GetOffset(targetLine, targetColumn);
-        string rowMap = "";
-        for (int ri = Math.Max(0, visualRow - 1); ri <= Math.Min(_visibleDocRows.Count - 1, visualRow + 2); ri++)
-            rowMap += $" r{ri}(L{_visibleDocRows[ri].LineNumber} top={_visibleDocRows[ri].VisualTop:0.#} h={_visibleDocRows[ri].RowHeight:0.#})";
-        LogRender($"hit-test x={x:0.###} y={y:0.###} absY={absoluteY:0.###} visualRow={visualRow} targetLine={targetLine} docX={documentX:0.###} logicalColumn={logicalColumn} targetColumn={targetColumn} lineLength={documentLine.Length} offset={offset} LineHeight={LineHeight:0.#} fontSize={EditorFontSize:0.#} rows=[{rowMap}]");
+        LogRender($"hit-test x={x:0.###} y={y:0.###} absY={absoluteY:0.###} visualRow={visualRow} targetLine={targetLine} docX={documentX:0.###} logicalColumn={logicalColumn} targetColumn={targetColumn} lineLength={documentLine.Length} offset={offset} | LineHeight={LineHeight:0.##} rowCount={_visibleDocRows.Count} row.VisualTop={row.VisualTop:0.##} row.RowHeight={row.RowHeight:0.##} row0Top={(_visibleDocRows.Count>0?_visibleDocRows[0].VisualTop:-1):0.##} row1Top={(_visibleDocRows.Count>1?_visibleDocRows[1].VisualTop:-1):0.##}");
         return offset;
     }
 

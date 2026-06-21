@@ -343,6 +343,7 @@ public sealed partial class HighlightedTextBlock : UserControl
             {
                 Text = textRun.Text,
                 Foreground = new SolidColorBrush(textRun.Foreground),
+                Background = textRun.Background.HasValue ? new SolidColorBrush(textRun.Background.Value) : null,
             };
             if (isRef)
                 run.TextDecorations = System.Windows.Media.TextDecorations.Underline;

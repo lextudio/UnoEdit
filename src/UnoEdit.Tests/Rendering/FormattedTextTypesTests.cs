@@ -173,5 +173,12 @@ public class FormattedTextTypesTests
             MeasureCalls++;
             return new InlineElementMetrics(measuredSize, baseline);
         }
+
+        public int ArrangeCalls { get; private set; }
+
+        public void ArrangeInlineElement(UIElement element, Rect bounds)
+        {
+            ArrangeCalls++;
+        }
     }
 }

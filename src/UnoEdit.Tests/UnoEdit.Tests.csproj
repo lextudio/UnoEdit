@@ -44,6 +44,14 @@
     <PackageReference Include="MSTest.TestAdapter" />
   </ItemGroup>
 
+  <!-- Vendored OpenSans (the font Uno bundles) so glyph-metric/rendering tests resolve the
+       same typeface on Windows/macOS/Linux CI instead of depending on system-installed fonts. -->
+  <ItemGroup>
+    <None Include="Assets\*.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <PackageReference Include="Microsoft.WindowsAppSDK" />
   </ItemGroup>

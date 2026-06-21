@@ -44,134 +44,46 @@
           </Grid.ColumnDefinitions>
 
           <!--
-            Line-number margin.
-            Visibility toggled by ShowLineNumbers in code-behind.
-            Width=40 to fit right-aligned line numbers.
+            Line-number margin. Line numbers are drawn by a CanvasControl (inserted in code-behind),
+            mirroring AvalonEdit's LineNumberMargin which renders numbers directly rather than via a
+            per-line control. Visibility/width toggled by ShowLineNumbers in code-behind.
           -->
-          <ItemsControl x:Name="LineNumberItemsControl" Width="40" Visibility="Collapsed">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <StackPanel />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Grid Height="{Binding RowHeight}">
-                  <!-- Line highlight in margin -->
-                  <Border Background="{Binding LineHighlightBrush}"
-                          Opacity="{Binding HighlightOpacity}" />
-                  <TextBlock Text="{Binding Number}"
-                             FontFamily="{Binding ElementName=RootControl, Path=EditorFontFamily}"
-                             FontSize="{Binding ElementName=RootControl, Path=EditorFontSize}"
-                             FontWeight="{Binding ElementName=RootControl, Path=EditorFontWeight}"
-                             FontStyle="{Binding ElementName=RootControl, Path=EditorFontStyle}"
-                             HorizontalTextAlignment="Right"
-                             Foreground="{Binding GutterForegroundBrush}"
-                             Padding="0,0,2,0"
-                             VerticalAlignment="Center" />
-                </Grid>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <Grid x:Name="LineNumberHost" Width="40" Visibility="Collapsed" />
 
           <!--
             Fold-marker margin. Always visible regardless of ShowLineNumbers.
             Width=16 for the fold glyph.
           -->
-          <ItemsControl x:Name="FoldMarginItemsControl" Grid.Column="1" Width="16">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <StackPanel />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Grid Height="{Binding RowHeight}">
-                  <!-- Line highlight in margin -->
-                  <Border Background="{Binding LineHighlightBrush}"
-                          Opacity="{Binding HighlightOpacity}" />
-                  <folding:FoldingMarginMarker
-                      FoldMarkerKind="{Binding FoldMarker}"
-                      MarkerBrush="{Binding GutterForegroundBrush}"
-                      AutomationProperties.Name="{Binding FoldMarkerAutomationName}"
-                      PointerPressed="OnFoldGlyphPointerPressed"
-                      IsHitTestVisible="True"
-                      HorizontalAlignment="Left" />
-                </Grid>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <!--
+            Fold margin. Markers + connecting lines are drawn by a CanvasControl (inserted in
+            code-behind), like AvalonEdit's FoldingMargin.OnRender. Toggling a fold is handled by
+            coordinate hit-testing in the pointer handler (TryToggleFoldAtViewportPoint), so no
+            per-marker UIElement is needed — which keeps fold rows at exactly LineHeight.
+          -->
+          <Grid x:Name="FoldMarginHost" Grid.Column="1" Width="16" />
 
           <!-- Text content column -->
-          <Grid Grid.Column="2">
+          <Grid Grid.Column="2" x:Name="TextContentGrid">
             <!-- Background-highlight overlay (bracket match, reference markers). Behind text,
                  scrolls with content; positioned in content space by the AvalonEdit pipeline. -->
             <Canvas x:Name="BackgroundHighlightCanvas" IsHitTestVisible="False" />
-            <ItemsControl x:Name="LinesItemsControl">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <StackPanel />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-              <ItemsControl.ItemTemplate>
-                <!--
-                  x:DataType is intentionally omitted: all bindings below use classic {Binding}
-                  (reflection-based), which is more reliable in Uno Platform Skia than compiled
-                  x:Bind. Adding x:DataType here would trigger compiled-binding code generation
-                  against a type that was previously co-located in the code-behind, causing
-                  silent binding failures in the Skia renderer.
-                -->
-                <DataTemplate>
-                  <Grid Height="{Binding RowHeight}">
-                    <!-- Line highlight (current-line background) -->
-                    <Border Background="{Binding LineHighlightBrush}"
-                            Opacity="{Binding HighlightOpacity}" />
 
-                    <!-- Text -->
-                    <local:HighlightedTextBlock LineViewModel="{Binding}"
-                                                EditorFontFamily="{Binding ElementName=RootControl, Path=EditorFontFamily}"
-                                                EditorFontSize="{Binding ElementName=RootControl, Path=EditorFontSize}"
-                                                EditorFontWeight="{Binding ElementName=RootControl, Path=EditorFontWeight}"
-                                                EditorFontStyle="{Binding ElementName=RootControl, Path=EditorFontStyle}"
-                                                VerticalAlignment="Center" />
-
-                    <!-- Selection highlight -->
-                    <Border Height="{StaticResource UnoEditorOverlayHeight}"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Background="{Binding SelectionBrush}"
-                            BorderBrush="{Binding SelectionBorderBrush}"
-                            BorderThickness="{Binding SelectionBorderThickness}"
-                            CornerRadius="{Binding SelectionCornerRadius}"
-                            Margin="{Binding SelectionMargin}"
-                            Width="{Binding SelectionWidth}"
-                            Opacity="{Binding SelectionOpacity}" />
-
-                    <!-- Explicit IME preedit underline for Uno/Skia -->
-                    <Border Height="1.5"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Bottom"
-                            Background="{Binding PreeditUnderlineBrush}"
-                            Margin="{Binding PreeditUnderlineMargin}"
-                            Width="{Binding PreeditUnderlineWidth}"
-                            Opacity="{Binding PreeditUnderlineOpacity}" />
-
-                    <!-- Caret -->
-                    <Border Width="{StaticResource UnoEditorCaretWidth}"
-                            Height="{StaticResource UnoEditorOverlayHeight}"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Background="{Binding CaretBrush}"
-                            Margin="{Binding CaretMargin}"
-                            Opacity="{Binding CaretOpacity}" />
-                  </Grid>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <!-- Editor text, caret, selection and line highlights are all drawn by the
+                 CanvasControl text surface (inserted in code-behind), mirroring AvalonEdit's
+                 TextView.OnRender. There is intentionally no per-line ItemsControl. -->
 
             <!-- Overlay for inline UIElements created by InlineObjectRun -->
             <Canvas x:Name="InlineObjectsCanvas" IsHitTestVisible="True" />
           </Grid>
+
+          <!--
+            Cheap overlay layer spanning all columns: current-line highlight, selection, caret and
+            preedit underline (rectangles only — no glyph shaping). Drawing these on their own
+            CanvasControl (inserted in code-behind) lets selection drag redraw just this layer while
+            the expensive glyph/line-number surfaces stay untouched — the AvalonEdit selection/caret
+            layer split.
+          -->
+          <Grid x:Name="OverlayHost" Grid.Column="0" Grid.ColumnSpan="3" IsHitTestVisible="False" />
         </Grid>
 
         <Border x:Name="BottomSpacer" Height="0" />

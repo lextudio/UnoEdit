@@ -49,6 +49,14 @@
     <ProjectReference Include="..\..\..\UnoPropertyGrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
   </ItemGroup>
 
+  <!-- DevFlow runtime UI-inspection agent (desktop only) for automated A/B screenshots/diagnosis. -->
+  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' == 'net10.0-desktop'">
+    <ProjectReference Include="..\..\..\wpf-labs\src\DevFlow\LeXtudio.DevFlow.Agent.Uno\LeXtudio.DevFlow.Agent.Uno.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true' and '$(TargetFramework)' == 'net10.0-desktop'">
+    <PackageReference Include="LeXtudio.DevFlow.Agent.Uno" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Use central package management to pick the pinned Tmds.DBus.Protocol version -->
     <PackageReference Include="Tmds.DBus.Protocol" Condition="'$(TargetFramework)' == 'net10.0-desktop'" />

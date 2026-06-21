@@ -13,15 +13,17 @@ public enum FoldMarkerKind { None, CanFold, CanExpand, InsideFold, FoldEnd }
 /// <summary>A single colored text segment for a line.</summary>
 public readonly struct TextRun
 {
-    public TextRun(string text, Windows.UI.Color foreground, bool isControlCharacterBox = false)
+    public TextRun(string text, Windows.UI.Color foreground, Windows.UI.Color? background = null, bool isControlCharacterBox = false)
     {
         Text = text;
         Foreground = foreground;
+        Background = background;
         IsControlCharacterBox = isControlCharacterBox;
     }
 
     public string Text { get; }
     public Windows.UI.Color Foreground { get; }
+    public Windows.UI.Color? Background { get; }
 
     /// <summary>
     /// When true, <see cref="Text"/> is the name of a control character (e.g. "NUL") that should
@@ -396,19 +398,15 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         }
 
         var colors = new Windows.UI.Color?[visualLen];
+        var backgrounds = new Windows.UI.Color?[visualLen];
 
         var sections = line?.Sections ?? (IList<HighlightedSection>)System.Array.Empty<HighlightedSection>();
         foreach (var section in sections)
         {
-            if (section.Color?.Foreground == null) continue;
-            var mediaColor = section.Color.Foreground.GetColor();
-            if (mediaColor == null) continue;
-
-            var uiColor = Windows.UI.Color.FromArgb(
-                mediaColor.Value.A,
-                mediaColor.Value.R,
-                mediaColor.Value.G,
-                mediaColor.Value.B);
+            if (section.Color == null) continue;
+            var foreground = ToUiColor(section.Color.Foreground);
+            var background = ToUiColor(section.Color.Background);
+            if (foreground == null && background == null) continue;
 
             int logStart = Math.Max(0, section.Offset - lineStart - textStartColumn);
             int logEnd   = Math.Min(logicalLen, section.Offset + section.Length - lineStart - textStartColumn);
@@ -417,7 +415,12 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             int visStart = logToVis[logStart];
             int visEnd   = logToVis[logEnd];
             for (int v = visStart; v < visEnd; v++)
-                colors[v] = uiColor;
+            {
+                if (foreground.HasValue)
+                    colors[v] = foreground.Value;
+                if (background.HasValue)
+                    backgrounds[v] = background.Value;
+            }
         }
 
         var runs = new List<TextRun>();
@@ -428,21 +431,31 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             // A control character becomes its own boxed run (e.g. NUL), matching WPF AvalonEdit.
             if (hasControlCharacters && char.IsControl(ch))
             {
-                runs.Add(new TextRun(GetControlCharacterName(ch), colors[pos] ?? defaultForeground, isControlCharacterBox: true));
+                runs.Add(new TextRun(GetControlCharacterName(ch), colors[pos] ?? defaultForeground, backgrounds[pos], isControlCharacterBox: true));
                 pos++;
                 continue;
             }
 
             var c = colors[pos] ?? defaultForeground;
+            var b = backgrounds[pos];
             int end = pos + 1;
             while (end < visualLen
                    && !(hasControlCharacters && char.IsControl(expanded[end]))
-                   && (colors[end] ?? defaultForeground) == c)
+                   && (colors[end] ?? defaultForeground) == c
+                   && backgrounds[end] == b)
                 end++;
-            runs.Add(new TextRun(expanded.Substring(pos, end - pos), c));
+            runs.Add(new TextRun(expanded.Substring(pos, end - pos), c, b));
             pos = end;
         }
         return runs;
+    }
+
+    private static Windows.UI.Color? ToUiColor(HighlightingBrush? brush)
+    {
+        var mediaColor = brush?.GetColor();
+        return mediaColor.HasValue
+            ? Windows.UI.Color.FromArgb(mediaColor.Value.A, mediaColor.Value.R, mediaColor.Value.G, mediaColor.Value.B)
+            : null;
     }
 
     private static bool ContainsControlCharacter(string text)

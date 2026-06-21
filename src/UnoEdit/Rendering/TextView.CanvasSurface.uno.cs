@@ -15,6 +15,7 @@ namespace ICSharpCode.AvalonEdit.Rendering;
 // Every surface positions rows by the single shared LineHeight, so nothing can drift.
 public sealed partial class TextView
 {
+    private CanvasControl? _highlightSurface;
     private CanvasControl? _canvasTextSurface;
     private CanvasControl? _lineNumberSurface;
     private CanvasControl? _foldMarginSurface;
@@ -27,6 +28,13 @@ public sealed partial class TextView
 
     private void InitializeCanvasTextSurface()
     {
+        if (HighlightHost is not null)
+        {
+            _highlightSurface = CreateSurface();
+            _highlightSurface.Draw += OnHighlightSurfaceDraw;
+            HighlightHost.Children.Add(_highlightSurface);
+        }
+
         if (TextContentGrid is not null)
         {
             _canvasTextSurface = CreateSurface();
@@ -93,14 +101,45 @@ public sealed partial class TextView
         }
     }
 
-    // Repaints the cheap overlay (line highlight / selection / caret / preedit).
+    // Repaints the cheap rectangle-only layers that follow the caret/selection: the background
+    // line-highlight (behind text) and the foreground overlay (selection / caret / preedit).
     private void InvalidateCanvasOverlay()
     {
-        if (_overlaySurface is null)
+        double width = System.Math.Max(0, EditorGrid?.ActualWidth ?? ActualWidth);
+        double height = System.Math.Max(0, CanvasHeight);
+
+        if (_highlightSurface is not null)
+        {
+            _highlightSurface.Height = height;
+            _highlightSurface.Width = width;
+            _highlightSurface.Invalidate();
+        }
+
+        if (_overlaySurface is not null)
+        {
+            _overlaySurface.Height = height;
+            _overlaySurface.Width = width;
+            _overlaySurface.Invalidate();
+        }
+    }
+
+    // Background current-line highlight (behind the glyph/line-number/fold surfaces), full width.
+    private void OnHighlightSurfaceDraw(CanvasControl sender, CanvasDrawEventArgs args)
+    {
+        args.DrawingSession.Clear(Transparent);
+        if (_lines.Count == 0)
             return;
-        _overlaySurface.Height = System.Math.Max(0, CanvasHeight);
-        _overlaySurface.Width = System.Math.Max(0, EditorGrid?.ActualWidth ?? ActualWidth);
-        _overlaySurface.Invalidate();
+
+        var session = args.DrawingSession;
+        double rowHeight = LineHeight;
+        double width = _highlightSurface?.Width ?? ActualWidth;
+        double y = 0;
+        foreach (TextLineViewModel vm in _lines)
+        {
+            if (vm.HighlightOpacity > 0.001)
+                session.FillRectangle(0, (float)y, (float)width, (float)rowHeight, WithOpacity(vm.LineHighlightBrush, vm.HighlightOpacity));
+            y += rowHeight;
+        }
     }
 
     private void OnCanvasTextSurfaceDraw(CanvasControl sender, CanvasDrawEventArgs args)
@@ -179,7 +218,6 @@ public sealed partial class TextView
 
         var session = args.DrawingSession;
         double rowHeight = LineHeight;
-        double width = _overlaySurface?.Width ?? ActualWidth;
         double gutter = (LineNumberColumn?.ActualWidth ?? 0) + (FoldMarginColumn?.ActualWidth ?? 0);
 
         double y = 0;
@@ -187,9 +225,8 @@ public sealed partial class TextView
         {
             double boxTop = y + (rowHeight - OverlayHeight) / 2;
 
-            if (vm.HighlightOpacity > 0.001)
-                session.FillRectangle(0, (float)y, (float)width, (float)rowHeight, WithOpacity(vm.LineHighlightBrush, vm.HighlightOpacity));
-
+            // Line highlight is drawn on the background layer (behind text); the overlay only paints
+            // selection / caret / preedit, which sit above the glyphs.
             if (vm.SelectionOpacity > 0.001 && vm.SelectionWidth > 0)
             {
                 float sx = (float)(gutter + vm.SelectionMargin.Left);

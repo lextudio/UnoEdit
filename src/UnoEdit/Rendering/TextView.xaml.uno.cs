@@ -1494,7 +1494,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                 }
 
                 double newCaretOpacity     = isCaretLine && _caretVisible ? 1d : 0d;
-                double newHighlightOpacity = isCaretLine ? 0.18d : 0d;
+                double newHighlightOpacity = isCaretLine ? 1d : 0d;
                 var    newCaretMargin      = new Thickness(caretLeft,        0, 0, 0);
                 var    newSelectionMargin  = new Thickness(newSelectionLeft, 0, 0, 0);
 
@@ -1823,7 +1823,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                 {
                     return existingVm.WithCaretAndSelection(
                         isCaretLine && _caretVisible ? 1d : 0d,
-                        isCaretLine ? 0.18d : 0d,
+                        isCaretLine ? 1d : 0d,
                         new Thickness(caretLeft, 0, 0, 0),
                         new Thickness(selectionLeft, 0, 0, 0),
                         selectionWidth,
@@ -1883,7 +1883,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             line.LineNumber,
             displayText,
             isCaretLine && _caretVisible ? 1d : 0d,
-            isCaretLine ? 0.18d : 0d,
+            isCaretLine ? 1d : 0d,
             new Thickness(caretLeft, 0, 0, 0),
             new Thickness(selectionLeft, 0, 0, 0),
             selectionWidth,

@@ -292,7 +292,25 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             GutterForegroundBrush = source.GutterForegroundBrush;
             Notify(nameof(GutterForegroundBrush));
         }
-        // Other brushes and LineNumber don't change within a theme / line-number.
+        // Theme-derived brushes DO change on a theme switch. When the visible-row count is unchanged
+        // a theme change reuses these view-models via UpdateFrom (no Clear+Add), so these must be
+        // refreshed too — otherwise the line highlight / selection / caret keep the old theme's
+        // colors while text and background switch (e.g. a dark highlight bleeding onto a light theme).
+        if (!ReferenceEquals(LineHighlightBrush, source.LineHighlightBrush))
+        {
+            LineHighlightBrush = source.LineHighlightBrush;
+            Notify(nameof(LineHighlightBrush));
+        }
+        if (!ReferenceEquals(SelectionBrush, source.SelectionBrush))
+        {
+            SelectionBrush = source.SelectionBrush;
+            Notify(nameof(SelectionBrush));
+        }
+        if (!ReferenceEquals(CaretBrush, source.CaretBrush))
+        {
+            CaretBrush = source.CaretBrush;
+            Notify(nameof(CaretBrush));
+        }
     }
 
     public string LineNumber { get; private set; }

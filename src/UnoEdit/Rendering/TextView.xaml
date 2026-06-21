@@ -44,6 +44,14 @@
           </Grid.ColumnDefinitions>
 
           <!--
+            Current-line highlight layer, spanning all columns and sitting BEHIND the glyph/line-
+            number/fold surfaces (a CanvasControl inserted in code-behind). The highlight is a full
+            row background, so it must be behind the text — drawing it on the top overlay would cover
+            the line's content. It still repaints cheaply (rectangles only) as the caret line moves.
+          -->
+          <Grid x:Name="HighlightHost" Grid.Column="0" Grid.ColumnSpan="3" IsHitTestVisible="False" />
+
+          <!--
             Line-number margin. Line numbers are drawn by a CanvasControl (inserted in code-behind),
             mirroring AvalonEdit's LineNumberMargin which renders numbers directly rather than via a
             per-line control. Visibility/width toggled by ShowLineNumbers in code-behind.

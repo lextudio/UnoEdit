@@ -40,7 +40,9 @@ namespace ICSharpCode.AvalonEdit.Rendering
             {
                 using var format = new CanvasTextFormat { FontFamily = fontFamilySource, FontSize = (float)fontSize };
                 using var layout = new CanvasTextLayout(CanvasDevice.GetSharedDevice(), text, format, float.PositiveInfinity, float.PositiveInfinity);
-                width = layout.LayoutBounds.Width;
+                // Include trailing whitespace: real Win2D's LayoutBounds excludes it, which would
+                // drop the advance for runs ending in spaces and collapse the spaces between tokens.
+                width = layout.LayoutBoundsIncludingTrailingWhitespace.Width;
             }
             catch
             {

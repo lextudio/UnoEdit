@@ -7,6 +7,10 @@
       <ResourceDictionary.MergedDictionaries>
         <!-- Load WinUI resources -->
         <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+        <!-- UnoPropertyGrid theme resources (PropertyGridFontFamily etc., used by
+             PropertyGridControl's template). Auto-merged on Uno desktop; on WinUI 3 the library
+             dictionary must be merged explicitly. -->
+        <ResourceDictionary Source="ms-appx:///UnoPropertyGrid/PropertyGridThemeResources.xaml" />
         <!-- UnoEdit theme is loaded in code-behind from the library assembly -->
       </ResourceDictionary.MergedDictionaries>
 

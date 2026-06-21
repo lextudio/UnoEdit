@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using LeXtudio.DevFlow.Agent.Uno;
+using Microsoft.Maui.DevFlow.Agent.Core;
 #if !WINDOWS_APP_SDK
 using System.Linq;
 using System.Reflection;
@@ -7,8 +9,6 @@ using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
 using DevToolsUno;
 using DevToolsUno.Diagnostics;
-using LeXtudio.DevFlow.Agent.Uno;
-using Microsoft.Maui.DevFlow.Agent.Core;
 #else
 using Microsoft.UI.Xaml.Markup;
 #endif
@@ -17,9 +17,14 @@ namespace UnoEdit.Skia.Desktop;
 
 public partial class App : Application
 {
-#if !WINDOWS_APP_SDK
+    // DevFlow runs on both Uno desktop and WinUI 3, exposing the live visual tree / screenshots.
     private UnoAgentService? _devFlowAgent;
-#endif
+
+    private void StartDevFlowAgent()
+    {
+        _devFlowAgent = new UnoAgentService(new AgentOptions { Port = AgentOptions.DefaultPort });
+        _devFlowAgent.Start();
+    }
 
     public App()
     {
@@ -75,6 +80,9 @@ public partial class App : Application
             LoadUnoEditorResources();
             var window = new MainWindow();
             window.Activate();
+            // WinUI 3 has no global window registry, so register the window with DevFlow explicitly.
+            UnoAgentService.RegisterWindow(window);
+            StartDevFlowAgent();
         }
         catch (Exception ex)
         {
@@ -122,11 +130,7 @@ public partial class App : Application
 #endif
             mainWindow.SetWindowIcon();
             mainWindow.Activate();
-
-            // DevFlow agent: exposes the live visual tree / screenshots over a local REST API so the
-            // editor's rendering (incl. the experimental canvas surface) can be A/B-inspected.
-            _devFlowAgent = new UnoAgentService(new AgentOptions { Port = AgentOptions.DefaultPort });
-            _devFlowAgent.Start();
+            StartDevFlowAgent();
         }
 #endif
     }
@@ -142,8 +146,17 @@ public partial class App : Application
 
     private static void ShowFatal(Exception ex)
     {
+        // Print the full exception chain to stdout (and stderr) so a launched/detached run captures
+        // the real cause, including inner exceptions, without needing a debugger.
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("==== UnoEdit.Sample fatal during launch ====");
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+            sb.AppendLine($"{e.GetType().FullName}: {e.Message}\n{e.StackTrace}");
+        string full = sb.ToString();
+        Console.Out.WriteLine(full);
+        Console.Out.Flush();
+        Console.Error.WriteLine(full);
         System.Diagnostics.Debug.WriteLine($"[FATAL] {ex}");
-        Console.Error.WriteLine($"Fatal during launch: {ex}");
         var w = new Microsoft.UI.Xaml.Window();
         var tb = new Microsoft.UI.Xaml.Controls.TextBlock
         {

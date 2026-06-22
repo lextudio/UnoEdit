@@ -57,6 +57,26 @@ public sealed class TextEditorTheme
         TitleBarForeground  = Color(0xFF_111827),
     };
 
+    /// <summary>
+    /// Returns a copy of this theme whose editor (and gutter) background is replaced. Used by
+    /// hosts that source the editor surface color from their own theme system — e.g. ILSpy's
+    /// Light theme paints the text view in SystemColors.InfoColor (pale yellow) rather than white.
+    /// </summary>
+    public TextEditorTheme WithBackground(Windows.UI.Color background) => new()
+    {
+        Name               = Name,
+        EditorBackground   = background,
+        GutterBackground   = background,
+        GutterForeground   = GutterForeground,
+        LineHighlight      = LineHighlight,
+        DefaultForeground  = DefaultForeground,
+        CaretColor         = CaretColor,
+        SelectionColor     = SelectionColor,
+        BorderColor        = BorderColor,
+        TitleBarBackground = TitleBarBackground,
+        TitleBarForeground = TitleBarForeground,
+    };
+
     // ---------------------------------------------------- helper
     private static Windows.UI.Color Color(uint argb) =>
         Windows.UI.Color.FromArgb(

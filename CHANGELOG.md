@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.2] - 2026-06-22
+
+- Fixed a few theme issues.
+
 ## [v0.7.1] - 2026-06-21
 
 - Improved rendering patch.

@@ -994,6 +994,57 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
     }
 
+    /// <summary>
+    /// Marks a single document line's highlighting dirty and queues a deferred, coalesced
+    /// re-colorization. Called by <see cref="Highlighting.HighlightingColorizer"/> when a line's
+    /// end-of-line highlighting state changes, so already-rendered lines below it re-colorize
+    /// without a manual scroll. Routes through the existing dispatcher-deferred dirty-line path,
+    /// so it is safe to call from within the colorization pass (no synchronous re-entry).
+    /// </summary>
+    public void Redraw(DocumentLine line)
+    {
+        if (line is null)
+        {
+            Redraw();
+            return;
+        }
+        RedrawLineRange(line.LineNumber, line.LineNumber);
+    }
+
+    /// <summary>
+    /// Marks the document lines spanned by [<paramref name="offset"/>, offset+<paramref name="length"/>)
+    /// dirty and queues a deferred re-colorization.
+    /// </summary>
+    public void Redraw(int offset, int length)
+    {
+        if (_document is null)
+        {
+            Redraw();
+            return;
+        }
+        int start = Math.Clamp(offset, 0, _document.TextLength);
+        int end = Math.Clamp(offset + Math.Max(0, length), 0, _document.TextLength);
+        RedrawLineRange(
+            _document.GetLineByOffset(start).LineNumber,
+            _document.GetLineByOffset(end).LineNumber);
+    }
+
+    private void RedrawLineRange(int startLine, int endLine)
+    {
+        if (_document is null)
+        {
+            Redraw();
+            return;
+        }
+        _highlightingDataInvalidated = true;
+        int last = Math.Min(endLine, _document.LineCount);
+        for (int n = Math.Max(1, startLine); n <= last; n++)
+        {
+            _dirtyHighlightedLines.Add(n);
+        }
+        QueueHighlightedRangeRefresh();
+    }
+
     /// <summary>Update named chrome elements in the XAML tree to match the current <see cref="Theme"/>.</summary>
     private void ApplyThemeToChrome()
     {
@@ -1407,6 +1458,18 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
         LogRender($"viewport rows={firstVisualRow}-{lastVisualRow} totalRows={totalVisualRows} visibleLines={_firstVisibleLineNumber}-{_lastVisibleLineNumber} linesCount={_lines.Count} pendingFull={_pendingFullRebuild}");
         PublishVisibleLinesState(firstVisualRow, lastVisualRow);
+
+        // Prime the stateful highlighter up to the first visible line before colorizing the
+        // viewport. This mirrors AvalonEdit's VisualLineConstructionStarting contract: a
+        // colorizer that tracks multi-line highlighting state (block comments, verbatim
+        // strings, #regions) needs the end-of-line state feeding the first visible line, and
+        // this is where it detects a state change above the view and queues the matching
+        // redraws for lines already on screen. The event is otherwise never raised.
+        if (HasLineColorizer && totalVisualRows > 0 && _document.LineCount > 0)
+        {
+            DocumentLine firstVisibleLine = _document.GetLineByNumber(_firstVisibleLineNumber);
+            RaiseVisualLineConstructionStarting(new VisualLineConstructionStartEventArgs(firstVisibleLine));
+        }
 
         int selectionStart = Math.Min(SelectionStartOffset, SelectionEndOffset);
         int selectionEnd = Math.Max(SelectionStartOffset, SelectionEndOffset);

@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.4] - 2026-06-23
+
+- Ported full colorizer.
+
 ## [v0.7.3] - 2026-06-23
 
 - Fixed folding indicator gaps.

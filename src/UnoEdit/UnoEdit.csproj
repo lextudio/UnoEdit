@@ -32,7 +32,7 @@
     <IsPackable>true</IsPackable>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <UseNuGetPackage>true</UseNuGetPackage>
+    <UseNuGetPackages>true</UseNuGetPackages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -220,8 +220,12 @@
     <!-- Phase 11: FileReader — pure IO, no WPF deps -->
     <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Utils\FileReader.cs"                 Link="Utils\FileReader.cs" />
 
-    <!-- Phase 11: HighlightingColorizer stub (VisualLineElementTextRunProperties WPF methods not available) -->
-    <Compile Include="Highlighting\HighlightingColorizer.cs" />
+    <!-- Full upstream HighlightingColorizer linked directly: it subscribes to
+         IHighlighter.HighlightingStateChanged and redraws lines below a multi-line
+         construct (block comment / verbatim string / #region) whose end-of-line state
+         changed. The earlier simplified stub omitted this, so such lines kept stale
+         colors until a scroll rebuilt their visual rows. -->
+    <Compile Include="..\..\avalonedit\ICSharpCode.AvalonEdit\Highlighting\HighlightingColorizer.cs" Link="Highlighting\HighlightingColorizer.cs" />
 
     <!-- Phase 16: DottedLineMargin stays local because WinUI's Line is sealed. -->
     <Compile Include="Editing\DottedLineMargin.cs" />
@@ -327,41 +331,41 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
     <ProjectReference Include="..\..\..\WindowsShims\src\LeXtudio.Windows\LeXtudio.Windows.csproj" />
   </ItemGroup>
 
   <!-- Win2D drawing/text backend for the CanvasControl-based text surface (redesign).
        Desktop binds the SkiaSharp shim (Uno2D); WinUI 3 binds real Win2D. Mirrors the
        backend split in WindowsShims/LeXtudio.Windows. -->
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' == 'net10.0-desktop'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true' and '$(TargetFramework)' == 'net10.0-desktop'">
     <ProjectReference Include="..\..\..\Uno2D\src\Win2D.UnoCompat\Win2D.UnoCompat.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true' and '$(TargetFramework)' == 'net10.0-desktop'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true' and '$(TargetFramework)' == 'net10.0-desktop'">
     <PackageReference Include="LeXtudio.Win2D.UnoCompat" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
     <PackageReference Include="Microsoft.Graphics.Win2D" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
     <ProjectReference Include="..\..\..\TextCore.Uno\src\LeXtudio.TextBox\LeXtudio.TextBox.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
     <ProjectReference Include="..\..\..\TextCore.Uno\src\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
 
   <!-- UnoRichText's RichTextBlock backs HighlightedTextBlock on the Uno desktop target only:
        Uno's native TextBlock cannot render InlineUIContainer (control-character boxes), whereas
        WinUI's native TextBlock can — so the WinUI target keeps the native TextBlock and skips this. -->
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
     <ProjectReference Include="..\..\..\UnoRichText\src\LeXtudio.RichText\LeXtudio.RichText.csproj" />
   </ItemGroup>
 
   <!-- Import native asset targets for project references (NuGet packages import via buildTransitive) -->
-  <Import Project="../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackage)' != 'true'" />
+  <Import Project="../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackages)' != 'true'" />
 
-  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
     <PackageReference Include="LeXtudio.TextBox" />
     <PackageReference Include="LeXtudio.Windows" />
   </ItemGroup>
@@ -369,7 +373,7 @@
   <!-- UnoRichText's RichTextBlock backs HighlightedTextBlock on the Uno desktop target only
        (WinUI's native TextBlock renders InlineUIContainer, Uno's does not), so the package
        dependency is desktop-only. -->
-  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
     <PackageReference Include="LeXtudio.RichText" />
   </ItemGroup>
 
@@ -383,7 +387,7 @@
   <!-- Copy native assets from LeXtudio.UI.Text.Core to runtime directories for distribution to consumers (macOS osx-arm64 and osx-x64 RIDs only) -->
   <Target Name="CopyNativeTextCoreAssets"
           AfterTargets="Build"
-          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == '') and '$(UseNuGetPackage)' != 'true'">
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == '') and '$(UseNuGetPackages)' != 'true'">
     <ItemGroup>
       <NativeTextCoreAssets Include="../../external/coretext/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net10.0-desktop/libUnoEditMacInput.dylib" />
     </ItemGroup>
@@ -410,7 +414,7 @@
   <!-- Declare native assets as content for project reference distribution (macOS only) -->
   <Target Name="IncludeNativeTextCoreContent"
           BeforeTargets="GetCopyToOutputDirectoryItems"
-          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and '$(UseNuGetPackage)' != 'true'">
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and '$(UseNuGetPackages)' != 'true'">
     <ItemGroup>
       <ContentWithTargetPath Include="$(OutputPath)runtimes/osx-arm64/native/libUnoEditMacInput.dylib"
                              Condition="Exists('$(OutputPath)runtimes/osx-arm64/native/libUnoEditMacInput.dylib')">
@@ -426,6 +430,5 @@
       </ContentWithTargetPath>
     </ItemGroup>
   </Target>
-
 
 </Project>

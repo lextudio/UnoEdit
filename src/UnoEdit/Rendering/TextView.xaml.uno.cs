@@ -1868,9 +1868,22 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             }
         }
 
-        string displayText = GetRowText(lineText, row);
         FoldMarkerKind foldMarker = GetFoldMarkerKind(line, row);
-        string? foldIndicatorText = row.IsFirstRow ? GetFoldIndicatorOnLine(line) : null;
+        int foldStartColInLine = 0;
+        string? foldIndicatorText = row.IsFirstRow ? GetFoldIndicatorOnLine(line, out foldStartColInLine) : null;
+        string displayText;
+        if (foldIndicatorText is not null)
+        {
+            // Show text up to (but not including) the fold-start character ('{'), matching
+            // AvalonEdit's FoldingElementGenerator which replaces from StartOffset onward.
+            int start = Math.Clamp(row.StartColumn, 0, lineText.Length);
+            int end   = Math.Clamp(foldStartColInLine, start, lineText.Length);
+            displayText = lineText[start..end];
+        }
+        else
+        {
+            displayText = GetRowText(lineText, row);
+        }
 
         if (!(_highlightingDataInvalidated || _dirtyHighlightedLines.Count > 0)
             && ReferenceSegmentSource is null
@@ -2182,18 +2195,24 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     /// <summary>
     /// Returns the fold indicator title (e.g. "...") when a collapsed folding section starts on
-    /// the given document line, or null if the line has no such fold. Used to append the inline
-    /// fold indicator run to the canvas-rendered text of the first visible line of a fold.
+    /// the given document line, or null if the line has no such fold.
+    /// <paramref name="foldStartColumnInLine"/> receives the 0-based column of the first
+    /// character that should be replaced (i.e. the '{') so that the caller can truncate the
+    /// display text at that position instead of appending after the brace.
     /// </summary>
-    private string? GetFoldIndicatorOnLine(DocumentLine line)
+    private string? GetFoldIndicatorOnLine(DocumentLine line, out int foldStartColumnInLine)
     {
+        foldStartColumnInLine = 0;
         var fm = FoldingManager;
         if (fm is null || _document is null) return null;
         foreach (var section in fm.AllFoldings)
         {
             if (!section.IsFolded) continue;
             if (_document.GetLineByOffset(section.StartOffset) == line)
+            {
+                foldStartColumnInLine = section.StartOffset - line.Offset;
                 return string.IsNullOrEmpty(section.Title) ? "..." : section.Title;
+            }
         }
         return null;
     }

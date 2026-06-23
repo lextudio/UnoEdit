@@ -264,7 +264,7 @@ public sealed partial class TextView
         float cy = top + rowHeight / 2f;
         float boxTop = cy - boxHalf;
         float boxBottom = cy + boxHalf;
-        float boxLeft = cx - 3f;
+        float boxLeft = cx - boxHalf;
 
         switch (kind)
         {

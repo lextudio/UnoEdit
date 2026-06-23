@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.5] - 2026-06-23
+
+- Improved folding indicator rendering.
+
 ## [v0.7.4] - 2026-06-23
 
 - Ported full colorizer.

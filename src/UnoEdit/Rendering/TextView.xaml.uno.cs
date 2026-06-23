@@ -1807,6 +1807,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         string displayText = GetRowText(lineText, row);
         FoldMarkerKind foldMarker = GetFoldMarkerKind(line, row);
+        string? foldIndicatorText = row.IsFirstRow ? GetFoldIndicatorOnLine(line) : null;
 
         if (!(_highlightingDataInvalidated || _dirtyHighlightedLines.Count > 0)
             && ReferenceSegmentSource is null
@@ -1904,7 +1905,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             preeditVisualEnd,
             row.StartColumn,
             row.RowHeight,
-            Options?.ShowBoxForControlCharacters ?? true).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty);
+            Options?.ShowBoxForControlCharacters ?? true,
+            foldIndicatorText).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty);
     }
 
     private void PublishVisibleLinesState(int firstVisualRow, int lastVisualRow)
@@ -2113,6 +2115,24 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         }
 
         return breakAt > start ? breakAt : maxEnd;
+    }
+
+    /// <summary>
+    /// Returns the fold indicator title (e.g. "...") when a collapsed folding section starts on
+    /// the given document line, or null if the line has no such fold. Used to append the inline
+    /// fold indicator run to the canvas-rendered text of the first visible line of a fold.
+    /// </summary>
+    private string? GetFoldIndicatorOnLine(DocumentLine line)
+    {
+        var fm = FoldingManager;
+        if (fm is null || _document is null) return null;
+        foreach (var section in fm.AllFoldings)
+        {
+            if (!section.IsFolded) continue;
+            if (_document.GetLineByOffset(section.StartOffset) == line)
+                return string.IsNullOrEmpty(section.Title) ? "..." : section.Title;
+        }
+        return null;
     }
 
     /// <summary>Return true if a document line number is hidden inside a folded section.</summary>

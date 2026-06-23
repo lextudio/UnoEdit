@@ -151,10 +151,18 @@ namespace ICSharpCode.AvalonEdit.Rendering
                 float drawX = (float)(x - horizontalOffset);
                 double w = MeasureTextWidth(run.Text, fontFamilySource, fontSize);
 
-                if (run.Background.HasValue)
-                    session.FillRectangle(drawX, top, (float)w, (float)glyphHeight, run.Background.Value);
-
-                session.DrawText(run.Text, drawX, top, run.Foreground, format);
+                if (run.IsFoldIndicator)
+                {
+                    // Draw border rectangle + gray text, matching WPF AvalonEdit's FoldingLineTextRun.
+                    session.DrawRectangle(drawX, top, (float)w, (float)glyphHeight, run.Foreground, 1f);
+                    session.DrawText(run.Text, drawX + 1f, top, run.Foreground, format);
+                }
+                else
+                {
+                    if (run.Background.HasValue)
+                        session.FillRectangle(drawX, top, (float)w, (float)glyphHeight, run.Background.Value);
+                    session.DrawText(run.Text, drawX, top, run.Foreground, format);
+                }
                 x += w;
             }
         }

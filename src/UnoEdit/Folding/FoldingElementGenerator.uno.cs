@@ -21,7 +21,7 @@ namespace ICSharpCode.AvalonEdit.Folding
 
 		private partial VisualLineElement CreateFoldingElement(FoldingSection foldingSection, string title, int documentLength)
 		{
-			return new FormattedTextElement(documentLength);
+			return new FormattedTextElement(title, documentLength);
 		}
 	}
 }

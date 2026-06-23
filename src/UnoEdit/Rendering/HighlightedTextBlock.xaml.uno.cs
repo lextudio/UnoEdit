@@ -281,6 +281,13 @@ public sealed partial class HighlightedTextBlock : UserControl
                 continue;
             }
 
+            if (textRun.IsFoldIndicator)
+            {
+                inlines.Add(new InlineUIContainer { Child = CreateFoldIndicatorBox(textRun.Text) });
+                vPos += textRun.Text.Length;
+                continue;
+            }
+
             int rStart = vPos;
             int rEnd = vPos + textRun.Text.Length;
             vPos = rEnd;
@@ -334,6 +341,13 @@ public sealed partial class HighlightedTextBlock : UserControl
                 continue;
             }
 
+            if (textRun.IsFoldIndicator)
+            {
+                inlines.Add(CreateFoldIndicatorBox(textRun.Text));
+                vPos += textRun.Text.Length;
+                continue;
+            }
+
             int rStart = vPos;
             int rEnd = vPos + textRun.Text.Length;
             vPos = rEnd;
@@ -373,6 +387,30 @@ public sealed partial class HighlightedTextBlock : UserControl
             CornerRadius = new Microsoft.UI.Xaml.CornerRadius(2.5),
             Padding = new Microsoft.UI.Xaml.Thickness(2, 0, 2, 0),
             Margin = new Microsoft.UI.Xaml.Thickness(0.5, 0, 0.5, 0),
+            VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
+            Child = label,
+        };
+    }
+
+    // Thin-bordered box bearing the fold indicator text (e.g. "..."), matching WPF AvalonEdit's
+    // FoldingLineTextRun appearance. Used by the TextBlock/RichTextBlock path; the canvas path
+    // renders this via Win2D's DrawRectangle + DrawText directly.
+    private Microsoft.UI.Xaml.Controls.Border CreateFoldIndicatorBox(string title)
+    {
+        var label = new Microsoft.UI.Xaml.Controls.TextBlock
+        {
+            Text = title,
+            FontFamily = EditorFontFamily,
+            FontSize = EditorFontSize,
+            Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128)),
+            VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
+        };
+        return new Microsoft.UI.Xaml.Controls.Border
+        {
+            BorderBrush = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128)),
+            BorderThickness = new Microsoft.UI.Xaml.Thickness(1),
+            Padding = new Microsoft.UI.Xaml.Thickness(1, 0, 1, 0),
+            Margin = new Microsoft.UI.Xaml.Thickness(1, 0, 0, 0),
             VerticalAlignment = Microsoft.UI.Xaml.VerticalAlignment.Center,
             Child = label,
         };

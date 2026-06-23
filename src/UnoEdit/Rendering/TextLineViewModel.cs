@@ -13,12 +13,13 @@ public enum FoldMarkerKind { None, CanFold, CanExpand, InsideFold, FoldEnd }
 /// <summary>A single colored text segment for a line.</summary>
 public readonly struct TextRun
 {
-    public TextRun(string text, Windows.UI.Color foreground, Windows.UI.Color? background = null, bool isControlCharacterBox = false)
+    public TextRun(string text, Windows.UI.Color foreground, Windows.UI.Color? background = null, bool isControlCharacterBox = false, bool isFoldIndicator = false)
     {
         Text = text;
         Foreground = foreground;
         Background = background;
         IsControlCharacterBox = isControlCharacterBox;
+        IsFoldIndicator = isFoldIndicator;
     }
 
     public string Text { get; }
@@ -30,6 +31,12 @@ public readonly struct TextRun
     /// be drawn inside a box, matching WPF AvalonEdit's SingleCharacterElementGenerator.
     /// </summary>
     public bool IsControlCharacterBox { get; }
+
+    /// <summary>
+    /// When true, this run is a folding indicator (e.g. "...") and should be drawn inside a thin
+    /// border rectangle with gray text, matching WPF AvalonEdit's FoldingLineTextRun appearance.
+    /// </summary>
+    public bool IsFoldIndicator { get; }
 }
 
 public sealed class TextLineViewModel : INotifyPropertyChanged
@@ -91,7 +98,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         int preeditVisualEnd = -1,
         int textStartColumn = 0,
         double rowHeight = 22d,
-        bool showControlCharacterBoxes = true)
+        bool showControlCharacterBoxes = true,
+        string? foldIndicatorText = null)
     {
         FoldMarker = foldMarker;
         WrapText = wrapText;
@@ -118,7 +126,7 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
         _preeditVisualStart  = preeditVisualStart;
         _preeditVisualEnd    = preeditVisualEnd;
         RowHeight            = rowHeight;
-        Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground, textStartColumn, showControlCharacterBoxes);
+        Runs = BuildRuns(text, highlightedLine, theme.DefaultForeground, textStartColumn, showControlCharacterBoxes, foldIndicatorText);
     }
 
     internal TextLineViewModel WithLineNumberText(string lineNumberText)
@@ -388,7 +396,10 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
     /// <summary>Pre-computed color runs for syntax-highlighted rendering.</summary>
     public IReadOnlyList<TextRun> Runs { get; private set; }
 
-    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground, int textStartColumn, bool showControlCharacterBoxes)
+    // Gray color used for fold indicator text and border — mirrors WPF AvalonEdit's FoldingLineTextRun.
+    private static readonly Windows.UI.Color FoldIndicatorColor = Windows.UI.Color.FromArgb(255, 128, 128, 128);
+
+    private static IReadOnlyList<TextRun> BuildRuns(string text, HighlightedLine? line, Windows.UI.Color defaultForeground, int textStartColumn, bool showControlCharacterBoxes, string? foldIndicatorText = null)
     {
         // Expand tabs to spaces so the visual width matches the column math in TextView.
         string expanded = ExpandTabs(text);
@@ -397,7 +408,11 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
 
         // Fast path: no syntax sections and no control characters to box → a single run.
         if ((line == null || line.Sections.Count == 0 || expanded.Length == 0) && !hasControlCharacters)
-            return new[] { new TextRun(expanded, defaultForeground) };
+        {
+            if (foldIndicatorText is null)
+                return new[] { new TextRun(expanded, defaultForeground) };
+            return new[] { new TextRun(expanded, defaultForeground), new TextRun(foldIndicatorText, FoldIndicatorColor, null, false, true) };
+        }
 
         int lineStart = line?.DocumentLine.Offset ?? 0;
         // Map from logical offsets to per-expanded-character color, handling tab expansion.
@@ -465,6 +480,8 @@ public sealed class TextLineViewModel : INotifyPropertyChanged
             runs.Add(new TextRun(expanded.Substring(pos, end - pos), c, b));
             pos = end;
         }
+        if (foldIndicatorText is not null)
+            runs.Add(new TextRun(foldIndicatorText, FoldIndicatorColor, null, false, true));
         return runs;
     }
 

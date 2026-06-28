@@ -18,6 +18,7 @@ public sealed partial class TextView
     private CanvasControl? _highlightSurface;
     private CanvasControl? _canvasTextSurface;
     private CanvasControl? _lineNumberSurface;
+    private CanvasControl? _breakpointSurface;
     private CanvasControl? _foldMarginSurface;
     private CanvasControl? _overlaySurface;
 
@@ -48,6 +49,13 @@ public sealed partial class TextView
             _lineNumberSurface = CreateSurface();
             _lineNumberSurface.Draw += OnLineNumberSurfaceDraw;
             LineNumberHost.Children.Add(_lineNumberSurface);
+        }
+
+        if (BreakpointHost is not null)
+        {
+            _breakpointSurface = CreateSurface();
+            _breakpointSurface.Draw += OnBreakpointSurfaceDraw;
+            BreakpointHost.Children.Add(_breakpointSurface);
         }
 
         if (FoldMarginHost is not null)
@@ -91,6 +99,13 @@ public sealed partial class TextView
             _lineNumberSurface.Height = System.Math.Max(0, height);
             _lineNumberSurface.Width = System.Math.Max(0, LineNumberHost.ActualWidth);
             _lineNumberSurface.Invalidate();
+        }
+
+        if (_breakpointSurface is not null)
+        {
+            _breakpointSurface.Height = System.Math.Max(0, height);
+            _breakpointSurface.Width = System.Math.Max(0, BreakpointHost?.ActualWidth ?? 18);
+            _breakpointSurface.Invalidate();
         }
 
         if (_foldMarginSurface is not null)
@@ -187,6 +202,34 @@ public sealed partial class TextView
             {
                 var bounds = new Windows.Foundation.Rect(0, y, System.Math.Max(0, width - LineNumberRightPadding), rowHeight);
                 session.DrawText(vm.Number, bounds, vm.GutterForegroundBrush.Color, format);
+            }
+            y += rowHeight;
+        }
+    }
+
+    private static readonly Windows.UI.Color BreakpointRed = Windows.UI.Color.FromArgb(255, 228, 20, 0);
+
+    private void OnBreakpointSurfaceDraw(CanvasControl sender, CanvasDrawEventArgs args)
+    {
+        args.DrawingSession.Clear(Transparent);
+        if (_lines.Count == 0)
+            return;
+
+        var session = args.DrawingSession;
+        double rowHeight = LineHeight;
+        double width = _breakpointSurface?.Width ?? 18;
+        if (width <= 0) return;
+
+        float cx = (float)(width / 2);
+        float radius = 5f;
+
+        double y = 0;
+        foreach (TextLineViewModel vm in _lines)
+        {
+            if (int.TryParse(vm.Number, out int docLine) && _breakpointLines.Contains(docLine))
+            {
+                float cy = (float)(y + rowHeight / 2);
+                session.FillCircle(cx, cy, radius, BreakpointRed);
             }
             y += rowHeight;
         }

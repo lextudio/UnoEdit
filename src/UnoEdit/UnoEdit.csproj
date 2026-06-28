@@ -389,7 +389,8 @@
           AfterTargets="Build"
           Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64' or '$(RuntimeIdentifier)' == '') and '$(UseNuGetPackages)' != 'true'">
     <ItemGroup>
-      <NativeTextCoreAssets Include="../../external/coretext/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net10.0-desktop/libUnoEditMacInput.dylib" />
+      <NativeTextCoreAssets Include="../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net10.0-desktop/libUnoEditMacInput.dylib"
+                            Condition="Exists('../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net10.0-desktop/libUnoEditMacInput.dylib')" />
     </ItemGroup>
 
     <Copy SourceFiles="@(NativeTextCoreAssets)"

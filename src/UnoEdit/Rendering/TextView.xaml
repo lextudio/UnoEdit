@@ -33,11 +33,13 @@
         <Grid x:Name="EditorGrid">
           <Grid.ColumnDefinitions>
             <!--
+              BreakpointColumn: always visible, holds red breakpoint dots.
               LineNumberColumn: shown/hidden by ShowLineNumbers.
               FoldMarginColumn: always visible (mirrors AvalonEdit where FoldingMargin
                                 stays in LeftMargins independently of ShowLineNumbers).
               TextColumn: text content with a small left gap.
             -->
+            <ColumnDefinition x:Name="BreakpointColumn" Width="Auto" />
             <ColumnDefinition x:Name="LineNumberColumn" Width="0" />
             <ColumnDefinition x:Name="FoldMarginColumn" Width="Auto" />
             <ColumnDefinition Width="*" />
@@ -49,14 +51,21 @@
             row background, so it must be behind the text — drawing it on the top overlay would cover
             the line's content. It still repaints cheaply (rectangles only) as the caret line moves.
           -->
-          <Grid x:Name="HighlightHost" Grid.Column="0" Grid.ColumnSpan="3" IsHitTestVisible="False" />
+          <Grid x:Name="HighlightHost" Grid.Column="0" Grid.ColumnSpan="4" IsHitTestVisible="False" />
+
+          <!--
+            Breakpoint-marker margin. Always visible. Red dots are drawn by a CanvasControl
+            (inserted in code-behind). Click/tap toggles breakpoints via coordinate hit-testing
+            in the pointer handler.
+          -->
+          <Grid x:Name="BreakpointHost" Width="18" />
 
           <!--
             Line-number margin. Line numbers are drawn by a CanvasControl (inserted in code-behind),
             mirroring AvalonEdit's LineNumberMargin which renders numbers directly rather than via a
             per-line control. Visibility/width toggled by ShowLineNumbers in code-behind.
           -->
-          <Grid x:Name="LineNumberHost" Width="40" Visibility="Collapsed" />
+          <Grid x:Name="LineNumberHost" Grid.Column="1" Width="40" Visibility="Collapsed" />
 
           <!--
             Fold-marker margin. Always visible regardless of ShowLineNumbers.
@@ -68,10 +77,10 @@
             coordinate hit-testing in the pointer handler (TryToggleFoldAtViewportPoint), so no
             per-marker UIElement is needed — which keeps fold rows at exactly LineHeight.
           -->
-          <Grid x:Name="FoldMarginHost" Grid.Column="1" Width="16" />
+          <Grid x:Name="FoldMarginHost" Grid.Column="2" Width="16" />
 
           <!-- Text content column -->
-          <Grid Grid.Column="2" x:Name="TextContentGrid">
+          <Grid Grid.Column="3" x:Name="TextContentGrid">
             <!-- Background-highlight overlay (bracket match, reference markers). Behind text,
                  scrolls with content; positioned in content space by the AvalonEdit pipeline. -->
             <Canvas x:Name="BackgroundHighlightCanvas" IsHitTestVisible="False" />
@@ -91,7 +100,7 @@
             the expensive glyph/line-number surfaces stay untouched — the AvalonEdit selection/caret
             layer split.
           -->
-          <Grid x:Name="OverlayHost" Grid.Column="0" Grid.ColumnSpan="3" IsHitTestVisible="False" />
+          <Grid x:Name="OverlayHost" Grid.Column="0" Grid.ColumnSpan="4" IsHitTestVisible="False" />
         </Grid>
 
         <Border x:Name="BottomSpacer" Height="0" />

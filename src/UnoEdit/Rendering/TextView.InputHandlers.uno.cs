@@ -101,6 +101,11 @@ public sealed partial class TextView
 
         var point = e.GetCurrentPoint(ContentStackPanel).Position;
         LogRender($"pointer-pressed x={point.X:0.###} y={point.Y:0.###} vOffset={TextScrollViewer.VerticalOffset:0.###} hOffset={TextScrollViewer.HorizontalOffset:0.###} firstVisible={FirstVisibleLineNumber} lastVisible={LastVisibleLineNumber} visibleCount={_visibleDocRows.Count}");
+        if (TryToggleBreakpointAtViewportPoint(point.X, point.Y))
+        {
+            LogRender("pointer-pressed toggled-breakpoint");
+            return true;
+        }
         if (TryToggleFoldAtViewportPoint(point.X, point.Y))
         {
             LogRender("pointer-pressed toggled-fold");
@@ -198,13 +203,29 @@ public sealed partial class TextView
         return TryToggleFoldAtDocumentLine(lineNumber);
     }
 
+    private bool TryToggleBreakpointAtViewportPoint(double x, double y)
+    {
+        // The breakpoint gutter is the leftmost column (18px wide).
+        if (_document is null || _visibleDocRows.Count == 0
+            || x < 0 || x >= 18d)
+        {
+            return false;
+        }
+
+        double absoluteY = y;
+        int visualRow = GetVisualRowFromY(absoluteY);
+        int docLine = _visibleDocRows[visualRow].LineNumber;
+        return ToggleBreakpoint(docLine);
+    }
+
     private bool TryToggleFoldAtViewportPoint(double x, double y)
     {
         // Only the fold-margin column toggles folds — not the line-number column. The fold margin
-        // sits just right of the (optional) line-number margin and is 16px wide.
-        double lineNumberWidth = ShowLineNumbers ? 40d : 0d;
+        // sits right of the line-number margin (if visible) and breakpoint gutter (always visible).
+        double foldStart = BreakpointGutterWidth + (ShowLineNumbers ? LineNumberWidth : 0d);
+        double foldEnd = foldStart + FoldMarginWidth;
         if (_document is null || FoldingManager is null || _visibleDocRows.Count == 0
-            || x < lineNumberWidth || x >= lineNumberWidth + 16d)
+            || x < foldStart || x >= foldEnd)
         {
             return false;
         }

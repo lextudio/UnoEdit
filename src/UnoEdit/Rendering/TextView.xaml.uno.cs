@@ -217,8 +217,20 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private const double LineHeightRatio = 1.5d;
     private const double DefaultCharacterWidth = 7.8d;
     private const double TextLeftPadding = 0d;
-    private const double GutterWidth = 56d; // 40 (line numbers) + 16 (fold marker)
+    private const double BreakpointGutterWidth = 18d;
+    private const double LineNumberWidth = 40d;
+    private const double FoldMarginWidth = 16d;
+    private const double GutterWidth = BreakpointGutterWidth + LineNumberWidth + FoldMarginWidth; // 74
+    private const double GutterWidthNoLineNumbers = BreakpointGutterWidth + FoldMarginWidth; // 34
     private const int OverscanLineCount = 4;
+
+    private HashSet<int> _breakpointLines = new();
+    private int _currentExecutionLine;
+    /// <summary>
+    /// Raised when breakpoints change (set, toggled, or cleared).
+    /// Provides the current sorted list of breakpoint line numbers for this document.
+    /// </summary>
+    public event Action<IReadOnlyList<int>>? BreakpointsChanged;
     private TextDocument? _document;
     private DocumentHighlighter? _highlighter;
     private IHighlightedLineSource? _highlightedLineSource;
@@ -1303,6 +1315,43 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     internal ScrollViewer InternalScrollViewer => TextScrollViewer;
 
+    /// <summary>Replace the full breakpoint set for this document.</summary>
+    public void SetBreakpoints(IEnumerable<int> lines)
+    {
+        _breakpointLines = new HashSet<int>(lines);
+        InvalidateCanvasContent();
+    }
+
+    /// <summary>Get the current breakpoint line numbers for this document.</summary>
+    public IReadOnlySet<int> GetBreakpoints() => _breakpointLines;
+
+    /// <summary>Toggle a breakpoint on the given line number. Returns true if added, false if removed.</summary>
+    public bool ToggleBreakpoint(int lineNumber)
+    {
+        bool added;
+        if (_breakpointLines.Contains(lineNumber))
+        {
+            _breakpointLines.Remove(lineNumber);
+            added = false;
+        }
+        else
+        {
+            _breakpointLines.Add(lineNumber);
+            added = true;
+        }
+
+        InvalidateCanvasContent();
+        BreakpointsChanged?.Invoke(_breakpointLines.OrderBy(l => l).ToList());
+        return added;
+    }
+
+    /// <summary>Set the current execution line for the yellow arrow (0 clears it).</summary>
+    public void SetCurrentExecutionLine(int line)
+    {
+        _currentExecutionLine = line;
+        InvalidateCanvasContent();
+    }
+
     /// <summary>Scroll the viewport so a 1-based line number is visible, without moving the caret.</summary>
     public void ScrollToLine(int lineNumber)
     {
@@ -2165,7 +2214,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private int GetWrapColumn()
     {
-        double gutterOffset = ShowLineNumbers ? GutterWidth : 16d;
+        double gutterOffset = ShowLineNumbers ? GutterWidth : GutterWidthNoLineNumbers;
         double viewportWidth = TextScrollViewer.ViewportWidth > 0
             ? TextScrollViewer.ViewportWidth
             : ActualWidth;
@@ -2365,8 +2414,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int targetLine = row.LineNumber;
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 
-        // Layout: [40 line-nums?][16 fold-margin] = 56 with line nums, 16 without.
-        double gutterOffset = ShowLineNumbers ? GutterWidth : 16d;
+        // Layout: [18 breakpoint][40 line-nums?][16 fold-margin] = 74 with line nums, 34 without.
+        double gutterOffset = ShowLineNumbers ? GutterWidth : GutterWidthNoLineNumbers;
         double documentX = x + TextScrollViewer.HorizontalOffset - gutterOffset - TextLeftPadding;
         string lineText = _document.GetText(documentLine);
         int logicalColumn = WordWrap

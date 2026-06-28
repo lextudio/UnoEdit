@@ -56,6 +56,8 @@ public sealed partial class TextView
             _breakpointSurface = CreateSurface();
             _breakpointSurface.Draw += OnBreakpointSurfaceDraw;
             BreakpointHost.Children.Add(_breakpointSurface);
+            if (_breakpointLines.Count > 0)
+                _breakpointSurface.Invalidate();
         }
 
         if (FoldMarginHost is not null)

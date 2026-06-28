@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.6] - 2026-06-28
+
+- Added break point support.
+
 ## [v0.7.5] - 2026-06-23
 
 - Improved folding indicator rendering.

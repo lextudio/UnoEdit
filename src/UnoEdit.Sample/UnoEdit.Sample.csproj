@@ -30,7 +30,7 @@
     <UnoFeatures>
       SkiaRenderer;
     </UnoFeatures>
-    <UseNuGetPackage>false</UseNuGetPackage>
+    <UseNuGetPackages>false</UseNuGetPackages>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows10.0.19041.0'">
@@ -43,18 +43,18 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
     <ProjectReference Include="..\..\..\UnoPropertyGrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
   </ItemGroup>
 
   <!-- DevFlow runtime UI-inspection agent (Uno desktop + WinUI 3) for screenshots/diagnosis. -->
-  <ItemGroup Condition="'$(UseNuGetPackage)' != 'true'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
     <ProjectReference Include="..\..\..\wpf-labs\src\DevFlow\LeXtudio.DevFlow.Agent.Uno\LeXtudio.DevFlow.Agent.Uno.csproj" />
     <ProjectReference Include="..\..\..\wpf-labs\src\DevFlow\LeXtudio.DevFlow.Agent.Core\LeXtudio.DevFlow.Agent.Core.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
     <PackageReference Include="LeXtudio.DevFlow.Agent.Uno" />
   </ItemGroup>
 
@@ -91,7 +91,7 @@
     </Content>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(UseNuGetPackage)' == 'true'">
+  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
     <PackageReference Include="LeXtudio.UnoEdit" />
     <PackageReference Include="LeXtudio.UnoEdit.TextMate" />
     <PackageReference Include="LeXtudio.UnoPropertyGrid" />

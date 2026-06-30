@@ -4,8 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <Thickness x:Key="UnoTextEditorBorderThickness">1</Thickness>
-  <CornerRadius x:Key="UnoTextEditorCornerRadius">10</CornerRadius>
+  <Thickness x:Key="UnoTextEditorBorderThickness">0</Thickness>
+  <CornerRadius x:Key="UnoTextEditorCornerRadius">0</CornerRadius>
   <CornerRadius x:Key="UnoSearchPanelCornerRadius">8</CornerRadius>
   <Thickness x:Key="UnoSearchPanelMargin">12,12,12,0</Thickness>
   <Thickness x:Key="UnoSearchPanelPadding">10</Thickness>

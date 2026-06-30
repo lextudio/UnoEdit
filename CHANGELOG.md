@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.7] - 2026-06-30
+
+- Removed testing style elements.
+
 ## [v0.7.6] - 2026-06-28
 
 - Added break point support.

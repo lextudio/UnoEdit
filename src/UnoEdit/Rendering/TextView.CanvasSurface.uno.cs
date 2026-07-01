@@ -263,7 +263,13 @@ public sealed partial class TextView
 
         var session = args.DrawingSession;
         double rowHeight = LineHeight;
-        double gutter = (LineNumberColumn?.ActualWidth ?? 0) + (FoldMarginColumn?.ActualWidth ?? 0);
+        // The overlay canvas spans all columns from the editor's left edge, while the glyphs are
+        // drawn in the text content column (Column 3). Its screen origin is the sum of every
+        // preceding column — Breakpoint + LineNumber + FoldMargin. Omitting the breakpoint column
+        // shifted selection/caret left by its width (the reported selection offset).
+        double gutter = (BreakpointColumn?.ActualWidth ?? 0)
+            + (LineNumberColumn?.ActualWidth ?? 0)
+            + (FoldMarginColumn?.ActualWidth ?? 0);
 
         double y = 0;
         foreach (TextLineViewModel vm in _lines)

@@ -1601,6 +1601,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                             newSelectionLeft = GetRowRelativeX(lineText, row, startLogical);
                             newSelectionWidth = Math.Max(2, GetRowRelativeX(lineText, row, endLogical) - newSelectionLeft);
                             newSelectionOpacity = 0.45d;
+                            if (HighlightLogger.Enabled)
+                                LogRender($"SelGeom sel line={lineNumber} startCol={startLogical} endCol={endLogical} " +
+                                    $"selLeftAbs={GetDisplayColumnX(lineText, startLogical):0.###} selRightAbs={GetDisplayColumnX(lineText, endLogical):0.###} " +
+                                    $"rowStartX={GetDisplayColumnX(lineText, row.StartColumn):0.###} selLeftRel={newSelectionLeft:0.###} selWidth={newSelectionWidth:0.###} gutter={GutterWidth}");
                         }
                     }
                 }

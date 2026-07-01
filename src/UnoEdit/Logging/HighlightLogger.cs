@@ -6,8 +6,9 @@ namespace UnoEdit.Logging
 {
     public static class HighlightLogger
     {
-        private static bool s_enabled =
-            string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_HIGHLIGHT"), "1", StringComparison.Ordinal);
+        // Disabled by default. The host app (e.g. UnoDevelop) opts in explicitly via Enabled,
+        // and controls when to clear the log via Reset(). No environment-variable coupling.
+        private static bool s_enabled;
 
         private static readonly string s_logPath = Path.Combine(Path.GetTempPath(), "unoedit_highlight.log");
         private static readonly object s_lock = new object();
@@ -20,6 +21,7 @@ namespace UnoEdit.Logging
 
         public static string LogPath => s_logPath;
 
+        /// <summary>Clears the log file. The host calls this when it wants a fresh log.</summary>
         public static void Reset()
         {
             try { lock (s_lock) { File.Delete(s_logPath); } } catch { }

@@ -152,12 +152,6 @@ namespace ICSharpCode.AvalonEdit.Rendering
                 float drawX = (float)(x - horizontalOffset);
                 double w = MeasureTextWidth(run.Text, fontFamilySource, fontSize);
 
-                if (HighlightLogger.Enabled)
-                {
-                    var t = run.Text.Length <= 24 ? run.Text : run.Text.Substring(0, 24) + "…";
-                    HighlightLogger.Log("SelGeom", $"run draw text='{t}' drawX={drawX:0.###} width={w:0.###} endX={(x + w):0.###} font='{fontFamilySource}' size={fontSize}");
-                }
-
                 if (run.IsFoldIndicator)
                 {
                     // Draw border rectangle + gray text, matching WPF AvalonEdit's FoldingLineTextRun.

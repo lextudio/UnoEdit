@@ -80,6 +80,20 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             typeof(TextView),
             new PropertyMetadata(false, OnShowLineNumbersChanged));
 
+    public static readonly DependencyProperty ShowBreakpointMarginProperty =
+        DependencyProperty.Register(
+            nameof(ShowBreakpointMargin),
+            typeof(bool),
+            typeof(TextView),
+            new PropertyMetadata(true, OnShowBreakpointMarginChanged));
+
+    public static readonly DependencyProperty ShowFoldMarginProperty =
+        DependencyProperty.Register(
+            nameof(ShowFoldMargin),
+            typeof(bool),
+            typeof(TextView),
+            new PropertyMetadata(true, OnShowFoldMarginChanged));
+
     public static readonly DependencyProperty WordWrapProperty =
         DependencyProperty.Register(
             nameof(WordWrap),
@@ -223,6 +237,15 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private const double GutterWidth = BreakpointGutterWidth + LineNumberWidth + FoldMarginWidth; // 74
     private const double GutterWidthNoLineNumbers = BreakpointGutterWidth + FoldMarginWidth; // 34
     private const int OverscanLineCount = 4;
+
+    // Live width of everything left of the text content column (Breakpoint + LineNumber + FoldMargin).
+    // Single source of truth for gutter offset — reads the actual laid-out column widths so it stays
+    // correct no matter which margins are shown (the const GutterWidth/GutterWidthNoLineNumbers
+    // assumed all margins present, which broke selection/caret/hit-testing when any was hidden).
+    private double CurrentGutterWidth =>
+        (BreakpointColumn?.ActualWidth ?? 0)
+        + (LineNumberColumn?.ActualWidth ?? 0)
+        + (FoldMarginColumn?.ActualWidth ?? 0);
 
     private HashSet<int> _breakpointLines = new();
     private int _currentExecutionLine;
@@ -438,6 +461,18 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         get => (bool)GetValue(ShowLineNumbersProperty);
         set => SetValue(ShowLineNumbersProperty, value);
+    }
+
+    public bool ShowBreakpointMargin
+    {
+        get => (bool)GetValue(ShowBreakpointMarginProperty);
+        set => SetValue(ShowBreakpointMarginProperty, value);
+    }
+
+    public bool ShowFoldMargin
+    {
+        get => (bool)GetValue(ShowFoldMarginProperty);
+        set => SetValue(ShowFoldMarginProperty, value);
     }
 
     public bool WordWrap
@@ -708,6 +743,34 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (textView.LineNumberHost is null) return;
         textView.LineNumberHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         textView.LineNumberColumn.Width = show ? GridLength.Auto : new GridLength(0);
+        textView.RebuildVisibleLineList();
+        textView._pendingFullRebuild = true;
+        textView.RefreshViewport();
+    }
+
+    // Breakpoint (icon-bar) margin — shown by default for code editing; hidden for plain-text
+    // surfaces like the Output pad so text sits flush against the left edge (matching SharpDevelop's
+    // bare AvalonEdit configuration). Collapsing the host + zeroing the column keeps every gutter
+    // consumer (overlay origin, hit-testing) correct since they read the live ActualWidths.
+    private static void OnShowBreakpointMarginChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        bool show = (bool)args.NewValue;
+        if (textView.BreakpointHost is null || textView.BreakpointColumn is null) return;
+        textView.BreakpointHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        textView.BreakpointColumn.Width = show ? GridLength.Auto : new GridLength(0);
+        textView.RebuildVisibleLineList();
+        textView._pendingFullRebuild = true;
+        textView.RefreshViewport();
+    }
+
+    private static void OnShowFoldMarginChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var textView = (TextView)dependencyObject;
+        bool show = (bool)args.NewValue;
+        if (textView.FoldMarginHost is null || textView.FoldMarginColumn is null) return;
+        textView.FoldMarginHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        textView.FoldMarginColumn.Width = show ? GridLength.Auto : new GridLength(0);
         textView.RebuildVisibleLineList();
         textView._pendingFullRebuild = true;
         textView.RefreshViewport();
@@ -1601,10 +1664,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                             newSelectionLeft = GetRowRelativeX(lineText, row, startLogical);
                             newSelectionWidth = Math.Max(2, GetRowRelativeX(lineText, row, endLogical) - newSelectionLeft);
                             newSelectionOpacity = 0.45d;
-                            if (HighlightLogger.Enabled)
-                                LogRender($"SelGeom sel line={lineNumber} startCol={startLogical} endCol={endLogical} " +
-                                    $"selLeftAbs={GetDisplayColumnX(lineText, startLogical):0.###} selRightAbs={GetDisplayColumnX(lineText, endLogical):0.###} " +
-                                    $"rowStartX={GetDisplayColumnX(lineText, row.StartColumn):0.###} selLeftRel={newSelectionLeft:0.###} selWidth={newSelectionWidth:0.###} gutter={GutterWidth}");
                         }
                     }
                 }
@@ -2218,7 +2277,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private int GetWrapColumn()
     {
-        double gutterOffset = ShowLineNumbers ? GutterWidth : GutterWidthNoLineNumbers;
+        double gutterOffset = CurrentGutterWidth;
         double viewportWidth = TextScrollViewer.ViewportWidth > 0
             ? TextScrollViewer.ViewportWidth
             : ActualWidth;
@@ -2419,7 +2478,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         DocumentLine documentLine = _document.GetLineByNumber(targetLine);
 
         // Layout: [18 breakpoint][40 line-nums?][16 fold-margin] = 74 with line nums, 34 without.
-        double gutterOffset = ShowLineNumbers ? GutterWidth : GutterWidthNoLineNumbers;
+        double gutterOffset = CurrentGutterWidth;
         double documentX = x + TextScrollViewer.HorizontalOffset - gutterOffset - TextLeftPadding;
         string lineText = _document.GetText(documentLine);
         int logicalColumn = WordWrap

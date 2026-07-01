@@ -81,6 +81,20 @@ public partial class TextEditor : UserControl, ISearchPanelHost, System.Componen
             typeof(TextEditor),
             new PropertyMetadata(false, OnShowLineNumbersChanged));
 
+    public static readonly DependencyProperty ShowBreakpointMarginProperty =
+        DependencyProperty.Register(
+            nameof(ShowBreakpointMargin),
+            typeof(bool),
+            typeof(TextEditor),
+            new PropertyMetadata(true, OnShowBreakpointMarginChanged));
+
+    public static readonly DependencyProperty ShowFoldMarginProperty =
+        DependencyProperty.Register(
+            nameof(ShowFoldMargin),
+            typeof(bool),
+            typeof(TextEditor),
+            new PropertyMetadata(true, OnShowFoldMarginChanged));
+
     public static readonly DependencyProperty WordWrapProperty =
         DependencyProperty.Register(
             nameof(WordWrap),
@@ -244,6 +258,22 @@ public partial class TextEditor : UserControl, ISearchPanelHost, System.Componen
     {
         get => (bool)GetValue(ShowLineNumbersProperty);
         set => SetValue(ShowLineNumbersProperty, value);
+    }
+
+    [System.ComponentModel.Category("View")]
+    [System.ComponentModel.Description("Show or hide the breakpoint (icon bar) margin on the left. Hide for plain-text surfaces like an output pane.")]
+    public bool ShowBreakpointMargin
+    {
+        get => (bool)GetValue(ShowBreakpointMarginProperty);
+        set => SetValue(ShowBreakpointMarginProperty, value);
+    }
+
+    [System.ComponentModel.Category("View")]
+    [System.ComponentModel.Description("Show or hide the folding margin on the left. Hide for plain-text surfaces like an output pane.")]
+    public bool ShowFoldMargin
+    {
+        get => (bool)GetValue(ShowFoldMarginProperty);
+        set => SetValue(ShowFoldMarginProperty, value);
     }
 
     [System.ComponentModel.Category("View")]
@@ -712,6 +742,22 @@ public partial class TextEditor : UserControl, ISearchPanelHost, System.Componen
         if (editor.PART_TextArea is null) return;
         editor.PART_TextArea.ShowLineNumbers = show;
         editor.NotifyPropertyChanged(nameof(ShowLineNumbers));
+    }
+
+    private static void OnShowBreakpointMarginChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        if (editor.PART_TextArea?.TextView is null) return;
+        editor.PART_TextArea.TextView.ShowBreakpointMargin = (bool)args.NewValue;
+        editor.NotifyPropertyChanged(nameof(ShowBreakpointMargin));
+    }
+
+    private static void OnShowFoldMarginChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    {
+        var editor = (TextEditor)dependencyObject;
+        if (editor.PART_TextArea?.TextView is null) return;
+        editor.PART_TextArea.TextView.ShowFoldMargin = (bool)args.NewValue;
+        editor.NotifyPropertyChanged(nameof(ShowFoldMargin));
     }
 
     private static void OnWordWrapChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)

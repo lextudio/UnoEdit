@@ -76,13 +76,6 @@ public sealed partial class SearchPanel : UserControl
             SearchTextBox.Resources.Remove(key);
         }
 
-        Console.WriteLine($"[SearchPanel.UpdateTheme] theme={theme.Name}");
-        Console.WriteLine($"  SearchTextBox.Foreground = {fg.Color}");
-        Console.WriteLine($"  SearchTextBox.Background = {textBoxBg.Color}");
-        Console.WriteLine($"  TextControlBackground    = {textBoxBg.Color}");
-        Console.WriteLine($"  TextControlBackgroundFocused = {textBoxBg.Color}");
-        Console.WriteLine($"  TextControlForegroundFocused = {fg.Color}");
-
         PreviousButton.Foreground = fg;
         NextButton.Foreground = fg;
         CloseButton.Foreground = fg;

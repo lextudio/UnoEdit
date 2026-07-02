@@ -1,4 +1,7 @@
 using System;
+using System.Diagnostics;
+using System.Text;
+using System.Threading.Tasks;
 using ICSharpCode.AvalonEdit.CodeCompletion;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Folding;
@@ -8,6 +11,7 @@ using TextMateSharp.Grammars;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Windows.Input;
+using UnoEdit.Logging;
 using UnoEdit.Skia.Desktop.Controls;
 #if WINDOWS_APP_SDK
 using Microsoft.UI.Windowing;
@@ -24,6 +28,7 @@ public sealed partial class MainWindow : Window
     private readonly TextMateLineHighlighter _textMateHighlighter;
     private RegistryOptions _textMateRegistryOptions;
     private bool _isDarkTheme = true;
+    private bool _benchmarkStarted;
     private CompletionWindow? _completionWindow;
 
     public MainWindow()
@@ -55,6 +60,7 @@ public sealed partial class MainWindow : Window
         PropertyGrid.PropertyGridTheme = ElementTheme.Light;
 
         Editor.FoldingManager = _foldingManager;
+        ApplyPerfOptions();
 
         HighlighterComboBox.SelectedIndex = 1;
         ApplyHighlighter(1);
@@ -78,6 +84,23 @@ public sealed partial class MainWindow : Window
 
         UpdateFoldings();
         StatsTextBlock.Text = BuildStats(_document);
+        PerfStatusTextBlock.Text = "Use large loads to compare wrap, gutters, and highlighters.";
+    }
+
+    private async void OnRootGridLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_benchmarkStarted)
+        {
+            return;
+        }
+
+        if (!string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_SAMPLE_BENCHMARK"), "1", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _benchmarkStarted = true;
+        await RunBenchmarkAsync();
     }
 
     private void OnDocumentTextChanged(object? sender, EventArgs e)
@@ -137,6 +160,157 @@ public sealed partial class MainWindow : Window
     private void OnCompleteClick(object sender, RoutedEventArgs e)
     {
         ShowCompletion();
+    }
+
+    private void OnLoad10kClick(object sender, RoutedEventArgs e)
+    {
+        LoadLargeDocument(10_000);
+    }
+
+    private void OnLoad100kClick(object sender, RoutedEventArgs e)
+    {
+        LoadLargeDocument(100_000);
+    }
+
+    private void OnLoad250kClick(object sender, RoutedEventArgs e)
+    {
+        LoadLargeDocument(250_000);
+    }
+
+    private void OnScrollHomeClick(object sender, RoutedEventArgs e)
+    {
+        var watch = Stopwatch.StartNew();
+        Editor.ScrollToHome();
+        watch.Stop();
+        PerfStatusTextBlock.Text = $"Scroll home requested in {watch.ElapsedMilliseconds} ms.";
+    }
+
+    private void OnScrollEndClick(object sender, RoutedEventArgs e)
+    {
+        var watch = Stopwatch.StartNew();
+        Editor.ScrollToEnd();
+        watch.Stop();
+        PerfStatusTextBlock.Text = $"Scroll end requested in {watch.ElapsedMilliseconds} ms.";
+    }
+
+    private void OnPerfOptionChanged(object sender, RoutedEventArgs e)
+    {
+        ApplyPerfOptions();
+    }
+
+    private void ApplyPerfOptions()
+    {
+        if (Editor == null || WordWrapCheckBox == null)
+            return;
+
+        Editor.WordWrap = WordWrapCheckBox.IsChecked == true;
+        Editor.ShowLineNumbers = LineNumbersCheckBox.IsChecked == true;
+        Editor.ShowBreakpointMargin = BreakpointMarginCheckBox.IsChecked == true;
+        Editor.ShowFoldMargin = FoldMarginCheckBox.IsChecked == true;
+    }
+
+    private void LoadLargeDocument(int lineCount)
+    {
+        var generateWatch = Stopwatch.StartNew();
+        string text = BuildLargeCSharpText(lineCount);
+        generateWatch.Stop();
+
+        var assignWatch = Stopwatch.StartNew();
+        _document.Text = text;
+        Editor.ScrollToHome();
+        assignWatch.Stop();
+
+        PerfStatusTextBlock.Text =
+            $"Loaded {lineCount:N0} lines, {text.Length:N0} chars. " +
+            $"Generate {generateWatch.ElapsedMilliseconds} ms, assign+layout request {assignWatch.ElapsedMilliseconds} ms.";
+    }
+
+    private async Task RunBenchmarkAsync()
+    {
+        bool enableInternalLog = string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_SAMPLE_BENCHMARK_LOG"), "1", StringComparison.Ordinal);
+        HighlightLogger.Enabled = enableInternalLog;
+        if (enableInternalLog)
+            HighlightLogger.Reset();
+
+        Console.WriteLine($"[UnoEditBench] log={(enableInternalLog ? HighlightLogger.LogPath : "disabled")}");
+        Console.WriteLine("[UnoEditBench] columns: case, lines, wrap, lineNumbers, breakpointMargin, foldMargin, highlighter, generateMs, assignMs, scrollLine, scrollRequestMs, settleMs, verticalOffset");
+
+        await Task.Delay(500);
+
+        await RunBenchmarkCaseAsync("baseline-none-100k", 100_000, wrap: false, lineNumbers: true, breakpointMargin: true, foldMargin: true, highlighterIndex: 2);
+        await RunBenchmarkCaseAsync("xshd-100k", 100_000, wrap: false, lineNumbers: true, breakpointMargin: true, foldMargin: true, highlighterIndex: 1);
+        await RunBenchmarkCaseAsync("textmate-100k", 100_000, wrap: false, lineNumbers: true, breakpointMargin: true, foldMargin: true, highlighterIndex: 0);
+        await RunBenchmarkCaseAsync("wrap-none-100k", 100_000, wrap: true, lineNumbers: true, breakpointMargin: true, foldMargin: true, highlighterIndex: 2);
+        await RunBenchmarkCaseAsync("minimal-none-250k", 250_000, wrap: false, lineNumbers: false, breakpointMargin: false, foldMargin: false, highlighterIndex: 2);
+
+        Console.WriteLine("[UnoEditBench] done");
+        await Task.Delay(500);
+        Environment.Exit(0);
+    }
+
+    private async Task RunBenchmarkCaseAsync(
+        string name,
+        int lineCount,
+        bool wrap,
+        bool lineNumbers,
+        bool breakpointMargin,
+        bool foldMargin,
+        int highlighterIndex)
+    {
+        WordWrapCheckBox.IsChecked = wrap;
+        LineNumbersCheckBox.IsChecked = lineNumbers;
+        BreakpointMarginCheckBox.IsChecked = breakpointMargin;
+        FoldMarginCheckBox.IsChecked = foldMargin;
+        ApplyPerfOptions();
+        HighlighterComboBox.SelectedIndex = highlighterIndex;
+        ApplyHighlighter(highlighterIndex);
+
+        await Task.Delay(200);
+
+        var generateWatch = Stopwatch.StartNew();
+        string text = BuildLargeCSharpText(lineCount);
+        generateWatch.Stop();
+
+        var assignWatch = Stopwatch.StartNew();
+        _document.Text = text;
+        Editor.ScrollToHome();
+        assignWatch.Stop();
+
+        await Task.Delay(300);
+
+        int[] targets =
+        [
+            1,
+            Math.Max(1, lineCount / 4),
+            Math.Max(1, lineCount / 2),
+            Math.Max(1, (lineCount * 3) / 4),
+            lineCount
+        ];
+
+        foreach (int targetLine in targets)
+        {
+            var scrollWatch = Stopwatch.StartNew();
+            Editor.ScrollToLine(targetLine);
+            scrollWatch.Stop();
+
+            var settleWatch = Stopwatch.StartNew();
+            await Task.Delay(120);
+            settleWatch.Stop();
+
+            Console.WriteLine(
+                $"[UnoEditBench] {name}, {lineCount}, {wrap}, {lineNumbers}, {breakpointMargin}, {foldMargin}, {HighlighterName(highlighterIndex)}, " +
+                $"{generateWatch.ElapsedMilliseconds}, {assignWatch.ElapsedMilliseconds}, {targetLine}, {scrollWatch.Elapsed.TotalMilliseconds:0.###}, {settleWatch.ElapsedMilliseconds}, {Editor.VerticalOffset:0.###}");
+        }
+    }
+
+    private static string HighlighterName(int highlighterIndex)
+    {
+        return highlighterIndex switch
+        {
+            0 => "TextMate",
+            1 => "XSHD",
+            _ => "None",
+        };
     }
 
     private void OnTextAreaTextEntered(object? sender, TextCompositionEventArgs e)
@@ -371,6 +545,37 @@ public static class WorkspaceFactory
     }
 }
 """;
+    }
+
+    private static string BuildLargeCSharpText(int lineCount)
+    {
+        var builder = new StringBuilder(lineCount * 96);
+        builder.AppendLine("using System;");
+        builder.AppendLine("using System.Collections.Generic;");
+        builder.AppendLine();
+        builder.AppendLine("namespace UnoEdit.Sample.Performance;");
+        builder.AppendLine();
+        builder.AppendLine("public static class LargeDocument");
+        builder.AppendLine("{");
+        builder.AppendLine("    public static IEnumerable<string> Enumerate()");
+        builder.AppendLine("    {");
+
+        int emitted = 9;
+        for (int i = 0; emitted < lineCount; i++, emitted++)
+        {
+            int bucket = i % 17;
+            builder.Append("        yield return \"");
+            builder.Append(i.ToString("D6", System.Globalization.CultureInfo.InvariantCulture));
+            builder.Append(" | bucket=");
+            builder.Append(bucket.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.Append(" | ");
+            builder.Append("The quick brown fox jumps over a lazy dog while UnoEdit measures visible-line rendering.");
+            builder.AppendLine("\";");
+        }
+
+        builder.AppendLine("    }");
+        builder.AppendLine("}");
+        return builder.ToString();
     }
 
     private static string BuildStats(TextDocument document)

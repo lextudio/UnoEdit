@@ -5,8 +5,11 @@
         xmlns:avalonedit="using:ICSharpCode.AvalonEdit"
         xmlns:pg="using:UnoPropertyGrid"
         xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
-  <Grid Padding="20" RowSpacing="16">
+  <Grid Padding="20"
+        RowSpacing="16"
+        Loaded="OnRootGridLoaded">
     <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
@@ -58,8 +61,55 @@
                  TextWrapping="WrapWholeWords" />
     </Border>
 
+    <Border Grid.Row="2"
+            Padding="10"
+            CornerRadius="8"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+      <StackPanel Spacing="8">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <Button Content="Load 10k"
+                  Click="OnLoad10kClick" />
+          <Button Content="Load 100k"
+                  Click="OnLoad100kClick" />
+          <Button Content="Load 250k"
+                  Click="OnLoad250kClick" />
+          <Button Content="Top"
+                  Click="OnScrollHomeClick" />
+          <Button Content="End"
+                  Click="OnScrollEndClick" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="12">
+          <CheckBox x:Name="WordWrapCheckBox"
+                    Content="Word wrap"
+                    Checked="OnPerfOptionChanged"
+                    Unchecked="OnPerfOptionChanged" />
+          <CheckBox x:Name="LineNumbersCheckBox"
+                    Content="Line numbers"
+                    IsChecked="True"
+                    Checked="OnPerfOptionChanged"
+                    Unchecked="OnPerfOptionChanged" />
+          <CheckBox x:Name="BreakpointMarginCheckBox"
+                    Content="Breakpoint margin"
+                    IsChecked="True"
+                    Checked="OnPerfOptionChanged"
+                    Unchecked="OnPerfOptionChanged" />
+          <CheckBox x:Name="FoldMarginCheckBox"
+                    Content="Fold margin"
+                    IsChecked="True"
+                    Checked="OnPerfOptionChanged"
+                    Unchecked="OnPerfOptionChanged" />
+          <TextBlock x:Name="PerfStatusTextBlock"
+                     VerticalAlignment="Center"
+                     FontFamily="Consolas"
+                     Opacity="0.8" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
     <!-- Editor + Property panel -->
-    <Grid Grid.Row="2">
+    <Grid Grid.Row="3">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" MinWidth="200" />
         <ColumnDefinition Width="Auto" />

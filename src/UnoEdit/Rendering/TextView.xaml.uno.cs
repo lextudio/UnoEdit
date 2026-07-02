@@ -298,8 +298,13 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private double _lastPublishedHorizontalOffset;
     private double _lastPublishedVerticalOffset;
     private bool _visibleLinesPublished;
+    private readonly Dictionary<(int LineNumber, int StartColumn, int EndColumn), TextLineViewModel> _lineViewModelCache = new();
 
     private readonly record struct VisibleDocumentRow(int LineNumber, int StartColumn, int EndColumn, bool IsFirstRow, bool IsLastRow, double VisualTop, double RowHeight);
+
+    private bool CanUseUniformLineMapping => !WordWrap && !HasFoldedSections;
+
+    private void ClearLineViewModelCache() => _lineViewModelCache.Clear();
 
     public event EventHandler? CaretOffsetChanged;
     public event EventHandler? SelectionChanged;
@@ -636,6 +641,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _pendingFullRebuild = true;
             _highlightingDataInvalidated = true;
             _dirtyHighlightedLines.Clear();
+            ClearLineViewModelCache();
 
             bool deferInitialRefresh =
                 _highlightedLineSource is IVisibleRangeWarmableHighlightedLineSource
@@ -721,6 +727,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         var textView = (TextView)dependencyObject;
         textView.ApplyThemeToChrome();
+        textView.ClearLineViewModelCache();
         textView._pendingFullRebuild = true;
         LogFlash("full queued: theme changed");
         textView.RefreshViewport();
@@ -729,6 +736,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private static void OnOptionsChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textView = (TextView)dependencyObject;
+        textView.ClearLineViewModelCache();
         textView._pendingFullRebuild = true;
         LogFlash("full queued: options changed");
         textView.RefreshViewport();
@@ -743,6 +751,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (textView.LineNumberHost is null) return;
         textView.LineNumberHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         textView.LineNumberColumn.Width = show ? GridLength.Auto : new GridLength(0);
+        textView.ClearLineViewModelCache();
         textView.RebuildVisibleLineList();
         textView._pendingFullRebuild = true;
         textView.RefreshViewport();
@@ -759,6 +768,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (textView.BreakpointHost is null || textView.BreakpointColumn is null) return;
         textView.BreakpointHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         textView.BreakpointColumn.Width = show ? GridLength.Auto : new GridLength(0);
+        textView.ClearLineViewModelCache();
         textView.RebuildVisibleLineList();
         textView._pendingFullRebuild = true;
         textView.RefreshViewport();
@@ -771,6 +781,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (textView.FoldMarginHost is null || textView.FoldMarginColumn is null) return;
         textView.FoldMarginHost.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
         textView.FoldMarginColumn.Width = show ? GridLength.Auto : new GridLength(0);
+        textView.ClearLineViewModelCache();
         textView.RebuildVisibleLineList();
         textView._pendingFullRebuild = true;
         textView.RefreshViewport();
@@ -780,6 +791,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         var textView = (TextView)dependencyObject;
         textView.ApplyWordWrap();
+        textView.ClearLineViewModelCache();
         textView.RebuildVisibleLineList();
         textView._pendingFullRebuild = true;
         LogFlash("full queued: word wrap changed");
@@ -795,6 +807,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private static void OnLineNumbersForegroundChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textView = (TextView)dependencyObject;
+        textView.ClearLineViewModelCache();
         textView._pendingFullRebuild = true;
         LogFlash("full queued: line numbers foreground changed");
         textView.RefreshViewport();
@@ -803,6 +816,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private static void OnSelectionStyleChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         var textView = (TextView)dependencyObject;
+        textView.ClearLineViewModelCache();
         textView._pendingFullRebuild = true;
         LogFlash("full queued: selection style changed");
         textView.RefreshViewport();
@@ -812,6 +826,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     {
         var textView = (TextView)dependencyObject;
         textView.UpdateDocumentHighlighter();
+        textView.ClearLineViewModelCache();
         textView._pendingFullRebuild = true;
         LogFlash("full queued: syntax highlighting changed");
         textView.RefreshViewport();
@@ -824,6 +839,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             oldFm.FoldingsChanged -= tv.OnFoldingsChanged;
         if (args.NewValue is ICSharpCode.AvalonEdit.Folding.FoldingManager newFm)
             newFm.FoldingsChanged += tv.OnFoldingsChanged;
+        tv.ClearLineViewModelCache();
         tv.RebuildVisibleLineList();
         tv._pendingFullRebuild = true;
         LogFlash("full queued: FoldingManager changed");
@@ -835,6 +851,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         var tv = (TextView)d;
         tv.ApplyEditorFont();
         tv.UpdateTextMetrics();
+        tv.ClearLineViewModelCache();
         tv._pendingFullRebuild = true;
         LogFlash("full queued: editor font changed");
         tv.RefreshViewport();
@@ -867,6 +884,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private void OnFoldingsChanged(object? sender, EventArgs e)
     {
+        ClearLineViewModelCache();
         RebuildVisibleLineList();
         _pendingFullRebuild = true;
         LogFlash("full queued: folds changed");
@@ -886,6 +904,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         _document = newDocument;
         _visibleDocRows.Clear();
+        ClearLineViewModelCache();
         _highlightedLineSource?.SetDocument(newDocument);
 
         // Reset the shared AvalonEdit visual-line / height-tree cache for the new document.
@@ -1137,6 +1156,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private void HandleDocumentTextChanged(object? sender, EventArgs e)
     {
+        ClearLineViewModelCache();
         if (_document is not null && CurrentOffset > _document.TextLength)
         {
             CurrentOffset = _document.TextLength;
@@ -1997,13 +2017,37 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             displayText = GetRowText(lineText, row);
         }
 
+        var cacheKey = (lineNumber, row.StartColumn, row.EndColumn);
+        bool canUseCachedLine =
+            ReferenceSegmentSource is null
+            && !(_highlightingDataInvalidated || _dirtyHighlightedLines.Contains(lineNumber))
+            && ReferenceEquals(_highlightedLineSource, _prevHighlightedLineSource);
+
+        if (canUseCachedLine && _lineViewModelCache.TryGetValue(cacheKey, out var cachedVm)
+            && cachedVm.Text == displayText
+            && cachedVm.FoldMarker == foldMarker)
+        {
+            return cachedVm.WithCaretAndSelection(
+                isCaretLine && _caretVisible ? 1d : 0d,
+                isCaretLine ? 1d : 0d,
+                new Thickness(caretLeft, 0, 0, 0),
+                new Thickness(selectionLeft, 0, 0, 0),
+                selectionWidth,
+                selectionOpacity,
+                new Thickness(preeditUnderlineLeft, 0, 0, 0),
+                preeditUnderlineWidth,
+                preeditUnderlineOpacity,
+                preeditVisualStart,
+                preeditVisualEnd);
+        }
+
         if (!(_highlightingDataInvalidated || _dirtyHighlightedLines.Count > 0)
             && ReferenceSegmentSource is null
             && ReferenceEquals(_highlightedLineSource, _prevHighlightedLineSource))
         {
-            for (int existingIndex = 0; existingIndex < _lines.Count; existingIndex++)
+            if ((uint)targetIndex < (uint)_lines.Count)
             {
-                var existingVm = _lines[existingIndex];
+                var existingVm = _lines[targetIndex];
                 if (row.IsFirstRow
                     && int.TryParse(existingVm.LineNumber, out int existingLineNumber)
                     && existingLineNumber == lineNumber
@@ -2022,7 +2066,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                         preeditUnderlineOpacity,
                         preeditVisualStart,
                         preeditVisualEnd,
-                        forceClone: existingIndex != targetIndex);
+                        forceClone: false);
                 }
             }
         }
@@ -2068,7 +2112,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             }
         }
 
-        return new TextLineViewModel(
+        var viewModel = new TextLineViewModel(
             line.LineNumber,
             displayText,
             isCaretLine && _caretVisible ? 1d : 0d,
@@ -2095,6 +2139,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             row.RowHeight,
             Options?.ShowBoxForControlCharacters ?? true,
             foldIndicatorText).WithLineNumberText(row.IsFirstRow ? line.LineNumber.ToString() : string.Empty);
+        if (canUseCachedLine)
+            _lineViewModelCache[cacheKey] = viewModel;
+        return viewModel;
     }
 
     private void PublishVisibleLinesState(int firstVisualRow, int lastVisualRow)
@@ -2220,6 +2267,25 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         _visibleDocRows.Clear();
         if (_document is null) return;
         EnsureVisualLines();
+
+        if (CanUseUniformLineMapping)
+        {
+            for (int ln = 1; ln <= _document.LineCount; ln++)
+            {
+                DocumentLine line = _document.GetLineByNumber(ln);
+                _visibleDocRows.Add(new VisibleDocumentRow(
+                    ln,
+                    0,
+                    line.Length,
+                    true,
+                    true,
+                    (ln - 1) * LineHeight,
+                    LineHeight));
+            }
+
+            return;
+        }
+
         // VisualTop must follow the *rendered* layout: visible rows stack contiguously (after the
         // virtualization TopSpacer), so a row's top is the running sum of preceding visible row
         // heights. Using GetVisualTopByDocumentLine ((line-1)*LineHeight) instead leaves gaps for
@@ -2345,9 +2411,30 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         return false;
     }
 
+    private bool HasFoldedSections
+    {
+        get
+        {
+            var fm = FoldingManager;
+            if (fm is null)
+                return false;
+
+            foreach (var section in fm.AllFoldings)
+            {
+                if (section.IsFolded)
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>Return the 0-based visual row index for a document line number, or -1 if hidden.</summary>
     private int GetVisualRow(int docLineNumber)
     {
+        if (CanUseUniformLineMapping && _document is not null)
+            return Math.Clamp(docLineNumber, 1, _document.LineCount) - 1;
+
         if (_visibleDocRows.Count == 0) return 0;
         for (int i = 0; i < _visibleDocRows.Count; i++)
         {
@@ -2359,6 +2446,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
     private int GetVisualRow(int docLineNumber, int logicalColumn)
     {
+        if (CanUseUniformLineMapping && _document is not null)
+            return Math.Clamp(docLineNumber, 1, _document.LineCount) - 1;
+
         if (_visibleDocRows.Count == 0) return 0;
         int firstLineRow = -1;
         for (int i = 0; i < _visibleDocRows.Count; i++)
@@ -2405,10 +2495,28 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (_visibleDocRows.Count == 0)
             return 0;
 
-        for (int i = 0; i < _visibleDocRows.Count; i++)
+        if (CanUseUniformLineMapping)
         {
-            if (visualY < GetVisualRowBottom(i))
-                return i;
+            int row = (int)Math.Floor(Math.Max(0, visualY) / Math.Max(LineHeight, 1d));
+            return Math.Clamp(row, 0, _visibleDocRows.Count - 1);
+        }
+
+        int low = 0;
+        int high = _visibleDocRows.Count - 1;
+        while (low <= high)
+        {
+            int mid = low + ((high - low) / 2);
+            double bottom = GetVisualRowBottom(mid);
+            if (visualY < bottom)
+            {
+                if (mid == 0 || visualY >= GetVisualRowBottom(mid - 1))
+                    return mid;
+                high = mid - 1;
+            }
+            else
+            {
+                low = mid + 1;
+            }
         }
 
         return _visibleDocRows.Count - 1;

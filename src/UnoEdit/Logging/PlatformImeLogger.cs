@@ -6,22 +6,19 @@ namespace UnoEdit.Logging
 {
     public static class PlatformImeLogger
     {
-        private static readonly bool s_enabled =
-            string.Equals(Environment.GetEnvironmentVariable("UNOEDIT_DEBUG_IME"), "1", StringComparison.Ordinal);
-
         private static readonly string s_logPath = Path.Combine(Path.GetTempPath(), "unoedit_ime.log");
         private static readonly object s_lock = new object();
 
-        public static bool Enabled => s_enabled;
+#if DEBUG
+        public static bool Enabled => true;
+#else
+        public static bool Enabled => false;
+#endif
         public static string LogPath => s_logPath;
 
         public static void Log(string message)
         {
-            if (!s_enabled)
-            {
-                return;
-            }
-
+#if DEBUG
             try
             {
                 string ts = DateTime.UtcNow.ToString("o");
@@ -36,6 +33,7 @@ namespace UnoEdit.Logging
             {
                 // best-effort logging
             }
+#endif
         }
     }
 }

@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.11] - 2026-07-26
+
+- Fixed TextMate mode rendering issues.
+- Added support of PageUp/PageDown keys.
+- Improve scrolling performance.
+
 ## [v0.7.10] - 2026-07-26
 
 - Removed IME input offset.

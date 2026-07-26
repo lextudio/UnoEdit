@@ -1,8 +1,13 @@
+using System.Reflection;
+using System.Runtime.InteropServices;
 using ICSharpCode.AvalonEdit.Document;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using UnoEdit.Logging;
 using UnoEdit.Skia.Desktop.Controls;
+#if !WINDOWS_APP_SDK
+using Uno.UI.Xaml;
+#endif
 
 namespace ICSharpCode.AvalonEdit.Rendering;
 
@@ -130,14 +135,22 @@ public sealed partial class TextView
 #if !WINDOWS_APP_SDK
             _coreTextEditContext.CommandReceived += CoreTextEditContext_CommandReceived;
 #endif
-
-            bool attached = _coreTextEditContext.AttachToCurrentWindow(Window.Current);
-            if (attached && _platformInputFocused)
+#if WINDOWS_APP_SDK
+            _coreTextEditContext.AttachToCurrentWindow(Window.Current);
+#else
+            if (!TryGetNativeWindowHandle(Window.Current, out nint windowHandle, out nint displayHandle)
+                || !_coreTextEditContext.AttachToWindowHandle(windowHandle, displayHandle))
+            {
+                PlatformImeLogger.Log("EnsureCoreTextEditContext: failed to attach native window handle");
+                _coreTextEditContext = null;
+                return false;
+            }
+#endif
+            if (_platformInputFocused)
             {
                 _coreTextEditContext.NotifyFocusEnter();
             }
 
-            PlatformImeLogger.Log("EnsureCoreTextEditContext: initialized.");
             return true;
         }
         catch (Exception ex)
@@ -147,6 +160,98 @@ public sealed partial class TextView
             return false;
         }
     }
+
+#if !WINDOWS_APP_SDK
+    static bool TryGetNativeWindowHandle(Window? window, out nint windowHandle, out nint displayHandle)
+    {
+        windowHandle = nint.Zero;
+        displayHandle = nint.Zero;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            TryGetX11Handles(window, out displayHandle, out windowHandle);
+        }
+
+        if (windowHandle == nint.Zero)
+        {
+            windowHandle = GetNativeHandleFromWindowHelper(window);
+        }
+
+        return windowHandle != nint.Zero;
+    }
+
+    static nint GetNativeHandleFromWindowHelper(Window? window)
+    {
+        if (window is null)
+            return nint.Zero;
+
+        object? nativeWindow;
+        try
+        {
+            nativeWindow = WindowHelper.GetNativeWindow(window);
+        }
+        catch
+        {
+            return nint.Zero;
+        }
+
+        if (nativeWindow is null)
+            return nint.Zero;
+
+        foreach (string name in new[] { "Hwnd", "HWnd", "Handle", "WindowHandle", "NativeHandle", "Pointer", "hwnd", "_hwnd" })
+        {
+            PropertyInfo? property = nativeWindow.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (property is not null)
+            {
+                nint handle = ToNativeHandle(property.GetValue(nativeWindow));
+                if (handle != nint.Zero)
+                    return handle;
+            }
+
+            FieldInfo? field = nativeWindow.GetType().GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field is not null)
+            {
+                nint handle = ToNativeHandle(field.GetValue(nativeWindow));
+                if (handle != nint.Zero)
+                    return handle;
+            }
+        }
+
+        return nint.Zero;
+    }
+
+    static void TryGetX11Handles(Window? window, out nint display, out nint nativeWindow)
+    {
+        display = nint.Zero;
+        nativeWindow = nint.Zero;
+
+        try
+        {
+            if (window is null) return;
+
+            Type? hostType = Type.GetType("Uno.WinUI.Runtime.Skia.X11.X11XamlRootHost, Uno.UI.Runtime.Skia.X11");
+            MethodInfo? getHost = hostType?.GetMethod("GetHostFromWindow", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            object? host = getHost?.Invoke(null, new object[] { window });
+            object? x11Window = hostType?.GetProperty("RootX11Window", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(host);
+            Type? windowType = x11Window?.GetType();
+
+            display = ToNativeHandle(windowType?.GetProperty("Display", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(x11Window));
+            nativeWindow = ToNativeHandle(windowType?.GetProperty("Window", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(x11Window));
+        }
+        catch { }
+    }
+
+    static nint ToNativeHandle(object? value)
+    {
+        return value switch
+        {
+            IntPtr ptr => ptr,
+            long l => new nint(l),
+            int i => new nint(i),
+            _ => nint.Zero,
+        };
+    }
+#endif
 
     private bool HasEditorXamlFocus()
     {

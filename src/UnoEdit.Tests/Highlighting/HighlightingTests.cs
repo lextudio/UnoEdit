@@ -166,5 +166,41 @@ namespace UnoEdit.Tests.Highlighting
                     hl.HighlightLine(line);
             });
         }
+
+        [Test]
+        public void VbHighlighter_ProducesColoredSections()
+        {
+            var def = HighlightingManager.Instance.GetDefinitionByExtension(".vb");
+            Assert.That(def, Is.Not.Null);
+
+            var doc = new TextDocument("Public Class Test\n    Dim x As Integer = 42\nEnd Class\n' comment\n");
+            var highlighter = new DocumentHighlighter(doc, def);
+            bool anyColor = false;
+            for (int i = 1; i <= doc.LineCount; i++)
+            {
+                var line = highlighter.HighlightLine(i);
+                if (line.Sections.Any(s => s.Color?.Foreground != null))
+                    anyColor = true;
+            }
+            Assert.That(anyColor, Is.True, "VB highlighting should produce colored sections");
+        }
+
+        [Test]
+        public void XmlHighlighter_ProducesColoredSections()
+        {
+            var def = HighlightingManager.Instance.GetDefinitionByExtension(".xml");
+            Assert.That(def, Is.Not.Null);
+
+            var doc = new TextDocument("<?xml version=\"1.0\"?>\n<Page>\n  <Button Content=\"Click\" />\n</Page>");
+            var highlighter = new DocumentHighlighter(doc, def);
+            bool anyColor = false;
+            for (int i = 1; i <= doc.LineCount; i++)
+            {
+                var line = highlighter.HighlightLine(i);
+                if (line.Sections.Any(s => s.Color?.Foreground != null))
+                    anyColor = true;
+            }
+            Assert.That(anyColor, Is.True, "XML highlighting should produce colored sections");
+        }
     }
 }

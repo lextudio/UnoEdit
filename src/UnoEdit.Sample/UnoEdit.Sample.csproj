@@ -97,4 +97,22 @@
     <PackageReference Include="LeXtudio.UnoPropertyGrid" />
   </ItemGroup>
 
+  <!-- Copy native macOS IME bridge dylib to output root (ProjectReference does not auto-propagate native assets) -->
+  <Target Name="CopyMacNativeBridge"
+          AfterTargets="Build"
+          Condition="'$(OS)' == 'Unix' and Exists('/System/Library/Frameworks/AppKit.framework') and '$(UseNuGetPackages)' != 'true'">
+    <ItemGroup>
+      <MacDylib Include="../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net10.0/libTextCoreNativeMacInput.dylib"
+                Condition="Exists('../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/bin/$(Configuration)/net10.0/libTextCoreNativeMacInput.dylib')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(MacDylib)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="'@(MacDylib)' != ''">
+      <Output TaskParameter="DestinationFiles" ItemName="CopiedDylib" />
+    </Copy>
+    <Message Importance="low"
+             Text="[UnoEdit.Sample] Copied IME dylib: @(CopiedDylib)" />
+  </Target>
+
 </Project>

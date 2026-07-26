@@ -22,6 +22,8 @@ namespace UnoEdit.Skia.Desktop;
 
 public sealed partial class MainWindow : Window
 {
+    public static MainWindow? Instance { get; private set; }
+
     private readonly TextDocument _document;
     private readonly FoldingManager _foldingManager;
     private readonly BraceFoldingStrategy _foldingStrategy = new();
@@ -30,9 +32,11 @@ public sealed partial class MainWindow : Window
     private bool _isDarkTheme = true;
     private bool _benchmarkStarted;
     private CompletionWindow? _completionWindow;
+    private string _currentExtension = ".cs";
 
     public MainWindow()
     {
+        Instance = this;
         this.InitializeComponent();
 
 #if WINDOWS_APP_SDK
@@ -133,13 +137,25 @@ public sealed partial class MainWindow : Window
     private void ApplyHighlighter(int index)
     {
         if (Editor == null) return;
-        var def = HighlightingManager.Instance.GetDefinitionByExtension(".cs");
+        var def = HighlightingManager.Instance.GetDefinitionByExtension(_currentExtension);
+        if (def != null)
+            _textMateHighlighter.SetGrammarByExtension(_currentExtension);
         Editor.HighlightedLineSource = index switch
         {
             0 => _textMateHighlighter,
             1 when def != null => new XshdHighlightedLineSource(def),
             _ => null,
         };
+    }
+
+    internal void LoadFile(string filePath, string languageExtension)
+    {
+        var text = System.IO.File.ReadAllText(filePath);
+        _document.Text = text;
+        _currentExtension = languageExtension;
+        ApplyHighlighter(HighlighterComboBox.SelectedIndex);
+        StatsTextBlock.Text = BuildStats(_document);
+        Editor.ScrollToHome();
     }
 
     private void OnThemeToggleClick(object sender, RoutedEventArgs e)

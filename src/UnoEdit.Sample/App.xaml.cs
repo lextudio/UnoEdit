@@ -1,14 +1,10 @@
 using System;
 using System.IO;
-using LeXtudio.DevFlow.Agent.Uno;
-using Microsoft.Maui.DevFlow.Agent.Core;
 #if !WINDOWS_APP_SDK
 using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Uno.Resizetizer;
-using DevToolsUno;
-using DevToolsUno.Diagnostics;
 #else
 using Microsoft.UI.Xaml.Markup;
 #endif
@@ -17,15 +13,6 @@ namespace UnoEdit.Skia.Desktop;
 
 public partial class App : Application
 {
-    // DevFlow runs on both Uno desktop and WinUI 3, exposing the live visual tree / screenshots.
-    private UnoAgentService? _devFlowAgent;
-
-    private void StartDevFlowAgent()
-    {
-        _devFlowAgent = new UnoAgentService(new AgentOptions { Port = AgentOptions.DefaultPort });
-        _devFlowAgent.Start();
-    }
-
     public App()
     {
         this.InitializeComponent();
@@ -80,9 +67,6 @@ public partial class App : Application
             LoadUnoEditorResources();
             var window = new MainWindow();
             window.Activate();
-            // WinUI 3 has no global window registry, so register the window with DevFlow explicitly.
-            UnoAgentService.RegisterWindow(window);
-            StartDevFlowAgent();
         }
         catch (Exception ex)
         {
@@ -90,13 +74,6 @@ public partial class App : Application
         }
 #else
         var runTestsEnv = System.Environment.GetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS");
-        if (!string.IsNullOrEmpty(runTestsEnv)
-            && !runTestsEnv.TrimStart().StartsWith('{')
-            && !bool.TryParse(runTestsEnv, out _))
-        {
-            System.Environment.SetEnvironmentVariable("UNO_RUNTIME_TESTS_RUN_TESTS", "true");
-            runTestsEnv = "true";
-        }
         bool runTests = !string.IsNullOrEmpty(runTestsEnv) && runTestsEnv != "false" && runTestsEnv != "0";
 
         if (runTests)
@@ -119,18 +96,8 @@ public partial class App : Application
         else
         {
             var mainWindow = new MainWindow();
-#if DEBUG
-            mainWindow.UseStudio();
-            var devTools = mainWindow.AttachDevTools(new DevToolsOptions
-            {
-                LaunchView = DevToolsViewKind.VisualTree,
-                ShowAsChildWindow = false,
-            });
-            mainWindow.Closed += (_, _) => { devTools?.Dispose(); };
-#endif
             mainWindow.SetWindowIcon();
             mainWindow.Activate();
-            StartDevFlowAgent();
         }
 #endif
     }

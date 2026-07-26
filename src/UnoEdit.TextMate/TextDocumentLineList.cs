@@ -1,7 +1,6 @@
 using System;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Rendering;
-using Microsoft.UI.Dispatching;
 using TextMateSharp.Grammars;
 using TextMateSharp.Model;
 using UnoEdit.Logging;
@@ -22,11 +21,6 @@ namespace ICSharpCode.AvalonEdit.TextMate
 		readonly Action<Exception> exceptionHandler;
 		DocumentSnapshot documentSnapshot;
 		InvalidLineRange invalidRange;
-		bool viewportTokenizationQueued;
-		int queuedViewportStartLine = -1;
-		int queuedViewportEndLine = -1;
-		int lastTokenizedViewportStartLine = -1;
-		int lastTokenizedViewportEndLine = -1;
 
 		public DocumentSnapshot DocumentSnapshot {
 			get { return documentSnapshot; }
@@ -45,7 +39,6 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			document.Changing += DocumentOnChanging;
 			document.Changed += DocumentOnChanged;
 			document.UpdateFinished += DocumentOnUpdateFinished;
-			textView.VisibleLinesChanged += TextView_VisibleLinesChanged;
 		}
 
 		public override void Dispose()
@@ -53,21 +46,12 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			document.Changing -= DocumentOnChanging;
 			document.Changed -= DocumentOnChanged;
 			document.UpdateFinished -= DocumentOnUpdateFinished;
-			textView.VisibleLinesChanged -= TextView_VisibleLinesChanged;
 		}
 
 		public override void UpdateLine(int lineIndex)
 		{
 			// Match AvaloniaEdit: TMModel may call UpdateLine while processing tokens.
 			// Rebuilding the snapshot or re-invalidating here can perturb parser state.
-		}
-
-		public void InvalidateViewPortLines()
-		{
-			if (!TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex))
-				return;
-
-			InvalidateLineRange(startLineIndex, endLineIndex);
 		}
 
 		public override int GetNumberOfLines()
@@ -161,106 +145,6 @@ namespace ICSharpCode.AvalonEdit.TextMate
 			} finally {
 				invalidRange = null;
 			}
-		}
-
-		void TextView_VisibleLinesChanged(object? sender, EventArgs e)
-		{
-			try {
-				TokenizeViewPort();
-			} catch (Exception ex) {
-				exceptionHandler?.Invoke(ex);
-			}
-		}
-
-		void TokenizeViewPort()
-		{
-			DispatcherQueue? dispatcherQueue = textView.DispatcherQueue;
-			if (dispatcherQueue is null) {
-				if (!TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex))
-					return;
-				ForceTokenizeVisibleRange(startLineIndex, endLineIndex);
-				return;
-			}
-
-			if (viewportTokenizationQueued) {
-				if (TryGetVisibleLineRange(out int queuedStartLineIndex, out int queuedEndLineIndex)) {
-					queuedViewportStartLine = queuedStartLineIndex;
-					queuedViewportEndLine = queuedEndLineIndex;
-				}
-				return;
-			}
-
-			if (!TryGetVisibleLineRange(out int currentStartLineIndex, out int currentEndLineIndex))
-				return;
-
-			viewportTokenizationQueued = true;
-			queuedViewportStartLine = currentStartLineIndex;
-			queuedViewportEndLine = currentEndLineIndex;
-			bool enqueued = dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, ForceQueuedVisibleRange);
-			if (!enqueued) {
-				viewportTokenizationQueued = false;
-				int queuedStart = queuedViewportStartLine;
-				int queuedEnd = queuedViewportEndLine;
-				queuedViewportStartLine = -1;
-				queuedViewportEndLine = -1;
-				ForceTokenizeVisibleRange(queuedStart, queuedEnd);
-			}
-		}
-
-		void ForceQueuedVisibleRange()
-		{
-			viewportTokenizationQueued = false;
-			queuedViewportStartLine = -1;
-			queuedViewportEndLine = -1;
-
-			if (!TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex))
-				return;
-
-			ForceTokenizeVisibleRange(startLineIndex, endLineIndex);
-		}
-
-		void ForceTokenizeVisibleRange(int startLineIndex, int endLineIndex)
-		{
-			if (startLineIndex == lastTokenizedViewportStartLine && endLineIndex == lastTokenizedViewportEndLine) {
-				LogTMModel($"ForceTokenizeVisibleRange skipped duplicate startLineIndex={startLineIndex} endLineIndex={endLineIndex}");
-				return;
-			}
-
-			lastTokenizedViewportStartLine = startLineIndex;
-			lastTokenizedViewportEndLine = endLineIndex;
-			LogTMModel($"ForceTokenizeVisibleRange startLineIndex={startLineIndex} endLineIndex={endLineIndex}");
-			ForceTokenization(startLineIndex, endLineIndex);
-		}
-
-		public void WarmLineRange(int startLineIndex, int endLineIndex)
-		{
-			if (document.LineCount == 0)
-				return;
-
-			startLineIndex = Math.Clamp(startLineIndex, 0, document.LineCount - 1);
-			endLineIndex = Math.Clamp(endLineIndex, startLineIndex, document.LineCount - 1);
-			ForceTokenizeVisibleRange(startLineIndex, endLineIndex);
-		}
-
-		bool TryGetVisibleLineRange(out int startLineIndex, out int endLineIndex)
-		{
-			startLineIndex = -1;
-			endLineIndex = -1;
-
-			if (document.LineCount == 0)
-				return false;
-
-			int firstVisibleLineNumber = textView.FirstVisibleLineNumber;
-			int lastVisibleLineNumber = textView.LastVisibleLineNumber;
-			if (firstVisibleLineNumber <= 0 || lastVisibleLineNumber <= 0)
-				return false;
-
-			startLineIndex = Math.Clamp(firstVisibleLineNumber - 1, 0, document.LineCount - 1);
-			endLineIndex = Math.Clamp(lastVisibleLineNumber - 1, 0, document.LineCount - 1);
-			if (endLineIndex < startLineIndex)
-				return false;
-
-			return true;
 		}
 
 		static string EscapeForLog(string text)

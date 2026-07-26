@@ -1,151 +1,348 @@
-# TextMate Integration Design
+# TextMate Integration: Failure Analysis and Recovery Plan
 
-## Goal
+## Status
 
-Make UnoEdit's TextMate integration behave like AvaloniaEdit's integration:
+The current integration is not reliable for large or stateful documents.
 
-- accept that the TextMate engine is asynchronous
-- avoid treating that as a full highlighter failure
-- pretokenize and redraw around the viewport instead of trying to make the whole pipeline synchronous
-- marshal redraw work back to the UI thread
-- redraw only visible changed ranges instead of rebuilding everything
+The most visible symptom is that the first part of a document is highlighted while
+later lines remain unhighlighted, sometimes permanently. This is not merely a slow
+paint or a missing redraw. UnoEdit currently mixes two tokenization strategies in a
+way that violates the ordering and ownership assumptions of TextMateSharp 2.0.3.
 
-Reference implementation reviewed:
+The integration should be treated as correctness work, not as a timeout-tuning or
+rendering optimization problem.
 
-- `/Users/lextm/New-ILSpy/ProjectRover/thirdparty/AvaloniaEdit/src/AvaloniaEdit.TextMate/TextMate.cs`
-- `/Users/lextm/New-ILSpy/ProjectRover/thirdparty/AvaloniaEdit/src/AvaloniaEdit.TextMate/TextEditorModel.cs`
-- `/Users/lextm/New-ILSpy/ProjectRover/thirdparty/AvaloniaEdit/src/AvaloniaEdit.TextMate/TextMateColoringTransformer.cs`
+## Sources Reviewed
 
-## What AvaloniaEdit Does
+- UnoEdit:
+  - `src/UnoEdit.TextMate/TextMateLineHighlighter.cs`
+  - `src/UnoEdit.TextMate/TextDocumentLineList.cs`
+  - `src/UnoEdit/Rendering/TextView.xaml.uno.cs`
+  - TextMate-related tests and the relevant Git history
+- AvaloniaEdit:
+  - `AvaloniaEdit.TextMate/TextEditorModel.cs`
+  - `AvaloniaEdit.TextMate/TextMateColoringTransformer.cs`
+- TextMateSharp:
+  - version 2.0.3, commit
+    [`4532112`](https://github.com/danipen/TextMateSharp/tree/4532112f6ee96c8d7847ee66a79719dfe58e9f43)
+  - version 2.0.4, commit
+    [`622d1b2`](https://github.com/danipen/TextMateSharp/tree/622d1b240a5be474939857c0b2780249022f14a3)
 
-### 1. Keeps TextMate asynchronous
+## How TextMate State Actually Works
 
-AvaloniaEdit does not try to make TextMate act like the classic synchronous `DocumentHighlighter`.
+TextMate grammars are line-oriented but not line-independent. A line's end state
+feeds the next line's start state. Examples include:
 
-Instead:
+- block comments
+- multiline strings
+- embedded languages
+- preprocessor and region-like constructs
 
-- the editor model invalidates line ranges incrementally
-- viewport lines are tokenized opportunistically
-- token-change notifications trigger redraw only when needed
+For a document with lines `0..N`, correct tokens for line `N` may require valid
+states for every preceding line back to the nearest known-good checkpoint.
 
-That means the async nature of `TMModel` is part of the design, not something hidden behind a fake synchronous abstraction.
+`TMModel` represents this with a token list and state on each `ModelLine`. Its
+background worker normally starts at an invalid line and propagates state forward.
+It deliberately limits a background slice to about 5 ms and requeues the next line,
+so a large document is expected to become ready over multiple callbacks.
 
-### 2. Tokenizes the viewport proactively
+`ModelTokensChangedEvent.Range` uses **1-based inclusive line numbers**. UnoEdit's
+public invalidation event also uses 1-based inclusive line numbers, so no conversion
+is required at that boundary.
 
-`TextEditorModel` listens to `TextView.ScrollOffsetChanged` and calls `ForceTokenization()` for the visible document-line range.
+## Current UnoEdit Pipeline
 
-This is important because it reduces the chance that the renderer asks for a visible line before TextMate has finished building tokens for it.
+The current flow is:
 
-### 3. Tracks visible lines explicitly
+1. `TextView` publishes a visible line range.
+2. `TextDocumentLineList` calls `TMModel.ForceTokenization(start, end)` for that
+   viewport.
+3. Rendering calls `TextMateLineHighlighter.HighlightLine()` for individual lines.
+4. If tokens are `null`, `HighlightLine()`:
+   - invalidates that line again;
+   - calls `WarmLineRange()` for that line;
+   - reads the tokens again.
+5. `TMModel` also continues its own background tokenization.
+6. `ModelTokensChanged()` intersects changed lines with the current viewport and
+   queues a partial repaint.
 
-`TextMateColoringTransformer` listens to `TextView.VisualLinesChanged` and stores:
+This looks like proactive asynchronous highlighting, but several details make the
+pipeline unstable.
 
-- first visible line index
-- last visible line index
-- whether visual lines are valid
+## Root Causes
 
-That visible-range state is then used to filter token-change work.
+### 1. TextMateSharp 2.0.3 permits concurrent tokenization
 
-### 4. Redraws only visible changed ranges
+UnoEdit currently references TextMateSharp 2.0.3. In that version:
 
-When `ModelTokensChanged()` fires, AvaloniaEdit:
+- the background worker tokenizes lines;
+- `ForceTokenization()` may tokenize synchronously on the caller;
+- the tokenization/state update path is not protected by one common lock.
 
-- inspects the changed line ranges from `ModelTokensChangedEvent`
-- ignores the notification if the changed lines are completely outside the visible range
-- posts a redraw to the UI thread
-- redraws only the intersected visible line region
+UnoEdit can therefore run viewport tokenization on the UI thread while
+TextMateSharp's worker is updating the same tokenizer and `ModelLine` state.
 
-This is the core async-compatibility behavior. The TextMate engine may finish whenever it wants, but the editor only repaints the part of the viewport that is actually affected.
+TextMateSharp 2.0.4 contains a large thread-safety rewrite, including serialized
+model/tokenization operations. Upgrading is necessary. It is not sufficient on its
+own, because the remaining UnoEdit scheduling problems below still exist.
 
-### 5. Tolerates missing tokens without escalating them into a hard failure
+### 2. UnoEdit force-tokenizes from an unsafe starting line
 
-In AvaloniaEdit's transformer path:
+`WarmLineRange(firstVisible, lastVisible)` starts directly at the viewport. The
+first visible line may not yet have a valid incoming grammar state.
 
-- `GetLineTokens()` returning `null` simply means "do not apply TextMate transforms for this pass"
-- that is different from telling the editor that the whole line highlighter failed
+Forcing lines 500-540 before state propagation has reached line 500 can produce
+tokens based on a missing or stale state. A viewport request must instead start at:
 
-This is important because it avoids turning temporary token unavailability into a visually stronger failure signal than necessary.
+- the earliest invalid predecessor; or
+- a preceding line whose end state is known to be valid.
 
-## Design Decision For UnoEdit
+The public `TMModel` API does not expose enough checkpoint/state validity
+information to implement that robustly from UnoEdit.
 
-We will stop pursuing the temporary UnoEdit-specific experiment that tried to smooth the async behavior by:
+### 3. Reading a pending line mutates and floods the work queue
 
-- eager visible-range warmup on highlighter attachment
-- opt-in deferred invalidation via `UNOEDIT_DEFER_HIGHLIGHT_INVALIDATION`
+`HighlightLine()` currently calls `model.InvalidateLine()` whenever
+`GetLineTokens()` returns `null`.
 
-That experiment was useful for learning, but it is not the design we want to keep.
+A read operation must not create more invalidation work. During a repaint, every
+pending visible line can be enqueued again. Repeated refreshes add more duplicates,
+which can delay the sequential worker that would otherwise advance from the start
+of the document. This explains the characteristic "the first few lines work, the
+large remainder never catches up" failure.
 
-Instead, UnoEdit will adopt AvaloniaEdit's structure directly.
+Pending tokens are a normal state and should simply return `Pending`; they are not
+evidence that the line needs to be invalidated again.
 
-## Planned UnoEdit Direction
+### 4. Viewport-range deduplication records a request as completion
 
-### 1. Move toward viewport-driven tokenization
+`TextDocumentLineList` stores `lastTokenizedViewportStartLine` and
+`lastTokenizedViewportEndLine` before calling `ForceTokenization()`.
 
-UnoEdit should tokenize visible lines proactively when the viewport changes, not only when the highlighter is attached.
+Later requests for the same viewport are skipped even when:
 
-Equivalent AvaloniaEdit concept:
+- tokenization has not completed;
+- the document was edited;
+- the grammar or theme changed;
+- the previous call raced with background work;
+- one or more lines still return `null`.
 
-- `TextEditorModel.TokenizeViewPort()`
+This is the same race exposed by
+`HighlightLine_ReturnsSections_ForCSharpKeywords` in CI: the two-second polling loop
+appears to retry, but its warm requests can be suppressed as duplicates.
 
-### 2. Use changed ranges from TextMate to drive redraw
+Request deduplication is valid only while an identical request is already queued.
+It must be cleared after execution and must never be used as a readiness cache.
 
-UnoEdit should stop treating every `HighlightingInvalidated` event as a generic full-rebuild trigger.
+### 5. Readiness is inferred from token presence only
 
-Instead, the TextMate path should:
+`IsVisibleLineRangeReady()` currently checks only whether `GetLineTokens()` is
+non-null. That does not prove that the token list was produced from the correct
+incoming state or from the current document/grammar generation.
 
-- observe `ModelTokensChangedEvent.Ranges`
-- intersect those ranges with visible lines
-- redraw only affected visible lines
+A robust readiness result needs a generation and a contiguous state-valid frontier,
+not just a non-null token reference.
 
-### 3. Marshal redraw work to the UI thread
+### 6. The repaint loop can continuously reschedule itself
 
-AvaloniaEdit explicitly posts token-change redraw work back to the UI thread.
+While the initial visible range is not ready, `TextView` queues another low-priority
+refresh. That refresh may find the same state and queue another refresh again.
 
-UnoEdit should do the same as part of the default design, not as an environment-variable fallback.
+This polling loop:
 
-### 4. Distinguish temporary token unavailability from real highlighting failure
+- consumes UI work while no state has changed;
+- can amplify invalidation queue flooding through `HighlightLine()`;
+- makes test success depend on timing;
+- obscures missing token-change notifications.
 
-UnoEdit currently collapses several cases into `null`:
+Repainting should be event-driven. A pending viewport should repaint only when:
 
-- no tokens yet
-- empty token list
-- tokens present but no styled sections
+- the model reports progress affecting that viewport;
+- the viewport changes;
+- the document/grammar generation changes; or
+- a bounded watchdog detects a lost notification.
 
-The AvaloniaEdit approach suggests these should not all be treated the same way.
+### 7. Exceptions are hidden
 
-## What We Removed
+Both rendering and parts of TextMateSharp 2.0.3 catch exceptions and either ignore
+them or write only to debug output. A tokenizer failure can therefore look exactly
+like a permanently pending line.
 
-The previous UnoEdit-specific async-integration attempt has been removed:
+The supplied `exceptionHandler` must receive tokenization, dispatcher, and paint
+conversion failures. Diagnostics should include document generation, requested
+range, valid frontier, pending queue size, and elapsed time.
 
-- `IHighlightedLineSourceWarmup`
-- `WarmupLineRange()` in `TextMateLineHighlighter`
-- `WarmHighlightedLineSourceVisibleRange()` in `TextView`
-- `UNOEDIT_DEFER_HIGHLIGHT_INVALIDATION`
-- queued/coalesced deferred invalidation logic in `TextView`
+## Why Copying AvaloniaEdit Was Not Enough
 
-This leaves the codebase ready for a cleaner reimplementation that follows AvaloniaEdit more directly.
+AvaloniaEdit provides the correct high-level pattern:
 
-## Next Implementation Steps
+- keep tokenization asynchronous;
+- warm the viewport;
+- redraw changed visible ranges on the UI thread;
+- tolerate temporarily missing tokens.
 
-1. Add viewport tokenization to the UnoEdit TextMate model layer.
-2. Preserve visible-line bounds in the rendering/highlighting integration layer.
-3. Change TextMate invalidation to carry changed ranges rather than a generic full invalidation.
-4. Post redraw work onto the UI thread and redraw only visible affected ranges.
-5. Revisit how UnoEdit represents "no tokens yet" vs "no styled sections".
+It does not by itself guarantee that every arbitrary viewport is a safe
+tokenization starting point. UnoEdit also has a different rendering lifecycle,
+cache, deferred rebuild path, and explicit readiness protocol. Copying only the
+viewport and redraw portions left two competing schedulers in place.
 
-## Implemented Follow-Up
+The useful AvaloniaEdit principles should remain, but UnoEdit needs one owner for
+tokenization state and an explicit progress model.
 
-UnoEdit now applies the AvaloniaEdit-style async tolerance in two concrete places:
+## Recommended Complete Solution
 
-- `TextMateLineHighlighter` caches the last known complete highlighted result per line.
-- `GetLineTokens() == null` now means "tokenization is still pending", so UnoEdit reuses cached highlighted output instead of downgrading the line to default-colored text.
-- completed "empty" results still return `null`, but they are cached as final so they are not confused with pending work.
-- cache entries are cleared on document text changes, grammar changes, theme changes, and document swaps.
+### Implemented stabilization
 
-UnoEdit's view invalidation path also changed:
+The first stabilization pass is now implemented:
 
-- TextMate range invalidation no longer automatically forces full-rebuild semantics.
-- when only visible dirty highlight ranges change, `TextView` updates those rows in place and leaves unaffected rows alone.
-- theme swaps, source swaps, and other structural editor changes still use the full rebuild path.
+- `TextMateSharp` and `TextMateSharp.Grammars` are upgraded to 2.0.4.
+- `HighlightLine()` treats missing tokens as an observational pending result and no
+  longer invalidates or force-tokenizes the line.
+- UnoEdit no longer force-tokenizes arbitrary viewport ranges.
+- persistent viewport-request deduplication is removed.
+- the initial view is rendered immediately with pending lines unstyled; token
+  progress events repaint completed visible ranges.
+- the low-priority refresh polling loop is removed.
+- `TextMateLineHighlighter` now advertises its range-invalidation capability, and
+  `TextView` subscribes before attaching the document so initial token events cannot
+  be lost.
+- full viewport rebuilds preserve the invalidation flag until fresh line view
+  models have been constructed, preventing reuse of the pre-TextMate uncolored
+  cache.
+- a regression test jumps directly to line 2,000 of a stateful C# document and
+  repeatedly reads the pending line before verifying eventual correct highlighting.
+- a mounted Uno Runtime integration test switches the same editor/document from
+  XSHD to TextMate and verifies colored visible runs appear without scrolling.
 
-This closes the specific mismatch that caused UnoEdit to lose highlighting while TextMate was still computing tokens for a visible line.
+The coordinator and explicit generation/checkpoint model described below remain the
+recommended second phase if UnoEdit needs prioritized far-viewport tokenization or
+strong stale-result guarantees beyond TextMateSharp 2.0.4.
+
+### Phase 1: Stabilize the existing integration
+
+1. Upgrade both `TextMateSharp` and `TextMateSharp.Grammars` from 2.0.3 to at least
+   2.0.4.
+2. Remove `model.InvalidateLine()` from `HighlightLine()`.
+3. Remove persistent `lastTokenizedViewport*` deduplication. Coalesce only queued,
+   not-yet-executed requests.
+4. Stop self-polling `QueueHighlightedRangeRefresh()` while tokens are pending.
+5. Repaint only in response to `ModelTokensChanged`, viewport changes, or generation
+   changes.
+6. Route all caught exceptions to the configured exception handler and structured
+   diagnostics.
+
+This should eliminate races, queue flooding, CI flakiness, and most permanently
+unhighlighted regions. It is the minimum acceptable fix.
+
+### Phase 2: Introduce a single tokenization coordinator
+
+For deterministic correctness, UnoEdit should stop allowing the renderer,
+viewport events, and `TMModel` background worker to independently schedule work.
+
+Add a coordinator with these properties:
+
+- one serialized tokenization lane;
+- a monotonically increasing document/grammar generation;
+- per-line status: `Unknown`, `Pending`, `Ready`, or `Failed`;
+- a contiguous valid-state frontier;
+- coalesced viewport demand;
+- cancellation/obsolescence of work from older generations;
+- progress events carrying 1-based inclusive changed ranges.
+
+When the viewport requests lines `Vstart..Vend`, the coordinator should:
+
+1. Find the nearest valid checkpoint at or before `Vstart`.
+2. Tokenize forward from that checkpoint through `Vend`.
+3. Commit tokens only if the generation still matches.
+4. Advance the valid frontier.
+5. publish exactly the ranges whose committed tokens changed.
+
+Document edits invalidate the changed line, normally the preceding line, and every
+downstream state that depends on it. A theme change does not retokenize; it only
+invalidates styled-line caches. A grammar change creates a new tokenization
+generation starting at line 0.
+
+### Phase 3: Own the state cache if `TMModel` cannot expose checkpoints
+
+TextMateSharp's public `TMModel` API does not expose enough information to ask for
+"the nearest valid predecessor" or to attach generation metadata to tokens.
+
+There are two viable choices:
+
+- contribute the required state/checkpoint API upstream and consume it from
+  UnoEdit; or
+- implement a small UnoEdit tokenization model over TextMateSharp's grammar/tokenizer
+  APIs, with UnoEdit owning line states, generations, scheduling, and events.
+
+The second option is more work but gives UnoEdit deterministic behavior and
+testability. If highlighting correctness is a release requirement, it is the most
+complete solution.
+
+## Required Behavioral Contract
+
+The renderer must see three distinct results:
+
+- `Ready(highlighted sections)`: tokens and style conversion are current.
+- `Ready(no styled sections)`: tokenization completed, but the theme produces no
+  styled section for the line.
+- `Pending`: tokenization for the current generation is incomplete.
+
+`null` must not ambiguously mean all three states.
+
+While a line is pending, UnoEdit may retain a complete result from the same document
+generation to avoid flashing. It must not reuse results across text, grammar, or
+document generations. Theme changes may reuse tokens but must rebuild styled
+sections.
+
+## Test Plan
+
+### Deterministic unit tests
+
+- A 5,000-line C# document eventually reaches `Ready` for the last line.
+- Requesting a viewport near the end before initial tokenization reaches it still
+  produces the same tokens as sequential tokenization from line 0.
+- A multiline comment/string beginning above the viewport affects visible lines
+  correctly.
+- Repeated reads of a pending line do not enqueue or invalidate work.
+- Repeated requests for the same viewport are coalesced while queued but can run
+  again after an edit.
+- Editing line 10 invalidates and recomputes downstream state.
+- Grammar changes discard callbacks and tokens from the old generation.
+- Theme changes preserve tokens and rebuild only styled results.
+- Empty-but-complete highlighting is distinguishable from pending highlighting.
+
+Use controllable scheduler/barrier fakes instead of `Thread.Sleep` and two-second
+polling loops.
+
+### Stress tests
+
+- Tokenization, scrolling, editing, grammar switching, and disposal overlap.
+- Rapid scrolling alternates between the beginning and end of a large document.
+- The same test runs hundreds of times with randomized scheduler yields.
+- No stale callback mutates a disposed or newer-generation model.
+- No line remains pending after the coordinator reports idle.
+
+### Integration tests
+
+- The sample opens the large `docs/textmate.md` file and verifies highlighted
+  sections near the beginning, middle, and end.
+- Scrolling directly to the end before background completion eventually repaints
+  that viewport without further user input.
+- A changed range repaints only intersecting visible rows.
+- Diagnostics contain no swallowed tokenizer exceptions.
+
+## Acceptance Criteria
+
+The issue is fixed only when all of the following hold:
+
+- every line in a finite unchanged document eventually becomes ready;
+- visible lines are tokenized from a valid predecessor state;
+- no pending read creates invalidation work;
+- tokenization has a single serialized owner;
+- old-generation results cannot be committed;
+- repainting is progress-driven rather than a continuous polling loop;
+- large-document and multiline-state tests pass deterministically on Windows,
+  macOS, and Linux.
+
+Increasing timeouts, forcing each visible line independently, caching `null`, or
+adding more redraw calls do not satisfy these criteria.

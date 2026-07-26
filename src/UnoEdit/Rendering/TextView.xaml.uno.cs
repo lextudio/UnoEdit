@@ -220,6 +220,7 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             new PropertyMetadata(Windows.UI.Text.FontStyle.Normal, OnEditorFontChanged));
 
     private readonly ObservableCollection<TextLineViewModel> _lines = new();
+    internal IReadOnlyList<TextLineViewModel> VisibleLineViewModels => _lines;
     private readonly ServiceContainer _services = new();
     // Font-derived line height (replaces the former hardcoded 22px). Recomputed in
     // UpdateTextMetrics from the editor font's real metrics; seeded with a sane default until the
@@ -288,7 +289,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private bool _caretVisible;
     private readonly HashSet<int> _dirtyHighlightedLines = new();
     private bool _highlightRangeRefreshQueued;
-    private bool _awaitingHighlightedLineSourceReady;
 
     private static void LogFlash(string msg) { HighlightLogger.Log("Flash", msg); }
     private static void LogRender(string msg) { HighlightLogger.Log("Render", msg); }
@@ -622,20 +622,24 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
             _highlightedLineSource = value;
             _highlightedLineSourceExplicitlySet = true;
-            _awaitingHighlightedLineSourceReady = false;
 
             if (_highlightedLineSource is not null)
             {
-                if (_highlightedLineSource is ITextViewAwareHighlightedLineSource awareSource)
-                {
-                    awareSource.SetTextView(this);
-                }
-                _highlightedLineSource.SetDocument(_document);
+                // Subscribe before attaching the view/document. TextMate starts its
+                // worker from SetDocument(), and a small document can finish before
+                // SetDocument returns. Subscribing afterwards loses the only token
+                // notification, leaving the first unhighlighted frame in place until
+                // an unrelated scroll forces another render.
                 _highlightedLineSource.HighlightingInvalidated += OnHighlightedLineSourceInvalidated;
                 if (_highlightedLineSource is IRangeInvalidatingHighlightedLineSource rangeSource)
                 {
                     rangeSource.HighlightingRangeInvalidated += OnHighlightedLineSourceRangeInvalidated;
                 }
+                if (_highlightedLineSource is ITextViewAwareHighlightedLineSource awareSource)
+                {
+                    awareSource.SetTextView(this);
+                }
+                _highlightedLineSource.SetDocument(_document);
             }
 
             _pendingFullRebuild = true;
@@ -643,20 +647,21 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _dirtyHighlightedLines.Clear();
             ClearLineViewModelCache();
 
-            bool deferInitialRefresh =
-                _highlightedLineSource is IVisibleRangeWarmableHighlightedLineSource
-                && _highlightedLineSource is IRangeInvalidatingHighlightedLineSource;
-
-            if (deferInitialRefresh)
+            if (_highlightedLineSource is IVisibleRangeWarmableHighlightedLineSource)
             {
-                _awaitingHighlightedLineSourceReady = true;
                 WarmHighlightedLineSourceVisibleRange();
-                LogFlash("full queued: HighlightedLineSource changed (awaiting ready)");
-                return;
             }
 
             LogFlash("full queued: HighlightedLineSource changed");
             RefreshViewport();
+            if (_highlightedLineSource is IRangeInvalidatingHighlightedLineSource)
+            {
+                // Close the attach-time race between the initial pending render and
+                // the first background token event. This is a single dispatcher-turn
+                // verification, not a polling loop; subsequent progress remains
+                // entirely event-driven.
+                QueueHighlightedSourceAttachRefresh();
+            }
         }
     }
 
@@ -1023,39 +1028,17 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         return startLineNumber > 0 && endLineNumber >= startLineNumber;
     }
 
-    private bool IsHighlightedLineSourceVisibleRangeReady()
-    {
-        if (_highlightedLineSource is not IVisibleRangeReadyHighlightedLineSource readySource)
-        {
-            return true;
-        }
-
-        if (!TryGetVisibleLineNumberRange(out int startLineNumber, out int endLineNumber))
-        {
-            return false;
-        }
-
-        return readySource.IsVisibleLineRangeReady(startLineNumber, endLineNumber);
-    }
-
     private void OnHighlightedLineSourceInvalidated(object? sender, EventArgs e)
     {
         _pendingFullRebuild = true;
         _highlightingDataInvalidated = true;
         _dirtyHighlightedLines.Clear();
-        _awaitingHighlightedLineSourceReady = false;
         LogFlash("full queued: external highlighting invalidated");
         RefreshViewport();
     }
 
     private void OnHighlightedLineSourceRangeInvalidated(object? sender, HighlightedLineRangeInvalidatedEventArgs e)
     {
-        if (_awaitingHighlightedLineSourceReady && IsHighlightedLineSourceVisibleRangeReady())
-        {
-            _pendingFullRebuild = true;
-            _awaitingHighlightedLineSourceReady = false;
-        }
-
         _highlightingDataInvalidated = true;
         for (int lineNumber = e.StartLineNumber; lineNumber <= e.EndLineNumber; lineNumber++)
         {
@@ -1085,6 +1068,25 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         if (dispatcherQueue is null || !dispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, RefreshQueuedRange))
         {
             RefreshQueuedRange();
+        }
+    }
+
+    private void QueueHighlightedSourceAttachRefresh()
+    {
+        void VerifyAttachedSource()
+        {
+            _pendingFullRebuild = true;
+            _highlightingDataInvalidated = true;
+            _dirtyHighlightedLines.Clear();
+            ClearLineViewModelCache();
+            RefreshViewport("highlight-source-attached");
+        }
+
+        var dispatcherQueue = DispatcherQueue;
+        if (dispatcherQueue is null
+            || !dispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, VerifyAttachedSource))
+        {
+            VerifyAttachedSource();
         }
     }
 
@@ -1625,15 +1627,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             _canvasContentDirty = true;
         }
 
-        if (_awaitingHighlightedLineSourceReady && !IsHighlightedLineSourceVisibleRangeReady())
-        {
-            LogFlash($"defer full rebuild: highlighted source not ready lines={_firstVisibleLineNumber}-{_lastVisibleLineNumber}");
-            QueueHighlightedRangeRefresh();
-            sw.Stop();
-            LogPerf($"refresh-core reason={reason} path=deferred-highlight rows={firstVisualRow}-{lastVisualRow} expectedCount={expectedCount} elapsedMs={sw.Elapsed.TotalMilliseconds:0.###}");
-            return;
-        }
-
         // ── Partial-update fast path ────────────────────────────────────────────
         // When only caret/selection positions changed (no text, fold, or theme
         // change, and the visible row window is unchanged), update only the
@@ -1863,8 +1856,6 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         // ── Full rebuild ────────────────────────────────────────────────────────
         _pendingFullRebuild = false;
-        _highlightingDataInvalidated = false;
-        _dirtyHighlightedLines.Clear();
 
         LogFlash($"FULL rebuild rows={firstVisualRow}-{lastVisualRow} count={expectedCount} prevLineCount={_lines.Count} themeChanged={themeChanged} editorFontChanged={editorFontChanged}");
 
@@ -1896,6 +1887,11 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             LogVisibleLineNumbers("replace", newVms);
         }
 
+        // Keep invalidation state set while BuildLineViewModel runs. Clearing it
+        // before the loop lets the same-source cache return the old unhighlighted
+        // view models even though fresh TextMate tokens are now available.
+        _highlightingDataInvalidated = false;
+        _dirtyHighlightedLines.Clear();
         _prevFirstVisualRow = firstVisualRow;
         _prevLastVisualRow  = lastVisualRow;
         _prevTheme          = Theme;

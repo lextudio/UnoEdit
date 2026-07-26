@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Highlighting;
@@ -19,8 +20,8 @@ namespace UnoEdit.Tests.TextMate
         {
             public event EventHandler VisibleLinesChanged;
             public event EventHandler ScrollOffsetChanged;
-            public int FirstVisibleLineNumber => 0;
-            public int LastVisibleLineNumber => int.MaxValue;
+            public int FirstVisibleLineNumber { get; init; }
+            public int LastVisibleLineNumber { get; init; } = int.MaxValue;
             public DispatcherQueue DispatcherQueue => null;
         }
 
@@ -74,21 +75,90 @@ namespace UnoEdit.Tests.TextMate
             Assert.That(second, Is.SameAs(first));
         }
 
-        private static HighlightedLine WaitForHighlightedLine(TextMateLineHighlighter highlighter, int lineNumber)
+        [Test]
+        public void HighlightLine_EventuallyReachesViewportNearEnd_WithoutInvalidationFlood()
         {
-            var deadline = Stopwatch.StartNew();
-            while (deadline.Elapsed < TimeSpan.FromSeconds(2))
+            const int lineCount = 2000;
+            var text = new StringBuilder("/* multiline comment\n");
+            for (int i = 2; i < lineCount; i++)
             {
-                var line = highlighter.HighlightLine(lineNumber);
-                if (line is { Sections.Count: > 0 })
-                {
-                    return line;
-                }
+                text.Append("comment body ").Append(i).Append('\n');
+            }
+            text.Append("*/ public static class Tail { }\n");
 
-                Thread.Sleep(20);
+            var document = new TextDocument(text.ToString());
+            using var highlighter = new TextMateLineHighlighter(new RegistryOptions(ThemeName.DarkPlus));
+            highlighter.SetTextView(new MockTextView
+            {
+                FirstVisibleLineNumber = lineCount,
+                LastVisibleLineNumber = lineCount
+            });
+            highlighter.SetDocument(document);
+            highlighter.SetGrammarByExtension(".cs");
+
+            // Pending reads must be observational. The previous implementation
+            // invalidated and force-tokenized this line on every read, flooding
+            // the worker queue and starting with an unknown multiline state.
+            for (int i = 0; i < 250; i++)
+            {
+                _ = highlighter.HighlightLine(lineCount);
             }
 
-            return highlighter.HighlightLine(lineNumber);
+            var line = WaitForHighlightedLine(highlighter, lineCount, TimeSpan.FromSeconds(10));
+
+            Assert.That(line, Is.Not.Null);
+            Assert.That(
+                line!.Sections.Any(s => document.GetText(s.Offset, s.Length) == "class"),
+                Is.True);
+        }
+
+        private static HighlightedLine WaitForHighlightedLine(TextMateLineHighlighter highlighter, int lineNumber)
+            => WaitForHighlightedLine(highlighter, lineNumber, TimeSpan.FromSeconds(5));
+
+        private static HighlightedLine WaitForHighlightedLine(
+            TextMateLineHighlighter highlighter,
+            int lineNumber,
+            TimeSpan timeout)
+        {
+            using var changed = new AutoResetEvent(false);
+            void OnChanged(object sender, HighlightedLineRangeInvalidatedEventArgs e)
+            {
+                if (e.StartLineNumber <= lineNumber && lineNumber <= e.EndLineNumber)
+                {
+                    changed.Set();
+                }
+            }
+
+            highlighter.HighlightingRangeInvalidated += OnChanged;
+            try
+            {
+                var deadline = Stopwatch.StartNew();
+                while (deadline.Elapsed < timeout)
+                {
+                    var line = highlighter.HighlightLine(lineNumber);
+                    if (line is { Sections.Count: > 0 })
+                    {
+                        return line;
+                    }
+
+                    var remaining = timeout - deadline.Elapsed;
+                    if (remaining <= TimeSpan.Zero)
+                    {
+                        break;
+                    }
+
+                    changed.WaitOne(remaining < TimeSpan.FromMilliseconds(100)
+                        ? remaining
+                        : TimeSpan.FromMilliseconds(100));
+                }
+
+                var finalLine = highlighter.HighlightLine(lineNumber);
+                return finalLine;
+            }
+            finally
+            {
+                highlighter.HighlightingRangeInvalidated -= OnChanged;
+            }
         }
     }
 }

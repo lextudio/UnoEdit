@@ -237,7 +237,9 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
     private const double FoldMarginWidth = 16d;
     private const double GutterWidth = BreakpointGutterWidth + LineNumberWidth + FoldMarginWidth; // 74
     private const double GutterWidthNoLineNumbers = BreakpointGutterWidth + FoldMarginWidth; // 34
-    private const int OverscanLineCount = 4;
+    // Sized to absorb a handful of intermediate wheel-scroll ViewChanged frames without a full
+    // RefreshViewportCore relayout+redraw on each one (see CanSkipScrollRefresh).
+    private const int OverscanLineCount = 16;
 
     // Live width of everything left of the text content column (Breakpoint + LineNumber + FoldMargin).
     // Single source of truth for gutter offset — reads the actual laid-out column widths so it stays
@@ -1346,12 +1348,43 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             return false;
         }
 
-        if (!TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow))
+        if (!TryGetStrictVisibleRowWindow(out int firstStrictRow, out int lastStrictRow))
         {
             return false;
         }
 
-        return firstVisualRow == _prevFirstVisualRow && lastVisualRow == _prevLastVisualRow;
+        // The previously rendered window already includes an overscan buffer above/below the
+        // strict viewport. As long as the strictly-visible rows are still fully covered by that
+        // buffer, the on-screen content is already correct and there's no need to relayout/redraw
+        // this frame. This is what keeps mouse-wheel scrolling smooth: continuous small deltas
+        // shift the strict window without escaping the overscan buffer, so most intermediate
+        // ViewChanged frames become no-ops instead of a full RefreshViewportCore pass.
+        return firstStrictRow >= _prevFirstVisualRow && lastStrictRow <= _prevLastVisualRow;
+    }
+
+    /// <summary>Visible row window without the <see cref="OverscanLineCount"/> padding.</summary>
+    private bool TryGetStrictVisibleRowWindow(out int firstVisualRow, out int lastVisualRow)
+    {
+        firstVisualRow = -1;
+        lastVisualRow = -1;
+
+        int totalVisualRows = _visibleDocRows.Count;
+        if (totalVisualRows <= 0)
+        {
+            return false;
+        }
+
+        double verticalOffset = TextScrollViewer.VerticalOffset;
+        double viewportHeight = TextScrollViewer.ViewportHeight;
+        if (viewportHeight <= 0)
+        {
+            viewportHeight = ActualHeight > 0 ? ActualHeight : 400;
+        }
+
+        firstVisualRow = Math.Max(0, GetVisualRowFromY(verticalOffset));
+        double viewportBottom = verticalOffset + viewportHeight;
+        lastVisualRow = Math.Min(totalVisualRows - 1, GetVisualRowFromY(viewportBottom));
+        return lastVisualRow >= firstVisualRow;
     }
 
     private bool TryGetCurrentVisibleRowWindow(out int firstVisualRow, out int lastVisualRow)

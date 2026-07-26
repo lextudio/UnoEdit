@@ -2,9 +2,13 @@
 
 All notable changes to this project are documented in this file. This project follows the "Keep a Changelog" format.
 
+## [v0.7.10] - 2026-07-26
+
+- Removed IME input offset.
+
 ## [v0.7.9] - 2026-07-25
 
-- Fix VB and XAML highlighting issues.
+- Fixed VB and XAML highlighting issues.
 
 ## [v0.7.8] - 2026-07-01
 

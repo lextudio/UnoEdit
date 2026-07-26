@@ -43,18 +43,19 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
+  <ItemGroup>
     <ProjectReference Include="../UnoEdit/UnoEdit.csproj" />
     <ProjectReference Include="../UnoEdit.TextMate/UnoEdit.TextMate.csproj" />
-    <ProjectReference Include="..\..\..\UnoPropertyGrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
   </ItemGroup>
 
-  <!-- DevFlow runtime UI-inspection agent (Uno desktop + WinUI 3) for screenshots/diagnosis. -->
   <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
+    <ProjectReference Include="..\..\..\UnoPropertyGrid\src\UnoPropertyGrid\UnoPropertyGrid.csproj" />
+    <!-- DevFlow runtime UI-inspection agent (Uno desktop + WinUI 3) for screenshots/diagnosis. -->
     <ProjectReference Include="..\..\..\wpf-labs\src\DevFlow\LeXtudio.DevFlow.Agent.Uno\LeXtudio.DevFlow.Agent.Uno.csproj" />
     <ProjectReference Include="..\..\..\wpf-labs\src\DevFlow\LeXtudio.DevFlow.Agent.Core\LeXtudio.DevFlow.Agent.Core.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
+    <PackageReference Include="LeXtudio.UnoPropertyGrid" />
     <PackageReference Include="LeXtudio.DevFlow.Agent.Uno" />
   </ItemGroup>
 
@@ -89,12 +90,6 @@
     <Content Include="UnoEditorResources.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
-    <PackageReference Include="LeXtudio.UnoEdit" />
-    <PackageReference Include="LeXtudio.UnoEdit.TextMate" />
-    <PackageReference Include="LeXtudio.UnoPropertyGrid" />
   </ItemGroup>
 
   <!-- Copy native macOS IME bridge dylib to output root (ProjectReference does not auto-propagate native assets) -->

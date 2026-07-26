@@ -135,7 +135,6 @@ public sealed partial class TextView
         if (_overlaySurface is not null)
         {
             _overlaySurface.Height = height;
-            _overlaySurface.Width = width;
             _overlaySurface.Invalidate();
         }
     }
@@ -263,10 +262,10 @@ public sealed partial class TextView
 
         var session = args.DrawingSession;
         double rowHeight = LineHeight;
-        // The overlay canvas spans all columns from the editor's left edge, while the glyphs are
-        // drawn in the text content column. Shift by the live width of every preceding column so
-        // selection/caret/preedit line up with the text regardless of which margins are shown.
-        double gutter = CurrentGutterWidth;
+        // OverlayHost and TextContentGrid occupy the same grid column, so overlay coordinates are
+        // already text-content coordinates. Keeping the surfaces co-located avoids Uno Skia's
+        // unstable cross-column CanvasControl transform during IME-driven rapid layout refreshes.
+        const double textContentOffset = 0d;
 
         double y = 0;
         foreach (TextLineViewModel vm in _lines)
@@ -277,7 +276,7 @@ public sealed partial class TextView
             // selection / caret / preedit, which sit above the glyphs.
             if (vm.SelectionOpacity > 0.001 && vm.SelectionWidth > 0)
             {
-                float sx = (float)(gutter + vm.SelectionMargin.Left);
+                float sx = (float)(textContentOffset + vm.SelectionMargin.Left);
                 float sw = (float)vm.SelectionWidth;
                 float radius = (float)vm.SelectionCornerRadius;
                 session.FillRoundedRectangle(sx, (float)boxTop, sw, (float)OverlayHeight, radius, radius, WithOpacity(vm.SelectionBrush, vm.SelectionOpacity));
@@ -287,13 +286,13 @@ public sealed partial class TextView
 
             if (vm.PreeditUnderlineOpacity > 0.001 && vm.PreeditUnderlineWidth > 0)
             {
-                float ux = (float)(gutter + vm.PreeditUnderlineMargin.Left);
+                float ux = (float)(textContentOffset + vm.PreeditUnderlineMargin.Left);
                 session.FillRectangle(ux, (float)(y + rowHeight - 1.5), (float)vm.PreeditUnderlineWidth, 1.5f, WithOpacity(vm.PreeditUnderlineBrush, vm.PreeditUnderlineOpacity));
             }
 
             if (vm.CaretOpacity > 0.001)
             {
-                float cx = (float)(gutter + vm.CaretMargin.Left);
+                float cx = (float)(textContentOffset + vm.CaretMargin.Left);
                 session.FillRectangle(cx, (float)boxTop, (float)CaretWidth, (float)OverlayHeight, WithOpacity(vm.CaretBrush, vm.CaretOpacity));
             }
 

@@ -94,13 +94,12 @@
           </Grid>
 
           <!--
-            Cheap overlay layer spanning all columns: current-line highlight, selection, caret and
-            preedit underline (rectangles only — no glyph shaping). Drawing these on their own
-            CanvasControl (inserted in code-behind) lets selection drag redraw just this layer while
-            the expensive glyph/line-number surfaces stay untouched — the AvalonEdit selection/caret
-            layer split.
+            Cheap overlay layer in the text column: selection, caret and preedit underline
+            (rectangles only — no glyph shaping). Sharing the text surface's column gives both
+            CanvasControls the same coordinate origin; cross-column Canvas transforms are not
+            stable on every Uno Skia layout pass.
           -->
-          <Grid x:Name="OverlayHost" Grid.Column="0" Grid.ColumnSpan="4" IsHitTestVisible="False" />
+          <Grid x:Name="OverlayHost" Grid.Column="3" IsHitTestVisible="False" />
         </Grid>
 
         <Border x:Name="BottomSpacer" Height="0" />

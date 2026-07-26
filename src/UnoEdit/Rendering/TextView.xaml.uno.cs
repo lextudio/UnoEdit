@@ -1665,8 +1665,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
                 bool isCaretLine = caretLogicalColumn >= row.StartColumn && caretLogicalColumn <= row.EndColumn;
                 double caretLeft = isCaretLine ? GetRowRelativeX(lineText, row, caretLogicalColumn) : 0d;
                 if (isCaretLine) LogRender($"caret-place line={lineNumber} caretLogicalColumn={caretLogicalColumn} rowStart={row.StartColumn} rowEnd={row.EndColumn} caretLeft={caretLeft:0.###} gutter={GutterWidth} leftPad={TextLeftPadding}");
-                GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
-                GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
+                GetPreeditVisualRange(line, lineText, row, out int preeditVisualStart, out int preeditVisualEnd);
+                GetPreeditUnderlineLayout(line, lineText, row, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
 
                 double newSelectionOpacity = 0d;
                 double newSelectionLeft = 0d;
@@ -1977,8 +1977,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
             : -1;
         bool isCaretLine = caretLogicalColumn >= row.StartColumn && caretLogicalColumn <= row.EndColumn;
         double caretLeft = isCaretLine ? GetRowRelativeX(lineText, row, caretLogicalColumn) : 0d;
-        GetPreeditVisualRange(line, lineText, out int preeditVisualStart, out int preeditVisualEnd);
-        GetPreeditUnderlineLayout(line, lineText, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
+        GetPreeditVisualRange(line, lineText, row, out int preeditVisualStart, out int preeditVisualEnd);
+        GetPreeditUnderlineLayout(line, lineText, row, out double preeditUnderlineLeft, out double preeditUnderlineWidth, out double preeditUnderlineOpacity);
         double selectionOpacity = 0d;
         double selectionLeft = 0d;
         double selectionWidth = 0d;
@@ -2193,7 +2193,12 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         LogRender($"{phase} vm-line-numbers [{string.Join(",", preview)}{suffix}]");
     }
 
-    private void GetPreeditVisualRange(DocumentLine line, string lineText, out int visualStart, out int visualEnd)
+    private void GetPreeditVisualRange(
+        DocumentLine line,
+        string lineText,
+        VisibleDocumentRow row,
+        out int visualStart,
+        out int visualEnd)
     {
         visualStart = -1;
         visualEnd = -1;
@@ -2206,21 +2211,29 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int compositionStart = _compositionStartOffset;
         int compositionEnd = compositionStart + _compositionLength;
         int lineStart = line.Offset;
-        int lineEnd = line.EndOffset;
-        int segmentStart = Math.Max(compositionStart, lineStart);
-        int segmentEnd = Math.Min(compositionEnd, lineEnd);
+        int rowStart = lineStart + row.StartColumn;
+        int rowEnd = lineStart + row.EndColumn;
+        int segmentStart = Math.Max(compositionStart, rowStart);
+        int segmentEnd = Math.Min(compositionEnd, rowEnd);
         if (segmentStart >= segmentEnd)
         {
             return;
         }
 
-        int logicalStart = Math.Clamp(segmentStart - lineStart, 0, lineText.Length);
-        int logicalEnd = Math.Clamp(segmentEnd - lineStart, logicalStart, lineText.Length);
-        visualStart = TextLineViewModel.LogicalToVisualColumn(lineText, logicalStart);
-        visualEnd = TextLineViewModel.LogicalToVisualColumn(lineText, logicalEnd);
+        int logicalStart = Math.Clamp(segmentStart - rowStart, 0, row.EndColumn - row.StartColumn);
+        int logicalEnd = Math.Clamp(segmentEnd - rowStart, logicalStart, row.EndColumn - row.StartColumn);
+        string rowText = lineText[row.StartColumn..row.EndColumn];
+        visualStart = TextLineViewModel.LogicalToVisualColumn(rowText, logicalStart);
+        visualEnd = TextLineViewModel.LogicalToVisualColumn(rowText, logicalEnd);
     }
 
-    private void GetPreeditUnderlineLayout(DocumentLine line, string lineText, out double left, out double width, out double opacity)
+    private void GetPreeditUnderlineLayout(
+        DocumentLine line,
+        string lineText,
+        VisibleDocumentRow row,
+        out double left,
+        out double width,
+        out double opacity)
     {
         left = 0d;
         width = 0d;
@@ -2234,9 +2247,10 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
         int compositionStart = _compositionStartOffset;
         int compositionEnd = compositionStart + _compositionLength;
         int lineStart = line.Offset;
-        int lineEnd = line.EndOffset;
-        int segmentStart = Math.Max(compositionStart, lineStart);
-        int segmentEnd = Math.Min(compositionEnd, lineEnd);
+        int rowStart = lineStart + row.StartColumn;
+        int rowEnd = lineStart + row.EndColumn;
+        int segmentStart = Math.Max(compositionStart, rowStart);
+        int segmentEnd = Math.Min(compositionEnd, rowEnd);
         if (segmentStart >= segmentEnd)
         {
             return;
@@ -2244,8 +2258,8 @@ public sealed partial class TextView : UserControl, ICaretAnchorProvider, ITextV
 
         int logicalStart = Math.Clamp(segmentStart - lineStart, 0, lineText.Length);
         int logicalEnd = Math.Clamp(segmentEnd - lineStart, logicalStart, lineText.Length);
-        double startX = GetDisplayColumnX(lineText, logicalStart);
-        double endX = GetDisplayColumnX(lineText, logicalEnd);
+        double startX = GetRowRelativeX(lineText, row, logicalStart);
+        double endX = GetRowRelativeX(lineText, row, logicalEnd);
         left = Math.Max(0d, startX);
         width = Math.Max(1d, endX - startX);
         opacity = 1d;

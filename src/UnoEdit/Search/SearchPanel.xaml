@@ -2,8 +2,7 @@
      Keep in sync with the WPF version when making structural changes. -->
 <UserControl x:Class="ICSharpCode.AvalonEdit.Search.SearchPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:lextudio="using:LeXtudio.UI.Controls">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <UserControl.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
@@ -50,7 +49,7 @@
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
-       <lextudio:TextBox x:Name="SearchTextBox"
+       <TextBox x:Name="SearchTextBox"
          Grid.Column="0"
          PlaceholderText="Search"
          PlaceholderForeground="{ThemeResource UnoEditorSummaryForegroundBrush}"

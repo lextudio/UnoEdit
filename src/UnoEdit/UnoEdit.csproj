@@ -348,9 +348,6 @@
     <PackageReference Include="Microsoft.Graphics.Win2D" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(UseNuGetPackages)' != 'true'">
-    <ProjectReference Include="..\..\..\TextCore.Uno\src\LeXtudio.TextBox\LeXtudio.TextBox.csproj" />
-  </ItemGroup>
   <ItemGroup Condition="'$(UseNuGetPackages)' != 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
     <ProjectReference Include="..\..\..\TextCore.Uno\src\LeXtudio.UI.Text.Core\LeXtudio.UI.Text.Core.csproj" />
   </ItemGroup>
@@ -366,7 +363,6 @@
   <Import Project="../../../TextCore.Uno/src/LeXtudio.UI.Text.Core/buildTransitive/LeXtudio.UI.Text.Core.targets" Condition="'$(UseNuGetPackages)' != 'true'" />
 
   <ItemGroup Condition="'$(UseNuGetPackages)' == 'true'">
-    <PackageReference Include="LeXtudio.TextBox" />
     <PackageReference Include="LeXtudio.Windows" />
   </ItemGroup>
 
@@ -374,6 +370,7 @@
        (WinUI's native TextBlock renders InlineUIContainer, Uno's does not), so the package
        dependency is desktop-only. -->
   <ItemGroup Condition="'$(UseNuGetPackages)' == 'true' and '$(TargetFramework)' != 'net10.0-windows10.0.19041.0'">
+    <PackageReference Include="LeXtudio.UI.Text.Core" />
     <PackageReference Include="LeXtudio.RichText" />
   </ItemGroup>
 
